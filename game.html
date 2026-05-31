@@ -113,11 +113,11 @@ class Input {
 // ============================================================
 class Camera {
   constructor() { this.x = 0; this.y = 0; }
-  follow(target) {
+  follow(target, levelWidth) {
     const desired = target.x + target.w / 2 - CANVAS_WIDTH * 0.4;
     this.x += (desired - this.x) * 0.12;
     if (this.x < 0) this.x = 0;
-    if (this.x > LEVEL_WIDTH - CANVAS_WIDTH) this.x = LEVEL_WIDTH - CANVAS_WIDTH;
+    if (this.x > levelWidth - CANVAS_WIDTH) this.x = levelWidth - CANVAS_WIDTH;
   }
 }
 
@@ -389,8 +389,8 @@ class Enemy {
     this.active = false; this.dying = false;
   }
   get stompable() { return this.type === 'goomba'; }
-  squash() { this.squashTimer = 22; this.vx = 0; }
-  kill() { this.dead = true; this.dying = true; this.vy = -6; }
+  squash() { this.squashTimer = 35; this.vx = 0; }
+  kill() { this.dead = true; this.dying = true; this.vy = -11; this.vx = this.vx < 0 ? -2 : 2; }
   update(solids, player) {
     if (this.dead) return;
     if (this.squashTimer > 0) {
@@ -398,7 +398,7 @@ class Enemy {
       if (this.squashTimer === 0) this.dead = true;
       return;
     }
-    if (this.dying) { this.vy += GRAVITY; this.y += this.vy; return; }
+    if (this.dying) { this.animTimer++; this.vy += GRAVITY; this.y += this.vy; this.x += this.vx; return; }
     this.animTimer++;
     if (!this.active) {
       if (Math.abs(this.x - player.x) < 520) this.active = true;
@@ -430,8 +430,27 @@ class Enemy {
     const y = Math.floor(this.y);
     const w = this.w, h = this.h;
     if (this.squashTimer > 0) {
-      ctx.fillStyle = '#8a5a2b';
-      ctx.fillRect(x, y + h - 8, w, 8);
+      const fh = 14;
+      const fy = y + h - fh;
+      if (this.type === 'goomba') {
+        ctx.fillStyle = '#2a9e7a';
+        ctx.fillRect(x, fy, w, fh);
+        ctx.fillStyle = '#1e7057'; ctx.fillRect(x, fy, w, 3);
+        ctx.strokeStyle = '#0e3d2a'; ctx.lineWidth = 1.5;
+        ctx.strokeRect(x+0.5, fy+0.5, w-1, fh-1);
+        // X eyes
+        ctx.strokeStyle = '#f44'; ctx.lineWidth = 2;
+        const ex1 = x+4, ex2 = x+w-12;
+        for (const ex of [ex1, ex2]) {
+          ctx.beginPath(); ctx.moveTo(ex,fy+2); ctx.lineTo(ex+8,fy+10); ctx.stroke();
+          ctx.beginPath(); ctx.moveTo(ex+8,fy+2); ctx.lineTo(ex,fy+10); ctx.stroke();
+        }
+      } else {
+        // spiky flash on death
+        const t = Math.floor(this.squashTimer / 3) % 2;
+        ctx.fillStyle = t ? '#fff' : '#cfd4dd';
+        ctx.fillRect(x, y, w, h);
+      }
       return;
     }
     if (this.type === 'goomba') this._drawGoomba(ctx, x, y, w, h);
@@ -439,9 +458,13 @@ class Enemy {
   }
   _drawGoomba(ctx, x, y, w, h) {
     // "Cube Walker" — a little boxy creature, not a mushroom
-    const flip = this.dying ? -1 : 1;
-    ctx.save();
-    if (flip < 0) { ctx.translate(x, y + h); ctx.scale(1, -1); ctx.translate(-x, -y); }
+    if (this.dying) {
+      ctx.save();
+      const cx2 = x + w/2, cy2 = y + h/2;
+      ctx.translate(cx2, cy2);
+      ctx.rotate(this.animTimer * 0.18);
+      ctx.translate(-cx2, -cy2);
+    }
     // Body: rounded square, teal-green color
     ctx.fillStyle = '#2a9e7a';
     ctx.fillRect(x + 2, y + 2, w - 4, h - 12);
@@ -473,9 +496,10 @@ class Enemy {
     ctx.fillStyle = '#0e3d2a';
     ctx.fillRect(x + (wig ? 1 : 4), y + h - 4, 10, 4);
     ctx.fillRect(x + w - (wig ? 13 : 16), y + h - 4, 10, 4);
-    ctx.restore();
+    if (this.dying) ctx.restore();
   }
   _drawSpiky(ctx, x, y, w, h) {
+    if (this.dying) ctx.globalAlpha = 0.5 + 0.5 * Math.abs(Math.sin(this.animTimer * 0.3));
     ctx.fillStyle = '#8a8f99';
     ctx.fillRect(x, y + 10, w, h - 14);
     ctx.fillStyle = '#6b7079';
@@ -495,6 +519,7 @@ class Enemy {
     ctx.fillStyle = '#c00';
     ctx.fillRect(x + 8, y + 18, 3, 3);
     ctx.fillRect(x + w - 10, y + 18, 3, 3);
+    ctx.globalAlpha = 1;
   }
 }
 
@@ -801,7 +826,34 @@ class QuestionBlock {
   }
 }
 
-function buildLevel() {
+class FlagPole {
+  constructor(x) {
+    this.x = x - 8; this.y = GROUND_Y - 10*TILE;
+    this.w = 16; this.h = 10*TILE;
+    this.touched = false; this.dead = false;
+  }
+  update(player) {
+    if (!this.touched && !player.dead && aabb(player, this)) this.touched = true;
+  }
+  draw(r, cam) {
+    const ctx = r.ctx;
+    const sx = Math.floor(this.x - cam.x);
+    const sy = Math.floor(this.y);
+    // Pole
+    ctx.fillStyle = '#aaa';
+    ctx.fillRect(sx + 6, sy, 4, this.h);
+    // Ball on top
+    ctx.fillStyle = '#ffd23b';
+    ctx.beginPath(); ctx.arc(sx+8, sy, 10, 0, Math.PI*2); ctx.fill();
+    // Flag
+    ctx.fillStyle = '#e23b3b';
+    ctx.beginPath();
+    ctx.moveTo(sx+10, sy+5); ctx.lineTo(sx+35, sy+18); ctx.lineTo(sx+10, sy+32);
+    ctx.closePath(); ctx.fill();
+  }
+}
+
+function buildWorld(world) {
   // All positions use a TILE=32 grid.
   // gx(n) = tile column n; gy(n) = n tiles ABOVE ground (y coord).
   // Platform thickness = TILE. Q blocks: 36px tall.
@@ -815,154 +867,157 @@ function buildLevel() {
 
   const platforms = [], qblocks = [], enemies = [], coins = [];
   let boss = null;
+  let flagPoleObj = null;
+  let levelWidth = 6400;
   const groundH = 100;
 
   const addGround = (tx, tw) => platforms.push(new Platform(gx(tx), GY, gx(tw), groundH, COLORS.ground));
-  // Ground with 2-tile (64px) pits
-  addGround(0, 47);      // 0–1504
-  addGround(49, 31);     // 1568–2560  (pit: 47T–49T)
-  addGround(81, 40);     // 2592–3872  (pit: 79T–81T)
-  addGround(122, 65);    // 3904–5984  (pit: 120T–122T)
-
   const P  = (tx,ty,tw,c) => platforms.push(new Platform(gx(tx), gy(ty), gx(tw), T, c));
   const Q  = (tx,ty,c)    => { const q=new QuestionBlock(gx(tx), gy(ty)-36, c); qblocks.push(q); return q; };
   const C  = (tx,ty)      => coins.push(new Coin(gx(tx)+8, gy(ty)-28));
   const E  = (tx,type)    => enemies.push(new Enemy(gx(tx), GY, type));
   const Ep = (tx,ty,type) => enemies.push(new Enemy(gx(tx), gy(ty), type));
+  const pipe = (tx, th) => {
+    platforms.push(new Platform(gx(tx), gy(th), T*2, T*th, '#186018'));
+    platforms.push(new Platform(gx(tx)-4, gy(th), T*2+8, T, '#2a9e2a'));
+  };
+  const brick = (tx, ty, tw) => platforms.push(new Platform(gx(tx), gy(ty)-T, gx(tw), T, COLORS.brick));
+  const step = (tx, th) => platforms.push(new Platform(gx(tx), GY - T*th, T, T*th, COLORS.brick));
 
-  // ===== START ZONE  (tiles 0–16, x 0–512) =====
-  // Decorative left wall — 2T wide, player starts at x=80 (right of wall)
-  platforms.push(new Platform(0, gy(10), gx(2), gx(10), COLORS.red));
-  platforms.push(new Platform(0, gy(10), gx(2), T, COLORS.pink));
-  // Three easy platforms — no enemies
-  P(5,  3, 3, COLORS.orange);
-  P(9,  4, 3, COLORS.green);
-  P(13, 3, 4, COLORS.cyan);
-  for (let i=0;i<3;i++) C(5+i, 4);
-  for (let i=0;i<3;i++) C(9+i, 5);
-  for (let i=0;i<4;i++) C(13+i, 4);
+  if (world === 1) {
+    levelWidth = 6400;
+    addGround(0,52); addGround(54,30); addGround(86,100);
 
-  // ===== SECTION A  (tiles 17–46, x 544–1504) =====
-  P(17, 4, 3, COLORS.blue);
-  P(21, 6, 3, COLORS.purple);
-  P(25, 4, 4, COLORS.pink);
-  P(30, 6, 3, COLORS.green);
-  P(34, 8, 3, COLORS.cyan);
-  P(38, 5, 4, COLORS.orange);
-  P(43, 3, 3, COLORS.blue);
-  P(46, 3, 3, COLORS.purple);
+    Q(16,5,'mushroom');
+    brick(20,5,1); Q(21,5,'coin'); brick(22,5,1); Q(23,5,'coin'); brick(24,5,1);
+    E(22,'goomba'); E(24,'goomba');
 
-  Q(18, 7, 'coin'); Q(19, 7, 'mushroom'); Q(20, 7, 'coin');
-  Q(31, 9, 'coin');
-  Q(34, 11, 'flower');
+    pipe(28,2);
+    pipe(38,3);
+    pipe(57,4);
+    pipe(78,4);
 
-  for (let i=0;i<3;i++) C(17+i, 5);
-  for (let i=0;i<4;i++) C(25+i, 5);
-  for (let i=0;i<3;i++) C(30+i, 7);
-  for (let i=0;i<4;i++) C(38+i, 6);
-  for (let i=0;i<3;i++) C(43+i, 4);
+    E(47,'goomba'); E(48,'goomba');
+    E(69,'goomba'); E(71,'goomba');
 
-  E(22, 'goomba'); E(27, 'goomba'); E(33, 'goomba'); E(37, 'spiky');
-  Ep(34, 8, 'goomba');
+    Q(64,5,'coin'); Q(65,5,'mushroom'); Q(66,5,'coin');
+    for (let i=0;i<5;i++) C(86+i, 5);
 
-  // ===== SECTION B  after pit 1  (tiles 49–78) =====
-  P(49, 3, 3, COLORS.green);
-  P(53, 5, 4, COLORS.pink);
-  P(58, 4, 3, COLORS.cyan);
-  P(62, 6, 4, COLORS.blue);
-  P(67, 4, 3, COLORS.orange);
-  P(71, 6, 3, COLORS.purple);
-  P(75, 4, 3, COLORS.green);
-  P(78, 3, 3, COLORS.pink);
+    E(90,'goomba'); E(92,'goomba'); E(94,'goomba');
 
-  Q(54, 8, 'coin'); Q(55, 8, 'flower');
-  Q(63, 9, 'coin'); Q(64, 9, 'coin');
+    for (let i=0;i<8;i++) step(135+i, i+1);
+    for (let i=0;i<4;i++) step(145+i, 4-i);
 
-  for (let i=0;i<4;i++) C(53+i, 6);
-  for (let i=0;i<3;i++) C(62+i, 7);
-  for (let i=0;i<3;i++) C(71+i, 7);
+    flagPoleObj = new FlagPole(gx(152));
+  } else if (world === 2) {
+    levelWidth = 5600;
+    addGround(0, 175);
+    platforms.push(new Platform(0, gy(9), gx(175), T, COLORS.brick));
 
-  E(50, 'goomba'); E(55, 'goomba'); E(60, 'spiky'); E(65, 'goomba'); E(73, 'spiky');
+    brick(8,5,2); Q(10,5,'coin'); Q(11,5,'coin'); brick(12,5,2);
+    brick(20,5,3); Q(23,5,'mushroom'); brick(24,5,2);
+    brick(35,5,1); Q(36,5,'coin'); Q(37,5,'coin'); brick(38,5,1);
+    brick(50,5,2); Q(52,5,'flower'); brick(53,5,1);
+    brick(65,5,3); Q(68,5,'coin'); brick(69,5,2);
+    brick(80,5,2); Q(82,5,'coin'); Q(83,5,'coin'); brick(84,5,1);
+    brick(95,5,1); Q(96,5,'mushroom'); brick(97,5,2);
+    brick(110,5,3); Q(113,5,'coin'); brick(114,5,1);
+    brick(125,5,2); Q(127,5,'flower'); brick(128,5,1);
 
-  // ===== STAIRCASE + QUESTION BLOCKS  (tiles 81–105) =====
-  // Three colorful steps going up — no solid floor-to-ceiling column.
-  P(82, 4, 4, COLORS.orange);
-  P(87, 6, 4, COLORS.orange);
-  P(92, 8, 4, COLORS.orange);
+    brick(40,6,4); brick(70,6,4); brick(100,6,4); brick(130,6,4);
 
-  Q(82, 7, 'coin'); Q(83, 7, 'mushroom'); Q(84, 7, 'coin');
-  Q(87, 9, 'coin'); Q(88, 9, 'coin');
-  Q(92, 11, 'flower'); Q(93, 11, 'coin');
+    E(15,'goomba'); E(16,'goomba');
+    E(28,'goomba'); E(30,'goomba');
+    E(43,'goomba'); E(44,'goomba'); E(46,'spiky');
+    E(58,'goomba'); E(59,'goomba');
+    E(73,'goomba'); E(75,'spiky');
+    E(88,'goomba'); E(89,'goomba'); E(90,'goomba');
+    E(103,'goomba'); E(105,'spiky');
+    E(120,'goomba'); E(121,'goomba');
+    E(135,'spiky'); E(137,'goomba'); E(138,'goomba');
+    E(150,'goomba'); E(152,'goomba'); E(153,'goomba');
 
-  for (let i=0;i<4;i++) C(82+i, 5);
-  for (let i=0;i<4;i++) C(87+i, 7);
-  for (let i=0;i<4;i++) C(92+i, 9);
-  // Vertical coin trail (visual reference to the drawing's tall column)
-  for (let n=1;n<=7;n++) coins.push(new Coin(gx(91)+8, gy(n+1)-4));
+    pipe(165, 4);
+    flagPoleObj = new FlagPole(gx(170));
+  } else if (world === 3) {
+    levelWidth = 5600;
+    addGround(0,8);
+    addGround(170,8);
 
-  E(83, 'spiky'); Ep(87, 6, 'goomba'); Ep(93, 8, 'spiky');
+    const plats = [
+      [8,4,3,COLORS.green],[12,6,2,COLORS.cyan],[15,4,4,COLORS.green],[20,7,2,COLORS.green],
+      [23,5,3,COLORS.cyan],[27,4,2,COLORS.green],[30,6,3,COLORS.blue],[34,4,4,COLORS.green],
+      [39,7,2,COLORS.cyan],[42,5,3,COLORS.green],[46,4,2,COLORS.blue],[49,6,4,COLORS.green],
+      [54,4,3,COLORS.cyan],[58,7,2,COLORS.green],[61,5,4,COLORS.blue],[66,4,3,COLORS.green],
+      [70,6,2,COLORS.cyan],[73,4,4,COLORS.green],[78,7,3,COLORS.blue],[82,5,2,COLORS.green],
+      [85,4,4,COLORS.cyan],[90,6,3,COLORS.green],[94,4,2,COLORS.blue],[97,7,4,COLORS.green],
+      [102,5,3,COLORS.cyan],[106,4,2,COLORS.green],[109,6,4,COLORS.blue],[114,4,3,COLORS.green],
+      [118,7,2,COLORS.cyan],[121,5,4,COLORS.green],[126,4,3,COLORS.blue],[130,6,2,COLORS.green],
+      [133,4,4,COLORS.cyan],[138,7,3,COLORS.green],[142,5,2,COLORS.blue],[145,4,4,COLORS.green],
+      [150,6,3,COLORS.cyan],[154,4,2,COLORS.green],[157,7,4,COLORS.blue],[162,5,3,COLORS.green],
+      [165,4,5,COLORS.cyan],
+    ];
+    for (const [tx,ty,tw,c] of plats) { P(tx,ty,tw,c); C(tx, ty+2); if (tw>2) C(tx+tw-1, ty+2); }
 
-  // Descent from step 3 back down
-  P(97, 6, 3, COLORS.blue);
-  P(101, 4, 3, COLORS.cyan);
-  P(105, 3, 3, COLORS.purple);
+    const sp = [[9,4],[13,6],[24,5],[31,6],[40,7],[50,6],[62,5],[71,6],[79,7],[91,6],[98,7],[110,6],[122,5],[131,6],[139,7],[151,6],[158,7],[163,5]];
+    for (const [tx,ty] of sp) Ep(tx,ty,'spiky');
 
-  for (let i=0;i<3;i++) C(97+i, 7);
-  E(98, 'goomba'); E(103, 'goomba');
+    E(5,'goomba'); E(6,'goomba');
 
-  // ===== SECTION C  (tiles 109–120) =====
-  P(109, 5, 4, COLORS.pink);
-  P(114, 7, 3, COLORS.green);
-  P(118, 5, 4, COLORS.blue);
-  P(120, 3, 3, COLORS.cyan);
+    Q(15,7,'coin'); Q(27,7,'mushroom'); Q(42,8,'coin'); Q(62,8,'flower');
+    Q(82,8,'coin'); Q(102,8,'mushroom'); Q(122,8,'coin'); Q(142,8,'flower');
+    Q(162,8,'coin');
 
-  Q(109, 8, 'flower'); Q(114, 10, 'coin'); Q(115, 10, 'coin');
+    flagPoleObj = new FlagPole(gx(172));
+  } else {
+    // WORLD 4 — castle
+    levelWidth = 5600;
+    addGround(0, 175);
+    platforms.push(new Platform(0, gy(12), gx(175), T, COLORS.brick));
 
-  for (let i=0;i<4;i++) C(109+i, 6);
-  for (let i=0;i<3;i++) C(114+i, 8);
-  for (let i=0;i<4;i++) C(118+i, 6);
+    platforms.push(new Platform(gx(20), GY-T*3, T*2, T*3, COLORS.brick));
+    platforms.push(new Platform(gx(30), GY-T*4, T*2, T*4, COLORS.brick));
+    platforms.push(new Platform(gx(42), GY-T*3, T*2, T*3, COLORS.brick));
+    platforms.push(new Platform(gx(54), GY-T*5, T, T*5, COLORS.brick));
+    platforms.push(new Platform(gx(60), GY-T*3, T, T*3, COLORS.brick));
+    platforms.push(new Platform(gx(70), GY-T*4, T*2, T*4, COLORS.brick));
+    platforms.push(new Platform(gx(85), GY-T*3, T, T*3, COLORS.brick));
+    platforms.push(new Platform(gx(96), GY-T*5, T*2, T*5, COLORS.brick));
+    platforms.push(new Platform(gx(108), GY-T*4, T, T*4, COLORS.brick));
 
-  E(110, 'goomba'); E(115, 'spiky'); E(119, 'goomba');
-  Ep(114, 7, 'goomba');
+    P(24,4,3,COLORS.brick);
+    P(36,5,3,COLORS.brick);
+    P(46,4,3,COLORS.brick);
+    P(64,5,3,COLORS.brick);
+    P(74,4,3,COLORS.brick);
+    P(90,5,3,COLORS.brick);
+    P(100,4,3,COLORS.brick);
+    P(114,6,4,COLORS.brick);
 
-  // ===== BOSS ZONE  (tiles 122–187) =====
-  const arenaLeft  = gx(143);
-  const arenaRight = gx(185);
+    Q(25,7,'flower'); Q(50,7,'flower'); Q(80,7,'flower'); Q(115,9,'flower');
 
-  // Entry gate — narrow pillar beside the path, not blocking it
-  platforms.push(new Platform(gx(138), gy(5), T*2, T*5, COLORS.red));
-  platforms.push(new Platform(gx(138), gy(5), T*2, T,   COLORS.pink));
+    E(15,'goomba'); E(16,'goomba');
+    E(26,'spiky'); E(28,'goomba');
+    E(38,'goomba'); E(40,'spiky');
+    E(48,'goomba'); E(50,'goomba'); E(52,'spiky');
+    E(62,'goomba'); E(65,'spiky');
+    E(76,'goomba'); E(78,'spiky'); E(80,'goomba');
+    E(92,'spiky'); E(94,'goomba'); E(96,'spiky');
+    E(106,'goomba'); E(108,'spiky'); E(110,'goomba');
+    E(120,'spiky'); E(122,'goomba'); E(124,'spiky');
 
-  P(123, 3, 4, COLORS.purple);
-  P(128, 5, 4, COLORS.blue);
-  P(133, 7, 4, COLORS.orange);
-  P(138, 5, 4, COLORS.cyan);
-  P(143, 4, 4, COLORS.green);
-  P(148, 6, 4, COLORS.purple);
-  P(153, 4, 4, COLORS.blue);
-  P(158, 6, 3, COLORS.orange);
+    platforms.push(new Platform(gx(140), gy(11), gx(8), T*11, COLORS.brick));
+    for (let i=0;i<7;i++) platforms.push(new Platform(gx(140+i), gy(12), T, T, COLORS.brick));
 
-  Q(153, 9, 'flower');
-
-  for (let i=0;i<4;i++) C(128+i, 6);
-  for (let i=0;i<4;i++) C(143+i, 5);
-  for (let i=0;i<4;i++) C(148+i, 7);
-  for (let i=0;i<4;i++) C(153+i, 5);
-
-  E(125, 'goomba'); E(130, 'goomba'); E(135, 'spiky');
-  E(145, 'goomba'); E(150, 'spiky');
-
-  // Castle wall
-  platforms.push(new Platform(gx(177), gy(11), gx(8), T*11, COLORS.brick));
-  for (let i=0;i<7;i++) platforms.push(new Platform(gx(177+i), gy(12), T, T, COLORS.brick));
-  platforms.push(new Platform(gx(180), GY-T*3, T*2, T*3, '#3a2410'));
-
-  boss = new Boss(gx(162), GY, arenaLeft, arenaRight);
+    boss = new Boss(gx(148), GY, gx(138), gx(170));
+    flagPoleObj = null;
+  }
 
   return {
     platforms, qblocks, enemies, coins, boss,
+    flagPole: flagPoleObj,
     get solids() { return [...platforms, ...qblocks]; },
-    width: LEVEL_WIDTH,
+    width: levelWidth,
   };
 }
 
@@ -1041,16 +1096,18 @@ class Game {
     this.music = new Music();
     this.state = STATE.MENU;
     this.score = 0; this.lives = 3; this.coinsCollected = 0;
+    this.world = 1; this.worldClearTimer = 0;
     this.resetLevel(true);
   }
   resetLevel(fullReset) {
-    this.level = buildLevel();
+    this.level = buildWorld(this.world);
+    this.flagPole = this.level.flagPole || null;
     this.player = new Player(80, GROUND_Y - 60);
     this.cam.x = 0;
     this.fireballs = []; this.bossShots = []; this.powerups = [];
-    if (fullReset) { this.score = 0; this.lives = 3; this.coinsCollected = 0; }
+    if (fullReset) { this.score = 0; this.lives = 3; this.coinsCollected = 0; this.worldClearTimer = 0; }
   }
-  start() { this.state = STATE.PLAYING; this.resetLevel(true); this.music.start(); }
+  start() { this.world = 1; this.worldClearTimer = 0; this.state = STATE.PLAYING; this.resetLevel(true); this.music.start(); }
   spawnFireball(player) {
     const x = player.facing > 0 ? player.x + player.w : player.x - 14;
     this.fireballs.push(new Fireball(x, player.y + player.h * 0.4, player.facing));
@@ -1076,7 +1133,7 @@ class Game {
     const solids = lvl.solids;
     const p = this.player;
     p.update(input, solids, this);
-    this.cam.follow(p);
+    this.cam.follow(p, lvl.width);
     for (const q of lvl.qblocks) q.update();
     for (const c of lvl.coins) {
       c.update();
@@ -1118,6 +1175,25 @@ class Game {
       }
     }
     if (boss && boss.dead) { this.state = STATE.WIN; return; }
+    // Flag pole check (worlds 1-3)
+    if (this.flagPole && !this.flagPole.touched) {
+      this.flagPole.update(this.player);
+      if (this.flagPole.touched && this.worldClearTimer === 0) {
+        this.worldClearTimer = 180;
+      }
+    }
+    if (this.worldClearTimer > 0) {
+      this.worldClearTimer--;
+      if (this.worldClearTimer === 0) {
+        if (this.world < 4) {
+          this.world++;
+          this.resetLevel(false);
+        } else {
+          this.state = STATE.WIN;
+        }
+      }
+      return;
+    }
     for (const bs of this.bossShots) {
       bs.update();
       if (!bs.dead && !p.dead && aabb(p, bs)) { bs.dead = true; this._hurtPlayer(); }
@@ -1145,8 +1221,10 @@ class Game {
     if (lvl.boss && !lvl.boss.dead) lvl.boss.draw(r, this.cam);
     for (const fb of this.fireballs) fb.draw(r, this.cam);
     for (const bs of this.bossShots) bs.draw(r, this.cam);
+    if (this.flagPole) this.flagPole.draw(r, this.cam);
     this.player.draw(r, this.cam);
     this._drawHUD();
+    if (this.worldClearTimer > 0) this._drawWorldClear();
     if (this.state === STATE.PAUSED) this._overlay('PAUSED', 'Press P to resume');
     if (this.state === STATE.GAME_OVER) this._overlay('GAME OVER', 'Press ENTER to restart');
     if (this.state === STATE.WIN) this._drawWin();
@@ -1165,6 +1243,21 @@ class Game {
     const label = pw === POWER.FIRE ? 'FIRE' : pw === POWER.BIG ? 'BIG' : 'SMALL';
     ctx.fillStyle = pw === POWER.FIRE ? '#ff5a1d' : '#fff';
     ctx.strokeText(label, 24, 64); ctx.fillText(label, 24, 64);
+    ctx.fillStyle = '#fff';
+    ctx.strokeText(`WORLD ${this.world}`, 24, 85); ctx.fillText(`WORLD ${this.world}`, 24, 85);
+  }
+  _drawWorldClear() {
+    const ctx = this.ctx;
+    ctx.fillStyle = 'rgba(0,0,0,0.45)';
+    ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#ffd23b';
+    ctx.font = 'bold 56px monospace';
+    ctx.fillText(`WORLD ${this.world} CLEAR!`, CANVAS_WIDTH/2, CANVAS_HEIGHT/2 - 20);
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 24px monospace';
+    ctx.fillText('Score: ' + this.score, CANVAS_WIDTH/2, CANVAS_HEIGHT/2 + 30);
+    ctx.textAlign = 'left';
   }
   _heart(x, y, full) {
     const ctx = this.ctx;
@@ -1219,7 +1312,7 @@ class Game {
       'P: pause',
       '',
       'Stomp goombas. Spiky enemies need fireballs!',
-      'Beat the bear boss to win.',
+      '4 worlds to conquer! Beat the bear boss to win.',
     ];
     lines.forEach((l, i) => ctx.fillText(l, CANVAS_WIDTH / 2, 400 + i * 28));
     ctx.textAlign = 'left';
