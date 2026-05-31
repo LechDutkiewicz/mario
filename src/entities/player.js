@@ -2,9 +2,9 @@ import {
   GRAVITY, MAX_FALL_SPEED, PLAYER_SPEED, PLAYER_RUN_SPEED,
   JUMP_VELOCITY, FRICTION, AIR_FRICTION,
   PLAYER_SMALL_W, PLAYER_SMALL_H, PLAYER_BIG_W, PLAYER_BIG_H,
-  INVINCIBLE_TIME, POWER, COLORS, GROUND_Y,
+  INVINCIBLE_TIME, POWER, COLORS,
 } from '../constants.js';
-import { resolveCollisions } from '../physics.js';
+import { resolveCollisions, aabb } from '../physics.js';
 
 export class Player {
   constructor(x, y) {
@@ -28,6 +28,7 @@ export class Player {
     this.deathTimer = 0;
     this.animTimer = 0;
     this.fireCooldown = 0;
+    this.crouching = false;
   }
 
   get big() { return this.power !== POWER.SMALL; }
@@ -50,9 +51,10 @@ export class Player {
   }
 
   powerUp(kind) {
-    if (kind === 'mushroom') {
+    // kind: 'candy' (Rare Candy = grow) | 'tm' (TM Fire = fire power)
+    if (kind === 'candy' || kind === 'mushroom') {
       if (this.power === POWER.SMALL) { this.power = POWER.BIG; this._applySize(); }
-    } else if (kind === 'flower') {
+    } else if (kind === 'tm' || kind === 'flower') {
       this.power = POWER.FIRE;
       this._applySize();
     }
@@ -105,8 +107,24 @@ export class Player {
       if (Math.abs(this.vx) < 0.1) this.vx = 0;
     }
 
+    // Crouch (big only, on ground)
+    const wantCrouch = input.down && this.big && this.onGround;
+    if (wantCrouch && !this.crouching) {
+      this.crouching = true;
+      const feet = this.y + this.h;
+      this.h = PLAYER_SMALL_H;
+      this.y = feet - this.h;
+      this.vx = 0;
+    } else if (!wantCrouch && this.crouching) {
+      const feet = this.y + this.h;
+      const newY = feet - PLAYER_BIG_H;
+      const testBox = { x: this.x, y: newY, w: this.w, h: PLAYER_BIG_H };
+      const blocked = solids.some(s => !s.dead && aabb(testBox, s));
+      if (!blocked) { this.crouching = false; this.y = newY; this.h = PLAYER_BIG_H; }
+    }
+
     // Jump
-    if (input.jumpPressed && this.onGround) {
+    if (input.jumpPressed && this.onGround && !this.crouching) {
       this.vy = JUMP_VELOCITY;
       this.onGround = false;
     }
@@ -117,8 +135,8 @@ export class Player {
     this.vy += GRAVITY;
     if (this.vy > MAX_FALL_SPEED) this.vy = MAX_FALL_SPEED;
 
-    // Shoot fireball
-    if (input.firePressed && this.power === POWER.FIRE && this.fireCooldown <= 0) {
+    // Shoot flamethrower
+    if (!this.crouching && input.firePressed && this.power === POWER.FIRE && this.fireCooldown <= 0) {
       game.spawnFireball(this);
       this.fireCooldown = 20;
     }
@@ -126,74 +144,235 @@ export class Player {
     const res = resolveCollisions(this, solids);
     this.onGround = res.onGround;
 
-    // Question blocks hit from below
     for (const block of res.hitBelow) {
       if (block.onBump) block.onBump(game);
     }
 
-    // Fell out of world
     if (this.y > 800) this.die();
-
-    // Left wall clamp
     if (this.x < 0) { this.x = 0; this.vx = 0; }
   }
 
   draw(r, cam) {
     if (this.dead && this.deathTimer < 60 && Math.floor(this.deathTimer / 4) % 2) return;
-    // blink while invincible
     if (this.invincible > 0 && Math.floor(this.invincible / 4) % 2) return;
 
     const ctx = r.ctx;
-    const x = Math.floor(this.x - cam.x);
-    const y = Math.floor(this.y);
-    const w = this.w, h = this.h;
-    const cap = this.power === POWER.FIRE ? COLORS.white : COLORS.red;
-    const trim = this.power === POWER.FIRE ? COLORS.red : COLORS.red;
-    const skin = '#ffcc99';
-    const overall = COLORS.blue;
+    const sx = Math.floor(this.x - cam.x);
+    const sy = Math.floor(this.y);
+    const w = this.w;
+    const h = this.h;
+
+    const BODY  = COLORS.eeveeBody;  // '#c8864a'
+    const RUFF  = COLORS.eeveeRuff;  // '#f5e6c8'
+    const EAR_I = COLORS.eeveeEarIn; // '#e8a87c'
+    const EYE   = COLORS.eeveeEye;   // '#2a1a0a'
+    const SHINE = '#fff';
+    const TAIL  = COLORS.eeveeRuff;
+    // Fire power tints the ruff orange
+    const ruffCol = this.power === POWER.FIRE ? '#ffc060' : RUFF;
 
     ctx.save();
-    // flip horizontally if facing left
     if (this.facing < 0) {
-      ctx.translate(x + w, y);
+      ctx.translate(sx + w, sy);
       ctx.scale(-1, 1);
     } else {
-      ctx.translate(x, y);
+      ctx.translate(sx, sy);
     }
 
-    const u = w / 14; // unit
-    const v = h / 16;
-    const P = (px, py, pw, ph, c) => { ctx.fillStyle = c; ctx.fillRect(px * u, py * v, pw * u, ph * v); };
+    const big = h > PLAYER_SMALL_H + 2;
 
-    // Cap
-    P(3, 0, 9, 2, cap);
-    P(2, 2, 11, 2, cap);
-    // Face
-    P(3, 4, 9, 4, skin);
-    // hair side
-    P(2, 4, 1, 3, '#5a2d0c');
-    // eye
-    P(8, 5, 1, 2, COLORS.black);
-    // mustache
-    P(6, 7, 6, 1, '#5a2d0c');
-    // Body / overalls
-    P(3, 8, 8, 4, overall);
-    P(2, 8, 1, 3, trim); // arm
-    P(11, 8, 1, 3, skin); // hand
-    // buttons
-    P(5, 9, 1, 1, COLORS.yellow);
-    P(8, 9, 1, 1, COLORS.yellow);
-    if (h > 40) {
-      // legs (big)
-      P(4, 12, 3, 4, overall);
-      P(8, 12, 3, 4, overall);
-      P(3, 15, 3, 1, '#5a2d0c');
-      P(8, 15, 3, 1, '#5a2d0c');
+    if (this.crouching) {
+      // Crouched small Eevee — squashed
+      const bh = h; // currently PLAYER_SMALL_H due to crouch shrink
+      // Body oval squashed
+      ctx.fillStyle = BODY;
+      ctx.beginPath();
+      ctx.ellipse(w / 2, bh * 0.55, w * 0.44, bh * 0.35, 0, 0, Math.PI * 2);
+      ctx.fill();
+      // Ruff
+      ctx.fillStyle = ruffCol;
+      ctx.beginPath();
+      ctx.ellipse(w / 2, bh * 0.38, w * 0.38, bh * 0.22, 0, 0, Math.PI * 2);
+      ctx.fill();
+      // Flattened ears
+      ctx.fillStyle = BODY;
+      ctx.fillRect(w * 0.1, bh * 0.02, w * 0.22, bh * 0.22);
+      ctx.fillRect(w * 0.62, bh * 0.02, w * 0.22, bh * 0.22);
+      ctx.fillStyle = EAR_I;
+      ctx.fillRect(w * 0.14, bh * 0.05, w * 0.14, bh * 0.14);
+      ctx.fillRect(w * 0.65, bh * 0.05, w * 0.14, bh * 0.14);
+      // Eyes
+      ctx.fillStyle = EYE;
+      ctx.beginPath(); ctx.ellipse(w * 0.34, bh * 0.32, 3, 4, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(w * 0.66, bh * 0.32, 3, 4, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = SHINE;
+      ctx.fillRect(w * 0.33, bh * 0.28, 2, 2);
+      ctx.fillRect(w * 0.65, bh * 0.28, 2, 2);
+      // Little stub legs
+      ctx.fillStyle = BODY;
+      ctx.fillRect(w * 0.2, bh * 0.78, w * 0.15, h * 0.2);
+      ctx.fillRect(w * 0.6, bh * 0.78, w * 0.15, h * 0.2);
+    } else if (big) {
+      // BIG Eevee (32x56)
+      const jumping = !this.onGround;
+      // Tail (extends right opposite facing — since we flip, always draw right)
+      ctx.fillStyle = BODY;
+      ctx.beginPath();
+      ctx.moveTo(w * 0.7, h * 0.42);
+      ctx.quadraticCurveTo(w * 1.3, h * 0.3, w * 1.1, h * 0.55);
+      ctx.lineWidth = 7;
+      ctx.strokeStyle = BODY;
+      ctx.stroke();
+      ctx.fillStyle = TAIL;
+      ctx.beginPath();
+      ctx.ellipse(w * 1.12, h * 0.52, 8, 7, -0.4, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Body oval
+      ctx.fillStyle = BODY;
+      ctx.beginPath();
+      ctx.ellipse(w * 0.5, h * 0.62, w * 0.44, h * 0.26, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Large ruff
+      ctx.fillStyle = ruffCol;
+      ctx.beginPath();
+      ctx.arc(w * 0.5, h * 0.38, w * 0.42, Math.PI * 0.15, Math.PI * 0.85);
+      ctx.closePath();
+      ctx.fill();
+      ctx.beginPath();
+      ctx.ellipse(w * 0.5, h * 0.4, w * 0.4, h * 0.18, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Head
+      ctx.fillStyle = BODY;
+      ctx.beginPath();
+      ctx.ellipse(w * 0.5, h * 0.24, w * 0.34, h * 0.16, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Ears — swept back if jumping
+      const earTilt = jumping ? 0.5 : 0;
+      ctx.fillStyle = BODY;
+      // Left ear
+      ctx.beginPath();
+      ctx.moveTo(w * 0.22, h * 0.15);
+      ctx.lineTo(w * (0.1 + earTilt * 0.1), h * (0.0 - earTilt * 0.03));
+      ctx.lineTo(w * 0.36, h * 0.12);
+      ctx.closePath(); ctx.fill();
+      // Right ear
+      ctx.beginPath();
+      ctx.moveTo(w * 0.62, h * 0.15);
+      ctx.lineTo(w * (0.78 - earTilt * 0.1), h * (0.0 - earTilt * 0.03));
+      ctx.lineTo(w * 0.72, h * 0.12);
+      ctx.closePath(); ctx.fill();
+      ctx.fillStyle = EAR_I;
+      ctx.beginPath();
+      ctx.moveTo(w * 0.25, h * 0.14);
+      ctx.lineTo(w * (0.16 + earTilt * 0.1), h * 0.04);
+      ctx.lineTo(w * 0.35, h * 0.13);
+      ctx.closePath(); ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(w * 0.63, h * 0.14);
+      ctx.lineTo(w * (0.74 - earTilt * 0.1), h * 0.04);
+      ctx.lineTo(w * 0.70, h * 0.13);
+      ctx.closePath(); ctx.fill();
+
+      // Eyes
+      ctx.fillStyle = EYE;
+      ctx.beginPath(); ctx.ellipse(w * 0.37, h * 0.23, 3.5, 4.5, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(w * 0.63, h * 0.23, 3.5, 4.5, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = SHINE;
+      ctx.fillRect(w * 0.36, h * 0.19, 2, 2);
+      ctx.fillRect(w * 0.62, h * 0.19, 2, 2);
+
+      // Legs — tuck up if jumping
+      ctx.fillStyle = BODY;
+      if (jumping) {
+        ctx.fillRect(w * 0.18, h * 0.78, w * 0.2, h * 0.12);
+        ctx.fillRect(w * 0.56, h * 0.72, w * 0.2, h * 0.12);
+      } else {
+        const step = Math.abs(this.vx) > 0.3 ? Math.floor(this.animTimer / 8) % 2 : 0;
+        ctx.fillRect(w * (0.16 + step * 0.06), h * 0.78, w * 0.2, h * 0.18);
+        ctx.fillRect(w * (0.54 - step * 0.06), h * 0.78, w * 0.2, h * 0.18);
+      }
+
+      // Fire sparkle on ruff
+      if (this.power === POWER.FIRE) {
+        const t = Math.floor(this.animTimer / 5) % 2;
+        ctx.fillStyle = t ? '#ff6600' : '#ffcc00';
+        ctx.beginPath(); ctx.arc(w * 0.22, h * 0.38, 5, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(w * 0.78, h * 0.38, 5, 0, Math.PI * 2); ctx.fill();
+      }
     } else {
-      P(4, 12, 3, 3, overall);
-      P(8, 12, 3, 3, overall);
-      P(3, 14, 3, 2, '#5a2d0c');
-      P(8, 14, 3, 2, '#5a2d0c');
+      // SMALL Eevee (28x32)
+      const jumping = !this.onGround;
+
+      // Body oval
+      ctx.fillStyle = BODY;
+      ctx.beginPath();
+      ctx.ellipse(w * 0.5, h * 0.7, w * 0.44, h * 0.25, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Ruff
+      ctx.fillStyle = ruffCol;
+      ctx.beginPath();
+      ctx.arc(w * 0.5, h * 0.5, w * 0.38, Math.PI * 0.1, Math.PI * 0.9);
+      ctx.closePath();
+      ctx.fill();
+      ctx.beginPath();
+      ctx.ellipse(w * 0.5, h * 0.52, w * 0.35, h * 0.16, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Head
+      ctx.fillStyle = BODY;
+      ctx.beginPath();
+      ctx.ellipse(w * 0.5, h * 0.3, w * 0.34, h * 0.22, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Ears
+      const earTilt = jumping ? 0.4 : 0;
+      ctx.fillStyle = BODY;
+      ctx.beginPath();
+      ctx.moveTo(w * 0.2, h * 0.2);
+      ctx.lineTo(w * (0.08 + earTilt * 0.1), h * (0.0 - earTilt * 0.02));
+      ctx.lineTo(w * 0.35, h * 0.14);
+      ctx.closePath(); ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(w * 0.64, h * 0.2);
+      ctx.lineTo(w * (0.8 - earTilt * 0.1), h * (0.0 - earTilt * 0.02));
+      ctx.lineTo(w * 0.72, h * 0.14);
+      ctx.closePath(); ctx.fill();
+      ctx.fillStyle = EAR_I;
+      ctx.beginPath();
+      ctx.moveTo(w * 0.23, h * 0.18);
+      ctx.lineTo(w * (0.14 + earTilt * 0.08), h * 0.05);
+      ctx.lineTo(w * 0.34, h * 0.15);
+      ctx.closePath(); ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(w * 0.65, h * 0.18);
+      ctx.lineTo(w * (0.74 - earTilt * 0.08), h * 0.05);
+      ctx.lineTo(w * 0.70, h * 0.15);
+      ctx.closePath(); ctx.fill();
+
+      // Eyes
+      ctx.fillStyle = EYE;
+      ctx.beginPath(); ctx.ellipse(w * 0.36, h * 0.28, 3, 4, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(w * 0.64, h * 0.28, 3, 4, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = SHINE;
+      ctx.fillRect(w * 0.35, h * 0.24, 2, 2);
+      ctx.fillRect(w * 0.63, h * 0.24, 2, 2);
+
+      // Legs
+      ctx.fillStyle = BODY;
+      if (jumping) {
+        // tuck up
+        ctx.fillRect(w * 0.2, h * 0.82, w * 0.2, h * 0.1);
+        ctx.fillRect(w * 0.56, h * 0.76, w * 0.2, h * 0.1);
+      } else {
+        const step = Math.abs(this.vx) > 0.3 ? Math.floor(this.animTimer / 8) % 2 : 0;
+        ctx.fillRect(w * (0.18 + step * 0.07), h * 0.82, w * 0.2, h * 0.16);
+        ctx.fillRect(w * (0.54 - step * 0.07), h * 0.82, w * 0.2, h * 0.16);
+      }
     }
 
     ctx.restore();

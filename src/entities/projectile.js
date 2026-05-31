@@ -1,17 +1,18 @@
 import { GRAVITY, MAX_FALL_SPEED } from '../constants.js';
-import { resolveCollisions, aabb } from '../physics.js';
+import { resolveCollisions } from '../physics.js';
 
-// Player fireball: bounces along ground, dies on wall or after lifetime.
+// Flamethrower arc — orange/red elongated arc shape, bounces on ground
 export class Fireball {
   constructor(x, y, dir) {
     this.x = x;
     this.y = y;
-    this.w = 14;
-    this.h = 14;
-    this.vx = 6 * dir;
-    this.vy = 2;
+    this.w = 18;
+    this.h = 10;
+    this.vx = 6.5 * dir;
+    this.vy = -1;
+    this.dir = dir;
     this.dead = false;
-    this.life = 160;
+    this.life = 140;
     this.anim = 0;
   }
 
@@ -20,45 +21,50 @@ export class Fireball {
     this.life--;
     if (this.life <= 0) { this.dead = true; return; }
 
-    this.vy += GRAVITY * 0.7;
+    this.vy += GRAVITY * 0.65;
     if (this.vy > MAX_FALL_SPEED) this.vy = MAX_FALL_SPEED;
 
     const prevX = this.x;
     const res = resolveCollisions(this, solids);
-    // bounce off ground
-    if (res.onGround) this.vy = -6;
-    // hit a wall -> die
+    if (res.onGround) this.vy = -5;
     if (this.x === prevX) this.dead = true;
     if (this.y > 800) this.dead = true;
   }
 
   draw(r, cam) {
     const ctx = r.ctx;
-    const cx = this.x - cam.x + this.w / 2;
-    const cy = this.y + this.h / 2;
-    const t = Math.floor(this.anim / 4) % 2;
-    ctx.fillStyle = t ? '#ff5a1d' : '#ffd23b';
+    const bx = this.x - cam.x;
+    const by = this.y;
+    const t = Math.floor(this.anim / 3) % 3;
+    const colors = ['#ff4400', '#ff8800', '#ffcc00'];
+    // Draw arc shape (elongated teardrop in direction of travel)
+    ctx.save();
+    ctx.translate(bx + this.w / 2, by + this.h / 2);
+    ctx.rotate(this.dir > 0 ? 0.3 : -0.3 + Math.PI);
+    ctx.fillStyle = colors[t];
     ctx.beginPath();
-    ctx.arc(cx, cy, this.w / 2, 0, Math.PI * 2);
+    ctx.ellipse(0, 0, this.w * 0.55, this.h * 0.48, 0, 0, Math.PI * 2);
     ctx.fill();
-    ctx.fillStyle = t ? '#ffd23b' : '#ff5a1d';
+    // Inner brighter core
+    ctx.fillStyle = colors[(t + 1) % 3];
     ctx.beginPath();
-    ctx.arc(cx, cy, this.w / 4, 0, Math.PI * 2);
+    ctx.ellipse(-3, 0, this.w * 0.28, this.h * 0.3, 0, 0, Math.PI * 2);
     ctx.fill();
+    ctx.restore();
   }
 }
 
-// Boss projectile: flies straight, damages player.
+// Hyper Beam orb — yellow glowing orb, flies straight from Persian
 export class BossShot {
   constructor(x, y, vx, vy) {
     this.x = x;
     this.y = y;
-    this.w = 18;
-    this.h = 18;
+    this.w = 20;
+    this.h = 20;
     this.vx = vx;
     this.vy = vy;
     this.dead = false;
-    this.life = 200;
+    this.life = 220;
     this.anim = 0;
   }
 
@@ -75,13 +81,20 @@ export class BossShot {
     const cx = this.x - cam.x + this.w / 2;
     const cy = this.y + this.h / 2;
     const t = Math.floor(this.anim / 4) % 2;
-    ctx.fillStyle = t ? '#a020f0' : '#d060ff';
+    // Outer glow
+    ctx.fillStyle = t ? '#ffee00' : '#ffcc00';
     ctx.beginPath();
     ctx.arc(cx, cy, this.w / 2, 0, Math.PI * 2);
     ctx.fill();
-    ctx.fillStyle = '#fff';
+    // Inner white core
+    ctx.fillStyle = '#ffffcc';
     ctx.beginPath();
-    ctx.arc(cx, cy, 3, 0, Math.PI * 2);
+    ctx.arc(cx, cy, this.w * 0.28, 0, Math.PI * 2);
     ctx.fill();
+    // Rim
+    ctx.strokeStyle = '#cc8800'; ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(cx, cy, this.w / 2, 0, Math.PI * 2);
+    ctx.stroke();
   }
 }

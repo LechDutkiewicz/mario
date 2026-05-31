@@ -3,11 +3,11 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Super Mario Drawing World</title>
+<title>Eevee's Adventure</title>
 <style>
   html, body {
     margin: 0; padding: 0; height: 100%;
-    background: #1c2330;
+    background: #1a1030;
     display: flex; flex-direction: column;
     align-items: center; justify-content: center;
     font-family: monospace; color: #fff;
@@ -18,7 +18,7 @@
     border: 6px solid #111;
     border-radius: 6px;
     image-rendering: pixelated;
-    background: #5c94fc;
+    background: #87ceeb;
     box-shadow: 0 10px 40px rgba(0,0,0,0.6);
     max-width: 96vw;
     max-height: 86vh;
@@ -26,10 +26,11 @@
   .bar {
     display: flex; justify-content: space-between;
     width: 100%; max-width: 800px;
-    padding: 8px 4px; font-size: 14px; opacity: 0.85;
+    padding: 8px 4px; font-size: 13px; opacity: 0.85;
   }
-  .start { color: #4cc24c; font-weight: bold; }
-  .exit { color: #e23b3b; font-weight: bold; }
+  .start { color: #c8864a; font-weight: bold; }
+  .info  { color: #ddd; }
+  .poke  { color: #9b59b6; font-weight: bold; }
 </style>
 </head>
 <body>
@@ -37,9 +38,9 @@
     <canvas id="game" width="800" height="600"></canvas>
   </div>
   <div class="bar">
-    <span class="start">START &gt; press ENTER</span>
-    <span>Arrows move · Space jump · Shift run · Alt fireball · P pause</span>
-    <span class="exit">EXIT</span>
+    <span class="start">START &gt; ENTER</span>
+    <span class="info">Arrows move · Space jump · Shift run · Alt Flamethrower · P pause</span>
+    <span class="poke">POKEMON</span>
   </div>
   <script type="module" src="./src/main.js"></script>
 </body>

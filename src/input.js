@@ -26,7 +26,6 @@ export class Input {
     ].includes(code);
   }
 
-  // Call once per frame to snapshot edge-triggered presses
   update() {
     this.pressed = this._down;
     this._down = {};
@@ -35,10 +34,11 @@ export class Input {
   isDown(code) { return !!this.keys[code]; }
   justPressed(code) { return !!this.pressed[code]; }
 
-  get left() { return this.isDown('ArrowLeft'); }
-  get right() { return this.isDown('ArrowRight'); }
-  get jump() { return this.isDown('Space') || this.isDown('ArrowUp'); }
+  get left()        { return this.isDown('ArrowLeft'); }
+  get right()       { return this.isDown('ArrowRight'); }
+  get down()        { return this.isDown('ArrowDown'); }
+  get jump()        { return this.isDown('Space') || this.isDown('ArrowUp'); }
   get jumpPressed() { return this.justPressed('Space') || this.justPressed('ArrowUp'); }
-  get run() { return this.isDown('ShiftLeft'); }
+  get run()         { return this.isDown('ShiftLeft'); }
   get firePressed() { return this.justPressed('AltLeft'); }
 }

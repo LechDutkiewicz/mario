@@ -1,68 +1,72 @@
 import {
   CANVAS_WIDTH, CANVAS_HEIGHT, STATE, POWER, COLORS,
-  SCORE_COIN, SCORE_STOMP, SCORE_FIRE, SCORE_BOSS, GROUND_Y,
+  SCORE_POKEBALL, SCORE_STOMP, SCORE_FIRE, SCORE_BOSS, GROUND_Y,
 } from './constants.js';
 import { Renderer } from './renderer.js';
-import { Camera } from './camera.js';
-import { Player } from './entities/player.js';
-import { PowerUp } from './entities/powerup.js';
-import { Coin } from './entities/coin.js';
+import { Camera }   from './camera.js';
+import { Music }    from './audio.js';
+import { Player }   from './entities/player.js';
+import { PowerUp }  from './entities/powerup.js';
+import { Coin }     from './entities/coin.js';
 import { Fireball } from './entities/projectile.js';
-import { buildLevel } from './level.js';
-import { aabb } from './physics.js';
+import { buildWorld1 } from './levels/world1.js';
+import { aabb }     from './physics.js';
 
 export class Game {
   constructor(ctx, input) {
-    this.ctx = ctx;
+    this.ctx   = ctx;
     this.input = input;
-    this.r = new Renderer(ctx);
-    this.cam = new Camera();
+    this.r     = new Renderer(ctx);
+    this.cam   = new Camera();
+    this.music = new Music();
     this.state = STATE.MENU;
     this.score = 0;
     this.lives = 3;
+    this.coinsCollected = 0;
+    this.worldClearTimer = 0;
     this.resetLevel(true);
   }
 
   resetLevel(fullReset) {
-    this.level = buildLevel();
-    this.player = new Player(80, GROUND_Y - 60);
-    this.cam.x = 0;
-    this.fireballs = [];
-    this.bossShots = [];
-    this.powerups = [];
-    this.particles = [];
-    this.coinsCollected = this.coinsCollected || 0;
+    this.level   = buildWorld1();
+    this.player  = new Player(80, GROUND_Y - 60);
+    this.cam.x   = 0;
+    this.fireballs  = [];
+    this.bossShots  = [];
+    this.powerups   = [];
     if (fullReset) {
-      this.score = 0;
-      this.lives = 3;
+      this.score          = 0;
+      this.lives          = 3;
       this.coinsCollected = 0;
+      this.worldClearTimer = 0;
     }
   }
 
   start() {
     this.state = STATE.PLAYING;
     this.resetLevel(true);
+    this.music.start();
   }
 
-  // ---- spawning hooks called by blocks/player ----
   spawnFireball(player) {
-    const x = player.facing > 0 ? player.x + player.w : player.x - 14;
+    const x = player.facing > 0 ? player.x + player.w : player.x - 18;
     this.fireballs.push(new Fireball(x, player.y + player.h * 0.4, player.facing));
   }
 
   collectBlockCoin(x, y) {
     this.coinsCollected++;
-    this.score += SCORE_COIN;
+    this.score += SCORE_POKEBALL;
     this.level.coins.push(Coin.pop(x, y));
+    this.music.playCollect();
   }
 
   spawnPowerUp(x, y, kind) {
     this.powerups.push(new PowerUp(x, y, kind));
   }
 
-  get coins() { return this.level.coins; }
-
-  // ---------------- main update ----------------
+  // ----------------------------------------------------------------
+  // UPDATE
+  // ----------------------------------------------------------------
   update() {
     const input = this.input;
 
@@ -71,7 +75,7 @@ export class Game {
       return;
     }
     if (this.state === STATE.GAME_OVER || this.state === STATE.WIN) {
-      if (input.justPressed('Enter')) { this.state = STATE.PLAYING; this.resetLevel(true); }
+      if (input.justPressed('Enter')) { this.state = STATE.PLAYING; this.resetLevel(true); this.music.start(); }
       return;
     }
     if (this.state === STATE.PLAYING && input.justPressed('KeyP')) {
@@ -82,27 +86,28 @@ export class Game {
       return;
     }
 
-    const lvl = this.level;
+    const lvl    = this.level;
     const solids = lvl.solids;
-    const p = this.player;
+    const p      = this.player;
 
     p.update(input, solids, this);
-    this.cam.follow(p);
+    this.cam.follow(p, lvl.width);
 
     for (const q of lvl.qblocks) q.update();
 
-    // coins
+    // Pokéballs
     for (const c of lvl.coins) {
       c.update();
       if (!c.dead && !c.popping && aabb(p, c)) {
         c.dead = true;
         this.coinsCollected++;
-        this.score += SCORE_COIN;
+        this.score += SCORE_POKEBALL;
+        this.music.playCollect();
       }
     }
-    lvl.coins = lvl.coins.filter((c) => !c.dead);
+    lvl.coins = lvl.coins.filter(c => !c.dead);
 
-    // powerups
+    // Power-ups
     for (const pu of this.powerups) {
       pu.update(solids);
       if (!pu.dead && aabb(p, pu)) {
@@ -111,18 +116,17 @@ export class Game {
         this.score += 1000;
       }
     }
-    this.powerups = this.powerups.filter((pu) => !pu.dead);
+    this.powerups = this.powerups.filter(pu => !pu.dead);
 
-    // fireballs
+    // Flamethrower projectiles
     for (const fb of this.fireballs) fb.update(solids);
-    this.fireballs = this.fireballs.filter((fb) => !fb.dead);
+    this.fireballs = this.fireballs.filter(fb => !fb.dead);
 
-    // enemies
+    // Enemies (Ekans + Koffing)
     for (const e of lvl.enemies) {
       e.update(solids, p);
       if (e.dead || e.dying || e.squashTimer > 0) continue;
 
-      // fireball hit
       for (const fb of this.fireballs) {
         if (!fb.dead && aabb(fb, e)) {
           fb.dead = true;
@@ -133,35 +137,30 @@ export class Game {
       }
       if (e.dead || e.squashTimer > 0) continue;
 
-      // player vs enemy
       if (!p.dead && aabb(p, e)) {
         const stomping = p.vy > 0 && (p.y + p.h) - e.y < 22;
         if (stomping && e.stompable) {
           e.squash();
-          p.vy = -8; // bounce
+          p.vy = -8;
           this.score += SCORE_STOMP;
         } else {
           this._hurtPlayer();
         }
       }
     }
-    lvl.enemies = lvl.enemies.filter((e) => !e.dead || e.dying);
-    // remove fully-dead flippers once offscreen below
-    lvl.enemies = lvl.enemies.filter((e) => !(e.dead && e.y > 800));
+    lvl.enemies = lvl.enemies.filter(e => !e.dead || e.dying);
+    lvl.enemies = lvl.enemies.filter(e => !(e.dead && e.y > 850));
 
-    // boss
+    // Boss (Persian)
     const boss = lvl.boss;
     if (boss && !boss.dead) {
       boss.update(solids, p, this);
-
-      // fireball -> boss
       for (const fb of this.fireballs) {
         if (!fb.dead && aabb(fb, boss) && !boss.defeated) {
           fb.dead = true;
           if (boss.takeHit()) this.score += SCORE_BOSS;
         }
       }
-      // player vs boss
       if (!p.dead && !boss.defeated && aabb(p, boss)) {
         const stomping = p.vy > 0 && (p.y + p.h) - boss.y < 30;
         if (stomping) {
@@ -174,37 +173,49 @@ export class Game {
     }
     if (boss && boss.dead) { this.state = STATE.WIN; return; }
 
-    // boss shots
+    // Boss shots
     for (const bs of this.bossShots) {
       bs.update();
       if (!bs.dead && !p.dead && aabb(p, bs)) { bs.dead = true; this._hurtPlayer(); }
     }
-    this.bossShots = this.bossShots.filter((bs) => !bs.dead);
+    this.bossShots = this.bossShots.filter(bs => !bs.dead);
 
-    // player death handling
-    if (p.dead && p.deathTimer <= 0) {
-      this._loseLife();
+    // Flag pole — touch → WIN
+    const fp = this.level.flagPole;
+    if (fp && !fp.touched) {
+      fp.update(p);
+      if (fp.touched) {
+        this.worldClearTimer = 180;
+      }
     }
+    if (this.worldClearTimer > 0) {
+      this.worldClearTimer--;
+      if (this.worldClearTimer === 0) {
+        this.state = STATE.WIN;
+      }
+      return;
+    }
+
+    if (p.dead && p.deathTimer <= 0) this._loseLife();
   }
 
-  _hurtPlayer() {
-    const died = this.player.takeDamage();
-    if (died) { /* death animation runs; life lost when timer ends */ }
-  }
+  _hurtPlayer() { this.player.takeDamage(); }
 
   _loseLife() {
     this.lives--;
     if (this.lives <= 0) {
       this.state = STATE.GAME_OVER;
+      this.music.stop();
     } else {
-      // respawn, keep score & remaining level progress reset
       this.resetLevel(false);
     }
   }
 
-  // ---------------- render ----------------
+  // ----------------------------------------------------------------
+  // RENDER
+  // ----------------------------------------------------------------
   render() {
-    const r = this.r;
+    const r   = this.r;
     const ctx = this.ctx;
     r.clear();
     r.drawBackground(this.cam.x);
@@ -212,63 +223,77 @@ export class Game {
     if (this.state === STATE.MENU) { this._drawMenu(); return; }
 
     const lvl = this.level;
-    for (const pl of lvl.platforms) pl.draw(r, this.cam);
-    for (const q of lvl.qblocks) q.draw(r, this.cam);
-    for (const c of lvl.coins) c.draw(r, this.cam);
-    for (const pu of this.powerups) pu.draw(r, this.cam);
-    for (const e of lvl.enemies) e.draw(r, this.cam);
-    if (lvl.boss && !lvl.boss.dead) lvl.boss.draw(r, this.cam);
+    for (const pl of lvl.platforms)  pl.draw(r, this.cam);
+    for (const q  of lvl.qblocks)    q.draw(r, this.cam);
+    for (const c  of lvl.coins)      c.draw(r, this.cam);
+    for (const pu of this.powerups)  pu.draw(r, this.cam);
+    for (const e  of lvl.enemies)    e.draw(r, this.cam);
+    if (lvl.boss && !lvl.boss.dead)  lvl.boss.draw(r, this.cam);
     for (const fb of this.fireballs) fb.draw(r, this.cam);
     for (const bs of this.bossShots) bs.draw(r, this.cam);
+    if (lvl.flagPole)                lvl.flagPole.draw(r, this.cam);
     this.player.draw(r, this.cam);
 
     this._drawHUD();
 
-    if (this.state === STATE.PAUSED) this._overlay('PAUSED', 'Press P to resume');
+    if (this.worldClearTimer > 0)    this._drawWorldClear();
+    if (this.state === STATE.PAUSED)    this._overlay('PAUSED', 'Press P to resume');
     if (this.state === STATE.GAME_OVER) this._overlay('GAME OVER', 'Press ENTER to restart');
-    if (this.state === STATE.WIN) this._drawWin();
+    if (this.state === STATE.WIN)       this._drawWin();
   }
 
   _drawHUD() {
     const ctx = this.ctx;
-    // hearts
-    for (let i = 0; i < 3; i++) {
-      this._heart(24 + i * 34, 28, i < this.lives);
-    }
-    // score
+    // Heart lives
+    for (let i = 0; i < 3; i++) this._heart(24 + i * 34, 28, i < this.lives);
+
     ctx.fillStyle = '#fff';
     ctx.strokeStyle = '#000'; ctx.lineWidth = 3;
     ctx.font = 'bold 22px monospace';
     ctx.textAlign = 'left';
+
     const sTxt = 'SCORE ' + String(this.score).padStart(6, '0');
-    ctx.strokeText(sTxt, CANVAS_WIDTH - 230, 36);
-    ctx.fillText(sTxt, CANVAS_WIDTH - 230, 36);
-    // coins
-    const cTxt = '🪙 x' + this.coinsCollected;
+    ctx.strokeText(sTxt, CANVAS_WIDTH - 234, 36);
+    ctx.fillText(sTxt,   CANVAS_WIDTH - 234, 36);
+
     ctx.font = 'bold 20px monospace';
-    ctx.strokeText('COINS ' + this.coinsCollected, CANVAS_WIDTH - 230, 62);
-    ctx.fillText('COINS ' + this.coinsCollected, CANVAS_WIDTH - 230, 62);
-    // power label
-    const pw = this.player.power;
+    ctx.strokeText('BALLS ' + this.coinsCollected, CANVAS_WIDTH - 234, 62);
+    ctx.fillText('BALLS ' + this.coinsCollected,   CANVAS_WIDTH - 234, 62);
+
+    const pw    = this.player.power;
     const label = pw === POWER.FIRE ? 'FIRE' : pw === POWER.BIG ? 'BIG' : 'SMALL';
-    ctx.fillStyle = pw === POWER.FIRE ? '#ff5a1d' : '#fff';
+    ctx.fillStyle = pw === POWER.FIRE ? '#ff6600' : '#fff';
     ctx.strokeText(label, 24, 64);
-    ctx.fillText(label, 24, 64);
+    ctx.fillText(label,   24, 64);
+    ctx.fillStyle = '#fff';
   }
 
   _heart(x, y, full) {
     const ctx = this.ctx;
     ctx.save();
     ctx.translate(x, y);
-    ctx.fillStyle = full ? '#e23636' : 'rgba(0,0,0,0.35)';
+    ctx.fillStyle   = full ? '#e23636' : 'rgba(0,0,0,0.35)';
     ctx.strokeStyle = '#000'; ctx.lineWidth = 2;
     ctx.beginPath();
     ctx.moveTo(0, 4);
     ctx.bezierCurveTo(-12, -8, -12, 8, 0, 14);
     ctx.bezierCurveTo(12, 8, 12, -8, 0, 4);
-    ctx.fill();
-    ctx.stroke();
+    ctx.fill(); ctx.stroke();
     ctx.restore();
+  }
+
+  _drawWorldClear() {
+    const ctx = this.ctx;
+    ctx.fillStyle = 'rgba(0,0,0,0.45)';
+    ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#ffd23b';
+    ctx.font = 'bold 52px monospace';
+    ctx.fillText('GOAL!', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 20);
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 24px monospace';
+    ctx.fillText('Score: ' + this.score, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 30);
+    ctx.textAlign = 'left';
   }
 
   _overlay(title, sub) {
@@ -287,47 +312,54 @@ export class Game {
 
   _drawWin() {
     const ctx = this.ctx;
-    ctx.fillStyle = 'rgba(20,10,60,0.7)';
+    ctx.fillStyle = 'rgba(10,5,40,0.78)';
     ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
     ctx.textAlign = 'center';
+
     ctx.fillStyle = '#ffd23b';
-    ctx.font = 'bold 60px monospace';
-    ctx.fillText('YOU WIN!', CANVAS_WIDTH / 2, 220);
-    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 58px monospace';
+    ctx.fillText("EEVEE WINS!", CANVAS_WIDTH / 2, 190);
+
+    ctx.fillStyle = '#a9e0ff';
     ctx.font = 'bold 26px monospace';
-    ctx.fillText('The boss is defeated!', CANVAS_WIDTH / 2, 280);
-    ctx.fillText('Final Score: ' + this.score, CANVAS_WIDTH / 2, 330);
-    ctx.fillText('Coins: ' + this.coinsCollected, CANVAS_WIDTH / 2, 366);
+    ctx.fillText('Giovanni is defeated!', CANVAS_WIDTH / 2, 258);
+
+    ctx.fillStyle = '#fff';
+    ctx.fillText('Final Score: ' + this.score, CANVAS_WIDTH / 2, 308);
+    ctx.fillText('Pokeballs: ' + this.coinsCollected, CANVAS_WIDTH / 2, 346);
+
     ctx.font = 'bold 22px monospace';
-    ctx.fillText('Press ENTER to play again', CANVAS_WIDTH / 2, 430);
+    ctx.fillStyle = '#b0e0ff';
+    ctx.fillText('Press ENTER to play again', CANVAS_WIDTH / 2, 420);
     ctx.textAlign = 'left';
   }
 
   _drawMenu() {
     const ctx = this.ctx;
     ctx.textAlign = 'center';
-    // title
-    ctx.fillStyle = COLORS.red;
+
+    // Title
+    ctx.fillStyle = '#c8864a';
     ctx.font = 'bold 64px monospace';
-    ctx.fillText('SUPER MARIO', CANVAS_WIDTH / 2, 180);
-    ctx.fillStyle = COLORS.green;
-    ctx.fillText('DRAWING WORLD', CANVAS_WIDTH / 2, 250);
+    ctx.fillText("EEVEE'S", CANVAS_WIDTH / 2, 160);
+    ctx.fillStyle = '#9b59b6';
+    ctx.fillText('ADVENTURE', CANVAS_WIDTH / 2, 228);
 
     ctx.fillStyle = '#fff';
-    ctx.font = 'bold 28px monospace';
-    ctx.fillText('Press ENTER or SPACE to START', CANVAS_WIDTH / 2, 340);
+    ctx.font = 'bold 26px monospace';
+    ctx.fillText('Press ENTER or SPACE to START', CANVAS_WIDTH / 2, 310);
 
     ctx.font = '18px monospace';
-    ctx.fillStyle = '#eee';
+    ctx.fillStyle = '#ddd';
     const lines = [
-      'Arrow keys: move    Space/Up: jump',
-      'Shift: run          Left Alt: shoot fireball (with flower)',
-      'P: pause',
+      'Arrows: move   Space / Up: jump',
+      'Shift: run     Left Alt: Flamethrower (need TM Fire)',
+      'Down: crouch (big Eevee)     P: pause',
       '',
-      'Stomp goombas. Spiky enemies need fireballs!',
-      'Beat the bear boss to win.',
+      'Stomp Ekans!  Koffing needs Flamethrower.',
+      'Collect Pokeballs. Find Rare Candy and TM Fire!',
     ];
-    lines.forEach((l, i) => ctx.fillText(l, CANVAS_WIDTH / 2, 400 + i * 28));
+    lines.forEach((l, i) => ctx.fillText(l, CANVAS_WIDTH / 2, 368 + i * 27));
     ctx.textAlign = 'left';
   }
 }
