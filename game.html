@@ -38,7 +38,7 @@
 </div>
 <div class="bar">
   <span class="start">START &gt; press ENTER</span>
-  <span>Arrows move · Space jump · Shift run · Left Alt fireball · P pause</span>
+  <span>Arrows move · Space/↑ jump · ↓ kucaj (duży) · Shift bieg · Alt strzał · P pauza</span>
   <span class="exit">BOSS</span>
 </div>
 <script>
@@ -48,6 +48,7 @@
 const CANVAS_WIDTH = 800;
 const CANVAS_HEIGHT = 600;
 const GROUND_Y = 540;
+const TILE = 32;          // grid unit — all platforms snap to this
 const LEVEL_WIDTH = 6000;
 const GRAVITY = 0.7;
 const MAX_FALL_SPEED = 14;
@@ -104,6 +105,7 @@ class Input {
   get jumpPressed() { return this.justPressed('Space') || this.justPressed('ArrowUp'); }
   get run() { return this.isDown('ShiftLeft'); }
   get firePressed() { return this.justPressed('AltLeft'); }
+  get down() { return this.isDown('ArrowDown'); }
 }
 
 // ============================================================
@@ -595,6 +597,7 @@ class Player {
     this.power = POWER.SMALL; this.invincible = 0;
     this.dead = false; this.deathTimer = 0;
     this.animTimer = 0; this.fireCooldown = 0;
+    this.crouching = false;
   }
   get big() { return this.power !== POWER.SMALL; }
   _applySize() {
@@ -639,9 +642,30 @@ class Player {
     if (!input.jump && this.vy < -4) this.vy = -4;
     this.vy += GRAVITY;
     if (this.vy > MAX_FALL_SPEED) this.vy = MAX_FALL_SPEED;
-    if (input.firePressed && this.power === POWER.FIRE && this.fireCooldown <= 0) {
-      game.spawnFireball(this); this.fireCooldown = 20;
+    // Crouching (big only, on ground)
+    const wantCrouch = input.down && this.big && this.onGround;
+    if (wantCrouch && !this.crouching) {
+      this.crouching = true;
+      // shrink hitbox while keeping feet in place
+      const feet = this.y + this.h;
+      this.h = PLAYER_SMALL_H;
+      this.y = feet - this.h;
+      this.vx = 0;
+    } else if (!wantCrouch && this.crouching) {
+      // try to stand — check for ceiling
+      const feet = this.y + this.h;
+      const newY = feet - PLAYER_BIG_H;
+      const testBox = { x: this.x, y: newY, w: this.w, h: PLAYER_BIG_H };
+      const blocked = solids.some(s => !s.dead && aabb(testBox, s));
+      if (!blocked) { this.crouching = false; this.y = newY; this.h = PLAYER_BIG_H; }
     }
+
+    if (!this.crouching) {
+      if (input.firePressed && this.power === POWER.FIRE && this.fireCooldown <= 0) {
+        game.spawnFireball(this); this.fireCooldown = 20;
+      }
+    }
+
     const res = resolveCollisions(this, solids);
     this.onGround = res.onGround;
     for (const block of res.hitBelow) { if (block.onBump) block.onBump(game); }
@@ -655,52 +679,73 @@ class Player {
     const x = Math.floor(this.x - cam.x);
     const y = Math.floor(this.y);
     const w = this.w, h = this.h;
-    // Outfit color: green=normal, blue=big, fiery orange=fire
     const outfit = this.power === POWER.FIRE ? '#ff6a00' : this.power === POWER.BIG ? '#2255dd' : '#22aa44';
-    const hair   = '#d45000';
-    const skin   = '#ffd09a';
-    const pants  = '#553311';
-    const shoe   = '#221100';
+    const hair = '#d45000', skin = '#ffd09a', pants = '#553311', shoe = '#221100';
+
     ctx.save();
     if (this.facing < 0) { ctx.translate(x + w, y); ctx.scale(-1, 1); }
     else ctx.translate(x, y);
-    const u = w / 8, v = h / 16;
-    const R = (px, py, pw, ph, c) => { ctx.fillStyle = c; ctx.fillRect(px * u, py * v, pw * u, ph * v); };
-    // Hair / top
-    R(1, 0, 6, 2, hair);
-    R(0, 1, 1, 1, hair); R(7, 1, 1, 1, hair); // side tufts
-    // Face
-    R(1, 2, 6, 4, skin);
-    // Eyes — big and round
-    R(1.5, 2.5, 1.5, 2, '#000'); R(5, 2.5, 1.5, 2, '#000');
-    R(1.7, 2.6, 0.6, 0.8, '#fff'); R(5.2, 2.6, 0.6, 0.8, '#fff'); // shine
-    // Mouth
-    R(2.5, 5.2, 3, 0.5, '#aa4422');
-    // Neck
-    R(3, 6, 2, 1, skin);
-    // Body / tunic
-    R(1, 7, 6, 4, outfit);
-    // Belt
-    R(1, 10, 6, 0.8, '#332200');
-    // Arms
-    R(0, 7, 1, 3, outfit); R(7, 7, 1, 3, outfit);
-    R(0, 9.5, 1, 1, skin); R(7, 9.5, 1, 1, skin); // hands
-    // Fire effect on tunic
-    if (this.power === POWER.FIRE) {
-      const t = Math.floor(this.animTimer / 5) % 2;
-      R(2, 7, 1, 2, t ? '#ffdd00' : '#ff3300');
-      R(5, 8, 1, 2, t ? '#ff3300' : '#ffdd00');
-    }
-    // Legs
-    if (h > 40) {
-      R(1, 11, 2.5, 5, pants); R(4.5, 11, 2.5, 5, pants);
-      // walk anim
-      const step = this.onGround && Math.abs(this.vx) > 0.3 ? Math.floor(this.animTimer / 7) % 2 : 0;
-      R(0.5 + step, 15, 3, 1.2, shoe); R(4 + (1-step), 15, 3, 1.2, shoe);
+
+    if (this.crouching) {
+      // Crouching: squashed body, same head
+      const u2 = w / 8;
+      const R2 = (px, py, pw, ph, c) => { ctx.fillStyle = c; ctx.fillRect(px*u2, py*4, pw*u2, ph*4); };
+      R2(1,0,6,2,hair); R2(1,2,6,4,skin);
+      R2(1.5,2.5,1.5,2,'#000'); R2(5,2.5,1.5,2,'#000');
+      R2(1.7,2.6,0.6,0.8,'#fff'); R2(5.2,2.6,0.6,0.8,'#fff');
+      R2(1,6,6,2,outfit);
+      R2(0.5,7,2.5,1,shoe); R2(4.5,7,2.5,1,shoe);
     } else {
-      R(1, 11, 2.5, 4, pants); R(4.5, 11, 2.5, 4, pants);
-      const step = this.onGround && Math.abs(this.vx) > 0.3 ? Math.floor(this.animTimer / 7) % 2 : 0;
-      R(0.5 + step, 14, 3, 2, shoe); R(4 + (1-step), 14, 3, 2, shoe);
+      const u = w / 8, v = h / 16;
+      const R = (px, py, pw, ph, c) => { ctx.fillStyle = c; ctx.fillRect(px*u, py*v, pw*u, ph*v); };
+      // Hair
+      R(1,0,6,2,hair); R(0,1,1,1,hair); R(7,1,1,1,hair);
+      // Face
+      R(1,2,6,4,skin);
+      // Eyes
+      R(1.5,2.5,1.5,2,'#000'); R(5,2.5,1.5,2,'#000');
+      R(1.7,2.6,0.6,0.8,'#fff'); R(5.2,2.6,0.6,0.8,'#fff');
+      R(2.5,5.2,3,0.5,'#aa4422');
+      // Neck
+      R(3,6,2,1,skin);
+      // Body
+      R(1,7,6,4,outfit);
+      R(1,10,6,0.8,'#332200');
+      // Fire sparkle
+      if (this.power === POWER.FIRE) {
+        const t = Math.floor(this.animTimer/5)%2;
+        R(2,7,1,2,t?'#ffdd00':'#ff3300'); R(5,8,1,2,t?'#ff3300':'#ffdd00');
+      }
+      // Arms
+      if (!this.onGround) {
+        // jump pose: arms raised
+        R(0,5.5,1,3,outfit); R(7,5.5,1,3,outfit);
+        R(0,5,1,1,skin); R(7,5,1,1,skin);
+      } else {
+        R(0,7,1,3,outfit); R(7,7,1,3,outfit);
+        R(0,9.5,1,1,skin); R(7,9.5,1,1,skin);
+      }
+      // Legs
+      const airLegs = !this.onGround;
+      const step = this.onGround && Math.abs(this.vx)>0.3 ? Math.floor(this.animTimer/7)%2 : 0;
+      if (h > 40) {
+        if (airLegs) {
+          // jump: legs bent up
+          R(1,11,2.5,3,pants); R(4.5,11,2.5,3,pants);
+          R(0,13,3,1,shoe); R(4,12,3,1,shoe);
+        } else {
+          R(1,11,2.5,5,pants); R(4.5,11,2.5,5,pants);
+          R(0.5+step,15,3,1.2,shoe); R(4+(1-step),15,3,1.2,shoe);
+        }
+      } else {
+        if (airLegs) {
+          R(1,11,2.5,2,pants); R(4.5,11,2.5,2,pants);
+          R(0,12.5,3,1.5,shoe); R(4,12,3,1.5,shoe);
+        } else {
+          R(1,11,2.5,4,pants); R(4.5,11,2.5,4,pants);
+          R(0.5+step,14,3,2,shoe); R(4+(1-step),14,3,2,shoe);
+        }
+      }
     }
     ctx.restore();
   }
@@ -757,115 +802,233 @@ class QuestionBlock {
 }
 
 function buildLevel() {
+  // All positions use a TILE=32 grid.
+  // gx(n) = tile column n; gy(n) = n tiles ABOVE ground (y coord).
+  // Platform thickness = TILE. Q blocks: 36px tall.
+  // Big player H=56px. Safe underpass: platform.y+TILE < GROUND_Y-56 → gy(n) with n>=3.
+  // Max jump from ground: ~147px (~4.6 tiles). Max horizontal run: ~208px (~6.5 tiles).
+  // Horizontal gap rule: <= 5*TILE=160px between consecutive platforms.
+
+  const T = TILE, GY = GROUND_Y;
+  const gx = n => n * T;
+  const gy = n => GY - n * T;   // n tiles above ground
+
   const platforms = [], qblocks = [], enemies = [], coins = [];
   let boss = null;
-  const groundH = 600 - GROUND_Y + 60;
-  const addGround = (x, w) => platforms.push(new Platform(x, GROUND_Y, w, groundH, COLORS.ground));
-  addGround(0, 1500); addGround(1560, 1000); addGround(2620, 1300); addGround(3980, LEVEL_WIDTH - 3980);
-  const P = (x, y, w, h, c) => platforms.push(new Platform(x, y, w, h, c));
-  const Q = (x, y, c) => { const q = new QuestionBlock(x, y, c); qblocks.push(q); return q; };
-  const C = (x, y) => coins.push(new Coin(x, y));
-  const E = (x, type) => enemies.push(new Enemy(x, GROUND_Y, type));
-  const Eon = (x, y, type) => enemies.push(new Enemy(x, y, type));
-  // ---- START ZONE (0-500): clear runway, then enemies start at ~600 ----
-  P(0, 200, 60, GROUND_Y - 200, COLORS.red); P(0, 200, 60, 40, COLORS.pink);
-  // Low wide platforms the player can easily reach on foot
-  P(140, 470, 120, 24, COLORS.orange);
-  P(310, 450, 120, 24, COLORS.green);
-  P(490, 430, 120, 24, COLORS.cyan);
-  // Coins to guide the player rightward
-  for (let i = 0; i < 5; i++) C(160 + i * 22, 440);
-  for (let i = 0; i < 4; i++) C(330 + i * 22, 420);
-  for (let i = 0; i < 4; i++) C(510 + i * 22, 400);
-  // First enemies safely past the start area
-  E(680, 'goomba'); E(820, 'goomba');
+  const groundH = 100;
 
-  // ---- MID ZONE A (600-1600): platforms with comfortable gaps (≤160px), coin trails ----
-  P(660, 400, 120, 24, COLORS.purple);
-  P(840, 450, 120, 24, COLORS.blue);      // bridge down from 400→450 (easy hop)
-  P(1010, 380, 120, 24, COLORS.pink);
-  P(1180, 310, 120, 24, COLORS.green);
-  // bridge for big gap between 1180+120=1300 and 1480 below
-  P(1330, 360, 100, 24, COLORS.orange);   // NEW bridge platform
-  P(1480, 420, 140, 24, COLORS.cyan);
-  P(1670, 360, 120, 24, COLORS.blue);
-  // Question blocks above mid zone A platforms — reachable with normal jump (~220px above ground)
-  Q(700, 310, 'coin'); Q(740, 310, 'mushroom'); Q(780, 310, 'coin');
-  Q(1060, 290, 'coin'); Q(1220, 220, 'flower');
-  for (let i = 0; i < 4; i++) C(860 + i * 22, 420);
-  for (let i = 0; i < 4; i++) C(1030 + i * 22, 350);
-  for (let i = 0; i < 4; i++) C(1200 + i * 22, 280);
-  for (let i = 0; i < 4; i++) C(1500 + i * 22, 390);
-  E(960, 'spiky'); E(1100, 'goomba'); E(1550, 'goomba');
-  Eon(1180, GROUND_Y - 220, 'goomba'); // enemy on tall platform
+  const addGround = (tx, tw) => platforms.push(new Platform(gx(tx), GY, gx(tw), groundH, COLORS.ground));
+  // Ground with 2-tile (64px) pits
+  addGround(0, 47);      // 0–1504
+  addGround(49, 31);     // 1568–2560  (pit: 47T–49T)
+  addGround(81, 40);     // 2592–3872  (pit: 79T–81T)
+  addGround(122, 65);    // 3904–5984  (pit: 120T–122T)
 
-  // ---- QUESTION BLOCK COLUMN (2100-2350) ----
-  P(2180, GROUND_Y - 220, 50, 220, COLORS.orange);
-  for (let i = 0; i < 4; i++) Q(2175, GROUND_Y - 220 - 44 - i * 44, i === 1 ? 'mushroom' : 'coin');
-  Q(2060, GROUND_Y - 90, 'coin'); Q(2100, GROUND_Y - 130, 'coin');
-  C(2060, GROUND_Y - 130); C(2100, GROUND_Y - 170);
-  // Bridge to column from 1670+120=1790 — add stepping platform
-  P(1880, 400, 130, 24, COLORS.pink);    // NEW bridge
-  P(2020, 440, 110, 24, COLORS.purple);  // NEW bridge
-  for (let i = 0; i < 4; i++) C(1900 + i * 22, 370);
-  E(1950, 'goomba');
+  const P  = (tx,ty,tw,c) => platforms.push(new Platform(gx(tx), gy(ty), gx(tw), T, c));
+  const Q  = (tx,ty,c)    => { const q=new QuestionBlock(gx(tx), gy(ty)-36, c); qblocks.push(q); return q; };
+  const C  = (tx,ty)      => coins.push(new Coin(gx(tx)+8, gy(ty)-28));
+  const E  = (tx,type)    => enemies.push(new Enemy(gx(tx), GY, type));
+  const Ep = (tx,ty,type) => enemies.push(new Enemy(gx(tx), gy(ty), type));
 
-  // ---- MID-RIGHT ZONE (2400-4100) ----
-  // Tall blue vertical platform with coin trail
-  P(2700, GROUND_Y - 280, 56, 280, COLORS.blue);
-  P(2640, GROUND_Y - 60, 70, 60, COLORS.cyan);   // step up to it
-  // Bridge from column (2180+50=2230) to cyan step (2640)
-  P(2330, 450, 130, 24, COLORS.green);   // NEW bridge
-  P(2490, 420, 130, 24, COLORS.orange);  // NEW bridge
-  for (let i = 0; i < 6; i++) C(2580, GROUND_Y - 60 - i * 36);
-  Eon(2700, GROUND_Y - 280, 'spiky');
+  // ===== START ZONE  (tiles 0–16, x 0–512) =====
+  // Decorative left wall — 2T wide, player starts at x=80 (right of wall)
+  platforms.push(new Platform(0, gy(10), gx(2), gx(10), COLORS.red));
+  platforms.push(new Platform(0, gy(10), gx(2), T, COLORS.pink));
+  // Three easy platforms — no enemies
+  P(5,  3, 3, COLORS.orange);
+  P(9,  4, 3, COLORS.green);
+  P(13, 3, 4, COLORS.cyan);
+  for (let i=0;i<3;i++) C(5+i, 4);
+  for (let i=0;i<3;i++) C(9+i, 5);
+  for (let i=0;i<4;i++) C(13+i, 4);
 
-  P(2900, 430, 120, 24, COLORS.pink);
-  P(3080, 360, 120, 24, COLORS.green);
-  P(3260, 290, 120, 24, COLORS.purple);
-  // Bridge: 3260+120=3380 → 3520 — only 140px gap, fine. But add intermediate for height.
-  P(3450, 350, 120, 24, COLORS.orange);  // softer descent
-  P(3620, 420, 140, 24, COLORS.cyan);
-  P(3820, 360, 120, 24, COLORS.blue);
-  Q(2950, 340, 'flower'); Q(3310, 200, 'coin'); Q(3350, 200, 'coin');
-  for (let i = 0; i < 4; i++) C(2920 + i * 22, 400);
-  for (let i = 0; i < 4; i++) C(3100 + i * 22, 330);
-  for (let i = 0; i < 4; i++) C(3470 + i * 22, 320);
-  for (let i = 0; i < 4; i++) C(3840 + i * 22, 330);
-  E(2970, 'goomba'); E(3160, 'goomba'); E(3400, 'spiky');
-  E(3660, 'goomba'); E(3860, 'goomba');
-  Eon(3080, GROUND_Y - 270, 'goomba');
-  // Bridge to boss zone: 3820+120=3940 → 4060 gap, fine
-  P(4020, 450, 130, 24, COLORS.green);
-  P(4200, 420, 130, 24, COLORS.pink);
-  for (let i = 0; i < 4; i++) C(4040 + i * 22, 420);
-  E(4260, 'spiky');
+  // ===== SECTION A  (tiles 17–46, x 544–1504) =====
+  P(17, 4, 3, COLORS.blue);
+  P(21, 6, 3, COLORS.purple);
+  P(25, 4, 4, COLORS.pink);
+  P(30, 6, 3, COLORS.green);
+  P(34, 8, 3, COLORS.cyan);
+  P(38, 5, 4, COLORS.orange);
+  P(43, 3, 3, COLORS.blue);
+  P(46, 3, 3, COLORS.purple);
 
-  // ---- BOSS ZONE (4400-6000) ----
-  const arenaLeft = 4580, arenaRight = 5950;
-  // Entry pillar
-  P(4430, GROUND_Y - 140, 40, 140, COLORS.red); P(4430, GROUND_Y - 140, 40, 24, COLORS.pink);
-  // Stepping platforms through boss zone — generous spacing (≤160px)
-  P(4520, 410, 130, 24, COLORS.purple);  // from ground, easy first hop
-  P(4700, 360, 130, 24, COLORS.blue);
-  P(4880, 410, 130, 24, COLORS.orange);
-  P(5060, 350, 130, 24, COLORS.cyan);
-  P(5260, 400, 130, 24, COLORS.green);
-  for (let i = 0; i < 4; i++) C(4540 + i * 24, 380);
-  for (let i = 0; i < 4; i++) C(4720 + i * 24, 330);
-  for (let i = 0; i < 4; i++) C(5080 + i * 24, 320);
-  Q(5060, 260, 'flower');  // fire power-up before boss
-  // Castle back wall
-  P(5700, 180, 250, GROUND_Y - 180, COLORS.brick);
-  for (let i = 0; i < 5; i++) P(5700 + i * 50, 150, 30, 40, COLORS.brick);
-  P(5790, GROUND_Y - 110, 70, 110, '#3a2410');
-  E(4620, 'goomba'); E(4820, 'spiky');
-  boss = new Boss(5400, GROUND_Y, arenaLeft, arenaRight);
+  Q(18, 7, 'coin'); Q(19, 7, 'mushroom'); Q(20, 7, 'coin');
+  Q(31, 9, 'coin');
+  Q(34, 11, 'flower');
+
+  for (let i=0;i<3;i++) C(17+i, 5);
+  for (let i=0;i<4;i++) C(25+i, 5);
+  for (let i=0;i<3;i++) C(30+i, 7);
+  for (let i=0;i<4;i++) C(38+i, 6);
+  for (let i=0;i<3;i++) C(43+i, 4);
+
+  E(22, 'goomba'); E(27, 'goomba'); E(33, 'goomba'); E(37, 'spiky');
+  Ep(34, 8, 'goomba');
+
+  // ===== SECTION B  after pit 1  (tiles 49–78) =====
+  P(49, 3, 3, COLORS.green);
+  P(53, 5, 4, COLORS.pink);
+  P(58, 4, 3, COLORS.cyan);
+  P(62, 6, 4, COLORS.blue);
+  P(67, 4, 3, COLORS.orange);
+  P(71, 6, 3, COLORS.purple);
+  P(75, 4, 3, COLORS.green);
+  P(78, 3, 3, COLORS.pink);
+
+  Q(54, 8, 'coin'); Q(55, 8, 'flower');
+  Q(63, 9, 'coin'); Q(64, 9, 'coin');
+
+  for (let i=0;i<4;i++) C(53+i, 6);
+  for (let i=0;i<3;i++) C(62+i, 7);
+  for (let i=0;i<3;i++) C(71+i, 7);
+
+  E(50, 'goomba'); E(55, 'goomba'); E(60, 'spiky'); E(65, 'goomba'); E(73, 'spiky');
+
+  // ===== STAIRCASE + QUESTION BLOCKS  (tiles 81–105) =====
+  // Three colorful steps going up — no solid floor-to-ceiling column.
+  P(82, 4, 4, COLORS.orange);
+  P(87, 6, 4, COLORS.orange);
+  P(92, 8, 4, COLORS.orange);
+
+  Q(82, 7, 'coin'); Q(83, 7, 'mushroom'); Q(84, 7, 'coin');
+  Q(87, 9, 'coin'); Q(88, 9, 'coin');
+  Q(92, 11, 'flower'); Q(93, 11, 'coin');
+
+  for (let i=0;i<4;i++) C(82+i, 5);
+  for (let i=0;i<4;i++) C(87+i, 7);
+  for (let i=0;i<4;i++) C(92+i, 9);
+  // Vertical coin trail (visual reference to the drawing's tall column)
+  for (let n=1;n<=7;n++) coins.push(new Coin(gx(91)+8, gy(n+1)-4));
+
+  E(83, 'spiky'); Ep(87, 6, 'goomba'); Ep(93, 8, 'spiky');
+
+  // Descent from step 3 back down
+  P(97, 6, 3, COLORS.blue);
+  P(101, 4, 3, COLORS.cyan);
+  P(105, 3, 3, COLORS.purple);
+
+  for (let i=0;i<3;i++) C(97+i, 7);
+  E(98, 'goomba'); E(103, 'goomba');
+
+  // ===== SECTION C  (tiles 109–120) =====
+  P(109, 5, 4, COLORS.pink);
+  P(114, 7, 3, COLORS.green);
+  P(118, 5, 4, COLORS.blue);
+  P(120, 3, 3, COLORS.cyan);
+
+  Q(109, 8, 'flower'); Q(114, 10, 'coin'); Q(115, 10, 'coin');
+
+  for (let i=0;i<4;i++) C(109+i, 6);
+  for (let i=0;i<3;i++) C(114+i, 8);
+  for (let i=0;i<4;i++) C(118+i, 6);
+
+  E(110, 'goomba'); E(115, 'spiky'); E(119, 'goomba');
+  Ep(114, 7, 'goomba');
+
+  // ===== BOSS ZONE  (tiles 122–187) =====
+  const arenaLeft  = gx(143);
+  const arenaRight = gx(185);
+
+  // Entry gate — narrow pillar beside the path, not blocking it
+  platforms.push(new Platform(gx(138), gy(5), T*2, T*5, COLORS.red));
+  platforms.push(new Platform(gx(138), gy(5), T*2, T,   COLORS.pink));
+
+  P(123, 3, 4, COLORS.purple);
+  P(128, 5, 4, COLORS.blue);
+  P(133, 7, 4, COLORS.orange);
+  P(138, 5, 4, COLORS.cyan);
+  P(143, 4, 4, COLORS.green);
+  P(148, 6, 4, COLORS.purple);
+  P(153, 4, 4, COLORS.blue);
+  P(158, 6, 3, COLORS.orange);
+
+  Q(153, 9, 'flower');
+
+  for (let i=0;i<4;i++) C(128+i, 6);
+  for (let i=0;i<4;i++) C(143+i, 5);
+  for (let i=0;i<4;i++) C(148+i, 7);
+  for (let i=0;i<4;i++) C(153+i, 5);
+
+  E(125, 'goomba'); E(130, 'goomba'); E(135, 'spiky');
+  E(145, 'goomba'); E(150, 'spiky');
+
+  // Castle wall
+  platforms.push(new Platform(gx(177), gy(11), gx(8), T*11, COLORS.brick));
+  for (let i=0;i<7;i++) platforms.push(new Platform(gx(177+i), gy(12), T, T, COLORS.brick));
+  platforms.push(new Platform(gx(180), GY-T*3, T*2, T*3, '#3a2410'));
+
+  boss = new Boss(gx(162), GY, arenaLeft, arenaRight);
+
   return {
     platforms, qblocks, enemies, coins, boss,
     get solids() { return [...platforms, ...qblocks]; },
     width: LEVEL_WIDTH,
   };
+}
+
+// ============================================================
+// MUSIC (Web Audio API — original melody in D major)
+// ============================================================
+const _STEP = 60 / 160 / 2; // 8th note at 160 BPM
+const _N = {
+  _:0,
+  D3:146.83, A3:220,
+  D4:293.66, E4:329.63, Fs4:369.99, G4:392, A4:440, B4:493.88, C4:261.63,
+  D5:587.33, E5:659.25, Fs5:739.99, G5:783.99, A5:880, B5:987.77, Cs5:554.37,
+};
+// [melody_hz, dur_in_8ths, bass_hz]
+const _MELODY = [
+  // === Bar 1: bouncy opening (D major) ===
+  [_N.A4,1,_N.D3],[_N.A4,1,0],[0,1,0],[_N.A4,1,0],[0,1,0],[_N.Fs4,1,0],[_N.A4,2,0],
+  // === Bar 2: hold high note ===
+  [_N.D5,4,_N.A3],[0,4,0],
+  // === Bar 3: descending figure ===
+  [_N.D5,2,_N.D3],[0,1,0],[_N.A4,2,_N.A3],[0,1,0],[_N.Fs4,2,0],
+  // === Bar 4: chromatic colour ===
+  [_N.G4,2,_N.D3],[_N.A4,2,0],[_N.Cs5,1,0],[_N.B4,2,_N.A3],[0,1,0],
+  // === Bar 5: climb ===
+  [_N.A4,1,_N.D3],[_N.Cs5,1,0],[_N.E5,2,0],[_N.G5,2,_N.A3],[_N.Fs5,2,0],
+  // === Bar 6: high run ===
+  [_N.D5,2,_N.D3],[_N.Fs5,2,0],[_N.A5,2,_N.A3],[_N.B5,2,0],
+  // === Bar 7: melodic descent ===
+  [_N.G5,2,_N.G4],[_N.A5,1,0],[0,1,0],[_N.Fs5,2,_N.D3],[_N.D5,1,0],[_N.E5,1,0],[_N.Cs5,2,_N.A3],
+  // === Bar 8: cadence ===
+  [_N.D5,4,_N.D3],[0,4,0],
+];
+
+class Music {
+  constructor() { this.actx=null; this.running=false; this.idx=0; this.t=0; this.tid=null; }
+  _ctx() {
+    if (!this.actx) this.actx = new (window.AudioContext||window.webkitAudioContext)();
+    return this.actx;
+  }
+  start() {
+    if (this.running) return;
+    this.running=true; this.idx=0;
+    const ac=this._ctx(); this.t=ac.currentTime+0.05; this._pump();
+  }
+  stop() { this.running=false; clearTimeout(this.tid); }
+  _pump() {
+    if (!this.running) return;
+    const ac=this._ctx();
+    while (this.t < ac.currentTime+0.25) {
+      const [mhz,dur,bhz]=_MELODY[this.idx];
+      const d=dur*_STEP;
+      if (mhz) this._tone(ac,mhz,this.t,d,'square',0.06);
+      if (bhz) this._tone(ac,bhz,this.t,d*2,'triangle',0.09);
+      this.t+=d;
+      this.idx=(this.idx+1)%_MELODY.length;
+    }
+    this.tid=setTimeout(()=>this._pump(),50);
+  }
+  _tone(ac,freq,start,dur,type,vol) {
+    const osc=ac.createOscillator(), g=ac.createGain();
+    osc.type=type; osc.frequency.value=freq;
+    g.gain.setValueAtTime(vol,start);
+    g.gain.exponentialRampToValueAtTime(0.0001,start+dur*0.88);
+    osc.connect(g); g.connect(ac.destination);
+    osc.start(start); osc.stop(start+dur);
+  }
 }
 
 // ============================================================
@@ -875,6 +1038,7 @@ class Game {
   constructor(ctx, input) {
     this.ctx = ctx; this.input = input;
     this.r = new Renderer(ctx); this.cam = new Camera();
+    this.music = new Music();
     this.state = STATE.MENU;
     this.score = 0; this.lives = 3; this.coinsCollected = 0;
     this.resetLevel(true);
@@ -886,7 +1050,7 @@ class Game {
     this.fireballs = []; this.bossShots = []; this.powerups = [];
     if (fullReset) { this.score = 0; this.lives = 3; this.coinsCollected = 0; }
   }
-  start() { this.state = STATE.PLAYING; this.resetLevel(true); }
+  start() { this.state = STATE.PLAYING; this.resetLevel(true); this.music.start(); }
   spawnFireball(player) {
     const x = player.facing > 0 ? player.x + player.w : player.x - 14;
     this.fireballs.push(new Fireball(x, player.y + player.h * 0.4, player.facing));
