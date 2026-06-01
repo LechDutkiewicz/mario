@@ -29,12 +29,16 @@ export class Game {
     this.walkToPCTimer = 0;
     this.pcEnterX = 0;
     this.world = 1;
+    this.world2Area = 0;   // current area index within world 2
+    this.areaTransTimer = 0; // fade-out frames between area transitions
+    this._pendingArea = -1;
     this.resetLevel(true);
   }
 
   resetLevel(fullReset) {
     const savedPower = fullReset ? POWER.SMALL : (this.player ? this.player.power : POWER.SMALL);
-    this.level   = this.world === 2 ? buildWorld2() : buildWorld1();
+    if (fullReset) this.world2Area = 0;
+    this.level   = this.world === 2 ? buildWorld2(this.world2Area) : buildWorld1();
     this.r.currentSetting = this.level.setting || 'overworld';
     this.player  = new Player(80, GROUND_Y - 60);
     this.player.power = savedPower;
@@ -244,15 +248,21 @@ export class Game {
     if (lvl.plants) lvl.plants = lvl.plants.filter(pl => !pl.dead);
 
     // Pipe entry / exit — player presses DOWN on enterable pipe
-    if (input.down && p.onGround) {
+    if (input.down && p.onGround && this.areaTransTimer === 0) {
       for (const pl of lvl.platforms) {
         if (pl.enterable && !pl.isExit) {
           if (p.x + p.w > pl.x && p.x < pl.x + pl.w &&
               Math.abs((p.y + p.h) - pl.y) < 8) {
-            p.x = 7050;
-            p.y = GROUND_Y - p.h - 5;
-            this.cam.x = 7000;
-            this._showMsg('UNDERGROUND BONUS!', 90);
+            if (this.world === 2 && pl.leadsToArea !== undefined) {
+              // World 2 area transition
+              this._startAreaTransition(pl.leadsToArea);
+            } else if (this.world === 1) {
+              // World 1 underground bonus
+              p.x = 7050;
+              p.y = GROUND_Y - p.h - 5;
+              this.cam.x = 7000;
+              this._showMsg('UNDERGROUND BONUS!', 90);
+            }
             break;
           }
         }
@@ -266,6 +276,15 @@ export class Game {
             break;
           }
         }
+      }
+    }
+
+    // Area transition fade
+    if (this.areaTransTimer > 0) {
+      this.areaTransTimer--;
+      if (this.areaTransTimer === 0 && this._pendingArea >= 0) {
+        this._doAreaTransition(this._pendingArea);
+        this._pendingArea = -1;
       }
     }
 
@@ -294,7 +313,8 @@ export class Game {
           p.y = GROUND_Y - p.h;
           p.poleSliding = false;
           if (!this.walkToPC && this.worldClearTimer === 0 && this.walkToPCTimer === 0) {
-            this.pcEnterX = (this.level.pokeCenterX || 6400) + 100; // door center
+            const buildingX = this.level.pokeShopX ?? this.level.pokeCenterX ?? 6400;
+            this.pcEnterX = buildingX + 100; // door center
             p.walkToPC = true;
             this.walkToPC = true;
             this.music.stop();
@@ -323,8 +343,12 @@ export class Game {
         this.walkToPCTimer = 0;
         if (this.world === 1) {
           this.world = 2;
+          this.world2Area = 0;
           this.resetLevel(false);
           this.music.start();
+        } else if (this.world === 2 && this.world2Area === 1) {
+          // Underground complete → exit to overworld area 2
+          this._doAreaTransition(2);
         } else {
           this.state = STATE.WIN;
         }
@@ -346,6 +370,24 @@ export class Game {
 
   _showMsg(text, frames) {
     this._msg = { text, frames };
+  }
+
+  _startAreaTransition(toArea) {
+    this._pendingArea = toArea;
+    this.areaTransTimer = 40; // 40 frames fade-out
+  }
+
+  _doAreaTransition(toArea) {
+    const savedPower = this.player ? this.player.power : POWER.SMALL;
+    this.world2Area = toArea;
+    this.level = buildWorld2(toArea);
+    this.r.currentSetting = this.level.setting || 'overworld';
+    this.player = new Player(80, GROUND_Y - 60);
+    this.player.power = savedPower;
+    this.player._applySize();
+    this.cam.x = 0;
+    this.fireballs = []; this.bossShots = []; this.powerups = [];
+    this._debris = [];
   }
 
   _loseLife() {
@@ -393,7 +435,8 @@ export class Game {
     for (const fb of this.fireballs) fb.draw(r, this.cam);
     for (const bs of this.bossShots) bs.draw(r, this.cam);
     if (lvl.flagPole)                lvl.flagPole.draw(r, this.cam);
-    if (lvl.pokeCenterX !== undefined) this._drawPokeCenterBuilding(lvl.pokeCenterX);
+    if (lvl.pokeShopX !== undefined)   this._drawPokeShopBuilding(lvl.pokeShopX);
+    else if (lvl.pokeCenterX !== undefined) this._drawPokeCenterBuilding(lvl.pokeCenterX);
     this.player.draw(r, this.cam);
 
     this._drawHUD();
@@ -418,6 +461,13 @@ export class Game {
     if (this.state === STATE.PAUSED)    this._overlay('PAUSED', 'Press P to resume');
     if (this.state === STATE.GAME_OVER) this._overlay('GAME OVER', 'Press ENTER to restart');
     if (this.state === STATE.WIN)       this._drawWin();
+
+    // Area transition fade
+    if (this.areaTransTimer > 0) {
+      const alpha = 1 - this.areaTransTimer / 40;
+      this.ctx.fillStyle = `rgba(0,0,0,${alpha})`;
+      this.ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+    }
   }
 
   _drawHUD() {
@@ -573,6 +623,77 @@ export class Game {
 
     // Roof grid texture
     ctx.strokeStyle = 'rgba(160,60,0,0.35)'; ctx.lineWidth = 1;
+    for (let i = 1; i < 10; i++) {
+      const tx = x + (W / 10) * i;
+      ctx.beginPath();
+      ctx.moveTo(tx, bottomY - wallH);
+      ctx.lineTo(x + W / 2, bottomY - totalH - 9);
+      ctx.stroke();
+    }
+  }
+
+  _drawPokeShopBuilding(worldX) {
+    const ctx = this.ctx;
+    const x = Math.floor(worldX - this.cam.x);
+    const bottomY = GROUND_Y;
+    const W = 280, totalH = 200, wallH = 110;
+
+    // White main building
+    ctx.fillStyle = '#e8eaeb';
+    ctx.fillRect(x, bottomY - wallH, W, wallH);
+
+    // Blue-gray side trim
+    ctx.fillStyle = '#7a9ab5';
+    ctx.fillRect(x, bottomY - wallH, 25, wallH);
+    ctx.fillRect(x + W - 25, bottomY - wallH, 25, wallH);
+
+    // Stripe windows
+    ctx.fillStyle = '#a8c8e8';
+    for (let i = 0; i < 5; i++) {
+      ctx.fillRect(x + 4, bottomY - wallH + 14 + i * 6, 17, 4);
+      ctx.fillRect(x + W - 21, bottomY - wallH + 14 + i * 6, 17, 4);
+    }
+
+    // Central Great Ball logo (blue/white)
+    const pcx = x + W / 2, pcy = bottomY - 70;
+    const pr = 39;
+    ctx.fillStyle = '#3a7abf';
+    ctx.beginPath(); ctx.arc(pcx, pcy, pr, Math.PI, 0); ctx.fill();
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath(); ctx.arc(pcx, pcy, pr, 0, Math.PI); ctx.fill();
+    ctx.strokeStyle = '#333'; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.arc(pcx, pcy, pr, 0, Math.PI * 2); ctx.stroke();
+    ctx.fillStyle = '#333'; ctx.fillRect(pcx - pr, pcy - 5, pr * 2, 10);
+    ctx.fillStyle = '#f0f0f0';
+    ctx.beginPath(); ctx.arc(pcx, pcy, 14, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = '#333'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(pcx, pcy, 14, 0, Math.PI * 2); ctx.stroke();
+
+    // SHOP text
+    ctx.fillStyle = '#3a7abf';
+    ctx.font = 'bold 24px monospace';
+    ctx.textAlign = 'left';
+    ctx.fillText('SHOP', x + 28, bottomY - 18);
+
+    // Door (teal/blue)
+    ctx.fillStyle = '#4ab8c0';
+    ctx.fillRect(x + W / 2 - 28, bottomY - 49, 56, 49);
+    ctx.strokeStyle = '#1a6870'; ctx.lineWidth = 2;
+    ctx.strokeRect(x + W / 2 - 28, bottomY - 49, 56, 49);
+
+    // Blue dome roof
+    ctx.fillStyle = '#3a7abf';
+    ctx.beginPath();
+    ctx.moveTo(x - 14, bottomY - wallH);
+    ctx.quadraticCurveTo(x + W / 2, bottomY - totalH - 9, x + W + 14, bottomY - wallH);
+    ctx.closePath(); ctx.fill();
+
+    // Darker blue roof border
+    ctx.fillStyle = '#1a4a8f';
+    ctx.fillRect(x - 14, bottomY - wallH, W + 28, 14);
+
+    // Roof grid texture
+    ctx.strokeStyle = 'rgba(30,70,160,0.3)'; ctx.lineWidth = 1;
     for (let i = 1; i < 10; i++) {
       const tx = x + (W / 10) * i;
       ctx.beginPath();

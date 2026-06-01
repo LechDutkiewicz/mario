@@ -163,7 +163,7 @@ export class Player {
     // Wider proximity bump check for Q-blocks when jumping up
     if (this.vy < 0) {
       for (const s of solids) {
-        if (s.dead || s.used || !s.onBump) continue;
+        if (s.dead || s.used || !s.onBump || s.kind !== 'qblock') continue;
         const blockBottom = s.y + s.h;
         const playerTop = this.y;
         if (Math.abs(playerTop - blockBottom) < 10 &&
@@ -180,8 +180,8 @@ export class Player {
 
   _drawUmbreon(ctx, w, h) {
     // Umbreon: black body, yellow ring markings, red eyes
-    const BODY  = '#1a1a2e';
-    const RING  = '#f0c040';
+    const BODY  = '#2e2e52';
+    const RING  = '#ffe040';
     const EYE   = '#cc0000';
     const SHINE = '#ff6666';
     const jumping = !this.onGround;
@@ -385,6 +385,160 @@ export class Player {
     ctx.restore();
   }
 
+  _drawCrouchUmbreon(ctx, w, h) {
+    // Squashed Umbreon — compact crouching form
+    const BODY  = '#2e2e52';
+    const RING  = '#ffe040';
+    const EYE   = '#cc0000';
+    const SHINE = '#ff6666';
+
+    ctx.save();
+
+    // Body — wider and flatter
+    ctx.fillStyle = BODY;
+    ctx.beginPath();
+    ctx.ellipse(w * 0.5, h * 0.62, w * 0.46, h * 0.32, 0, 0, Math.PI * 2);
+    ctx.fill();
+    // Yellow ring on body
+    ctx.strokeStyle = RING;
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.ellipse(w * 0.5, h * 0.62, w * 0.32, h * 0.2, 0, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // Head — lower, merged into body
+    ctx.fillStyle = BODY;
+    ctx.beginPath();
+    ctx.ellipse(w * 0.5, h * 0.3, w * 0.36, h * 0.2, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Short flattened ears
+    ctx.fillStyle = BODY;
+    ctx.beginPath();
+    ctx.moveTo(w * 0.22, h * 0.18);
+    ctx.lineTo(w * 0.14, h * 0.04);
+    ctx.lineTo(w * 0.36, h * 0.14);
+    ctx.closePath(); ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(w * 0.62, h * 0.18);
+    ctx.lineTo(w * 0.76, h * 0.04);
+    ctx.lineTo(w * 0.72, h * 0.14);
+    ctx.closePath(); ctx.fill();
+    // Yellow ear rings
+    ctx.strokeStyle = RING;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(w * 0.24, h * 0.16);
+    ctx.lineTo(w * 0.19, h * 0.08);
+    ctx.lineTo(w * 0.34, h * 0.14);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(w * 0.63, h * 0.16);
+    ctx.lineTo(w * 0.72, h * 0.08);
+    ctx.lineTo(w * 0.69, h * 0.14);
+    ctx.stroke();
+
+    // Red eyes (visible, wide-set)
+    ctx.fillStyle = EYE;
+    ctx.beginPath(); ctx.ellipse(w * 0.35, h * 0.28, 3.5, 4, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(w * 0.65, h * 0.28, 3.5, 4, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = SHINE;
+    ctx.fillRect(w * 0.34, h * 0.24, 2, 2);
+    ctx.fillRect(w * 0.64, h * 0.24, 2, 2);
+
+    // Stub legs barely visible below body
+    ctx.fillStyle = BODY;
+    ctx.fillRect(w * 0.18, h * 0.82, w * 0.2, h * 0.16);
+    ctx.fillRect(w * 0.56, h * 0.82, w * 0.2, h * 0.16);
+    // Leg rings
+    ctx.strokeStyle = RING;
+    ctx.lineWidth = 2;
+    ctx.strokeRect(w * 0.19, h * 0.84, w * 0.18, h * 0.08);
+    ctx.strokeRect(w * 0.57, h * 0.84, w * 0.18, h * 0.08);
+
+    ctx.restore();
+  }
+
+  _drawCrouchFlareon(ctx, w, h) {
+    // Squashed Flareon — compact crouching form
+    const BODY  = '#f5d090';
+    const MANE  = '#e84a0c';
+    const MANE2 = '#ff8c00';
+    const EYE   = '#2a1a0a';
+    const SHINE = '#fff';
+    const t = Math.floor(this.animTimer / 4) % 3;
+
+    ctx.save();
+
+    // Body — wide and squat
+    ctx.fillStyle = BODY;
+    ctx.beginPath();
+    ctx.ellipse(w * 0.5, h * 0.64, w * 0.46, h * 0.3, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Compressed mane/collar — wider, shorter
+    ctx.fillStyle = MANE;
+    ctx.beginPath();
+    ctx.arc(w * 0.5, h * 0.42, w * 0.46, Math.PI * 0.05, Math.PI * 0.95);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = MANE2;
+    ctx.beginPath();
+    ctx.ellipse(w * 0.5, h * 0.44, w * 0.38, h * 0.16, 0, 0, Math.PI * 2);
+    ctx.fill();
+    // Flame flicker — shorter peaks
+    ctx.fillStyle = '#ffcc00';
+    ctx.beginPath();
+    ctx.ellipse(w * 0.5, h * 0.38, w * 0.22 + (t === 0 ? 3 : 0), h * 0.1, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Head — low and wide
+    ctx.fillStyle = BODY;
+    ctx.beginPath();
+    ctx.ellipse(w * 0.5, h * 0.24, w * 0.35, h * 0.18, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Short flat ears
+    ctx.fillStyle = BODY;
+    ctx.beginPath();
+    ctx.moveTo(w * 0.22, h * 0.16);
+    ctx.lineTo(w * 0.12, h * 0.04);
+    ctx.lineTo(w * 0.36, h * 0.13);
+    ctx.closePath(); ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(w * 0.62, h * 0.16);
+    ctx.lineTo(w * 0.78, h * 0.04);
+    ctx.lineTo(w * 0.72, h * 0.13);
+    ctx.closePath(); ctx.fill();
+    // Flame ear tips
+    ctx.fillStyle = MANE;
+    ctx.beginPath();
+    ctx.moveTo(w * 0.12, h * 0.04);
+    ctx.lineTo(w * 0.1, h * (-0.02));
+    ctx.lineTo(w * 0.24, h * 0.1);
+    ctx.closePath(); ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(w * 0.78, h * 0.04);
+    ctx.lineTo(w * 0.8, h * (-0.02));
+    ctx.lineTo(w * 0.7, h * 0.1);
+    ctx.closePath(); ctx.fill();
+
+    // Eyes
+    ctx.fillStyle = EYE;
+    ctx.beginPath(); ctx.ellipse(w * 0.36, h * 0.24, 3.5, 4, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(w * 0.64, h * 0.24, 3.5, 4, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = SHINE;
+    ctx.fillRect(w * 0.35, h * 0.2, 2, 2);
+    ctx.fillRect(w * 0.63, h * 0.2, 2, 2);
+
+    // Stub legs
+    ctx.fillStyle = BODY;
+    ctx.fillRect(w * 0.18, h * 0.82, w * 0.2, h * 0.16);
+    ctx.fillRect(w * 0.56, h * 0.82, w * 0.2, h * 0.16);
+
+    ctx.restore();
+  }
+
   draw(r, cam) {
     if (this.dead && this.deathTimer < 60 && Math.floor(this.deathTimer / 4) % 2) return;
     if (this.invincible > 0 && Math.floor(this.invincible / 4) % 2) return;
@@ -424,6 +578,16 @@ export class Player {
         ctx.restore();
         return;
       }
+    }
+
+    if (big && this.crouching) {
+      if (this.power === POWER.FIRE) {
+        this._drawCrouchFlareon(ctx, w, h);
+      } else {
+        this._drawCrouchUmbreon(ctx, w, h);
+      }
+      ctx.restore();
+      return;
     }
 
     if (this.crouching) {

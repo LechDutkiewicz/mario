@@ -117,9 +117,10 @@ function processMacro(e, out) {
     case 'Ceiling': {
       const w = ux(e.width || 0);
       if (w > 0) {
-        // Underground ceiling: 11 tiles from floor = GY - 11*T = 188
         const ceilY = GY - 11 * T;
-        out.platforms.push(new Platform(ux(x), ceilY, w, T, COLORS.brick));
+        for (let bx = ux(x); bx < ux(x) + w; bx += T) {
+          out.platforms.push(new BrickBlock(bx, ceilY));
+        }
       }
       break;
     }
@@ -144,7 +145,10 @@ function processMacro(e, out) {
       const heightTiles = Math.max(1, Math.round((e.height || 16) / 8));
       const sx = ux(x);
       const enterable = (e.entrance != null || e.exit != null);
-      out.platforms.push(new PipeBlock(sx, heightTiles, enterable));
+      const pb = new PipeBlock(sx, heightTiles, enterable);
+      // Tag exit pipes so game.js can trigger area transition
+      if (e.exit != null) pb.leadsToArea = 2;
+      out.platforms.push(pb);
       if (e.pirhana) {
         out.plants.push(new PipePlant(sx, GY - heightTiles * T - T));
       }
@@ -152,14 +156,18 @@ function processMacro(e, out) {
     }
 
     case 'PlatformGenerator': {
-      // Creates two staggered moving platforms over the gap.
+      // Vertical lifts over a gap — create 3 staggered platforms going up & down
       const sx = ux(x);
       const dir = (e.direction === -1) ? -1 : 1;
+      const range = T * 5;
       out.movingPlatforms.push(
-        new MovingPlatform(sx,         GY - T, T * 3, T / 2, 'x', dir * 1.2, T * 6)
+        new MovingPlatform(sx,           GY - T * 2,  T * 3, T / 2, 'y',  dir * 1.0, range)
       );
       out.movingPlatforms.push(
-        new MovingPlatform(sx + T * 4, GY - T, T * 3, T / 2, 'x', dir * 1.2, T * 6)
+        new MovingPlatform(sx + T * 4,   GY - T * 5,  T * 3, T / 2, 'y', -dir * 1.0, range)
+      );
+      out.movingPlatforms.push(
+        new MovingPlatform(sx + T * 8,   GY - T * 3,  T * 3, T / 2, 'y',  dir * 1.0, range)
       );
       break;
     }
