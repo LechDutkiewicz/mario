@@ -15,8 +15,9 @@ export class Renderer {
     ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
   }
 
-  // Pokémon location silhouettes in the far background
-  drawPokemonBackground(ctx, camX) {
+  // Pokémon location silhouettes — disabled
+  drawPokemonBackground(ctx, camX) { /* disabled */ }
+  _drawPokemonBackground_disabled(ctx, camX) {
     const groundLine = 490;
     const px = camX * 0.15;
     // Pallet Town houses at start of level
@@ -181,8 +182,11 @@ export class Renderer {
   drawBackground(camX) {
     const ctx = this.ctx;
 
-    // Pokémon location silhouettes (very slow parallax 0.15x)
-    this.drawPokemonBackground(ctx, camX);
+    if (this.currentSetting === 'underground') {
+      ctx.fillStyle = '#1a1a2e';
+      ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+      return;  // skip hills and clouds
+    }
 
     // Soft green hills at 0.3x parallax
     ctx.fillStyle = '#6ecb6e';

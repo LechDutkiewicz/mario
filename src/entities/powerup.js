@@ -33,7 +33,7 @@ export class PowerUp {
     this.vy += GRAVITY;
     if (this.vy > MAX_FALL_SPEED) this.vy = MAX_FALL_SPEED;
     const res = resolveCollisions(this, solids);
-    if (res.hitSide && this.vx !== 0) this.vx = -this.vx;
+    if (res.hitSide) this.vx = -this.vx;  // bounce off walls
   }
 
   draw(r, cam) {

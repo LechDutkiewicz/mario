@@ -39,7 +39,9 @@ export class QuestionBlock {
     if (this.contents === 'pokeball' || this.contents === 'coin') {
       game.collectBlockCoin(this.x + this.w / 2 - 10, this.y - 4);
     } else {
-      game.spawnPowerUp(this.x + 4, this.y - 4, this.contents);
+      // If player is small → grow (Rare Candy), if big → fire power (TM)
+      const kind = game.player.big ? 'tm' : 'candy';
+      game.spawnPowerUp(this.x + 4, this.y - 4, kind);
     }
   }
 

@@ -30,6 +30,7 @@ export class Player {
     this.fireCooldown = 0;
     this.crouching = false;
     this.poleSliding = false;
+    this.walkToPC = false;
   }
 
   get big() { return this.power !== POWER.SMALL; }
@@ -95,6 +96,11 @@ export class Player {
     if (this.poleSliding) {
       // game.js controls movement during slide
       if (this.invincible > 0) this.invincible--;
+      return;
+    }
+    if (this.walkToPC) {
+      // game.js controls movement while walking to Pokémon Center
+      this.animTimer++;
       return;
     }
 

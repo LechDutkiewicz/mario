@@ -101,6 +101,33 @@ export class Music {
     osc.stop(start + dur);
   }
 
+  playEndJingle() {
+    if (!this.actx) return;
+    const ac = this.actx;
+    const notes = [
+      [392, 0.0, 0.12],    // G4
+      [440, 0.12, 0.12],   // A4
+      [494, 0.24, 0.12],   // B4
+      [523, 0.36, 0.12],   // C5
+      [587, 0.48, 0.12],   // D5
+      [659, 0.60, 0.12],   // E5
+      [784, 0.72, 0.4],    // G5 long
+      [659, 1.12, 0.12],   // E5
+      [784, 1.24, 0.6],    // G5 held
+    ];
+    const now = ac.currentTime + 0.05;
+    for (const [freq, t, dur] of notes) {
+      const osc = ac.createOscillator();
+      const gain = ac.createGain();
+      osc.type = 'square';
+      osc.frequency.value = freq;
+      gain.gain.setValueAtTime(0.18, now + t);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + t + dur);
+      osc.connect(gain); gain.connect(ac.destination);
+      osc.start(now + t); osc.stop(now + t + dur + 0.05);
+    }
+  }
+
   // One-shot SFX: high chime for pokéball collect
   playCollect() {
     try {

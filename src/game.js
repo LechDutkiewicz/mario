@@ -10,6 +10,7 @@ import { PowerUp }  from './entities/powerup.js';
 import { Coin }     from './entities/coin.js';
 import { Fireball } from './entities/projectile.js';
 import { buildWorld1 } from './levels/world1.js';
+import { buildWorld2 } from './levels/world2.js';
 import { aabb }     from './physics.js';
 
 export class Game {
@@ -24,11 +25,16 @@ export class Game {
     this.lives = 3;
     this.coinsCollected = 0;
     this.worldClearTimer = 0;
+    this.walkToPC = false;
+    this.walkToPCTimer = 0;
+    this.pcEnterX = 0;
+    this.world = 1;
     this.resetLevel(true);
   }
 
   resetLevel(fullReset) {
-    this.level   = buildWorld1();
+    this.level   = this.world === 2 ? buildWorld2() : buildWorld1();
+    this.r.currentSetting = this.level.setting || 'overworld';
     this.player  = new Player(80, GROUND_Y - 60);
     this.cam.x   = 0;
     this.fireballs  = [];
@@ -44,9 +50,14 @@ export class Game {
 
   start() {
     this.state = STATE.PLAYING;
+    this.world = 1;
+    this.walkToPC = false;
+    this.walkToPCTimer = 0;
     this.resetLevel(true);
     this.music.start();
   }
+
+  _playEndJingle() { if (this.music) this.music.playEndJingle(); }
 
   spawnFireball(player) {
     const x = player.facing > 0 ? player.x + player.w : player.x - 18;
@@ -247,11 +258,40 @@ export class Game {
         if (p.y + p.h >= GROUND_Y) {
           p.y = GROUND_Y - p.h;
           p.poleSliding = false;
-          if (this.worldClearTimer === 0) {
-            this.worldClearTimer = 180;
+          if (!this.walkToPC && this.worldClearTimer === 0 && this.walkToPCTimer === 0) {
+            this.pcEnterX = (this.level.pokeCenterX || 6400) + 50;
+            p.walkToPC = true;
+            this.walkToPC = true;
+            this.music.stop();
+            this._playEndJingle();
           }
         }
       }
+    }
+    if (p.walkToPC) {
+      p.vx = 2;
+      p.x += p.vx;
+      p.vy = 0;
+      if (p.x > this.pcEnterX) {
+        p.walkToPC = false;
+        this.walkToPC = false;
+        p.x = this.pcEnterX + 30;
+        this.walkToPCTimer = 180;
+      }
+      return;
+    }
+    if (this.walkToPCTimer > 0) {
+      this.walkToPCTimer--;
+      if (this.walkToPCTimer === 0) {
+        if (this.world === 1) {
+          this.world = 2;
+          this.resetLevel(false);
+          this.music.start();
+        } else {
+          this.state = STATE.WIN;
+        }
+      }
+      return;
     }
     if (this.worldClearTimer > 0) {
       this.worldClearTimer--;
@@ -323,6 +363,7 @@ export class Game {
     }
 
     if (this.worldClearTimer > 0)    this._drawWorldClear();
+    if (this.walkToPCTimer > 0)      this._drawScoreTally();
     if (this.state === STATE.PAUSED)    this._overlay('PAUSED', 'Press P to resume');
     if (this.state === STATE.GAME_OVER) this._overlay('GAME OVER', 'Press ENTER to restart');
     if (this.state === STATE.WIN)       this._drawWin();
@@ -424,8 +465,8 @@ export class Game {
     const ctx = this.ctx;
     const x = Math.floor(worldX - this.cam.x);
     const bottomY = GROUND_Y;
-    const W = 160, totalH = 120;
-    const wallH = 65;
+    const W = 280, totalH = 200;
+    const wallH = 110;
 
     // White main building
     ctx.fillStyle = '#e8eaeb';
@@ -433,51 +474,51 @@ export class Game {
 
     // Gray side trim
     ctx.fillStyle = '#b0b5ba';
-    ctx.fillRect(x, bottomY - wallH, 14, wallH);
-    ctx.fillRect(x + W - 14, bottomY - wallH, 14, wallH);
+    ctx.fillRect(x, bottomY - wallH, 25, wallH);
+    ctx.fillRect(x + W - 25, bottomY - wallH, 25, wallH);
 
     // Blue side windows (tall)
     ctx.fillStyle = '#5baae7';
-    ctx.fillRect(x + 2, bottomY - wallH + 8, 10, 30);
-    ctx.fillRect(x + W - 12, bottomY - wallH + 8, 10, 30);
+    ctx.fillRect(x + 4, bottomY - wallH + 14, 17, 53);
+    ctx.fillRect(x + W - 21, bottomY - wallH + 14, 17, 53);
 
     // Central Pokéball logo
-    const pcx = x + W / 2, pcy = bottomY - 40;
-    const pr = 22;
+    const pcx = x + W / 2, pcy = bottomY - 70;
+    const pr = 39;
     ctx.fillStyle = '#cc2222';
     ctx.beginPath(); ctx.arc(pcx, pcy, pr, Math.PI, 0); ctx.fill();
     ctx.fillStyle = '#ffffff';
     ctx.beginPath(); ctx.arc(pcx, pcy, pr, 0, Math.PI); ctx.fill();
     ctx.strokeStyle = '#333'; ctx.lineWidth = 3;
     ctx.beginPath(); ctx.arc(pcx, pcy, pr, 0, Math.PI * 2); ctx.stroke();
-    ctx.fillStyle = '#333'; ctx.fillRect(pcx - pr, pcy - 3, pr * 2, 6);
+    ctx.fillStyle = '#333'; ctx.fillRect(pcx - pr, pcy - 5, pr * 2, 10);
     ctx.fillStyle = '#f0f0f0';
-    ctx.beginPath(); ctx.arc(pcx, pcy, 8, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(pcx, pcy, 14, 0, Math.PI * 2); ctx.fill();
     ctx.strokeStyle = '#333'; ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.arc(pcx, pcy, 8, 0, Math.PI * 2); ctx.stroke();
+    ctx.beginPath(); ctx.arc(pcx, pcy, 14, 0, Math.PI * 2); ctx.stroke();
 
     // P.C text
     ctx.fillStyle = '#cc2222';
-    ctx.font = 'bold 14px monospace';
+    ctx.font = 'bold 24px monospace';
     ctx.textAlign = 'left';
-    ctx.fillText('P.C', x + 18, bottomY - 10);
+    ctx.fillText('P.C', x + 32, bottomY - 18);
 
     // Blue entrance door
     ctx.fillStyle = '#5baae7';
-    ctx.fillRect(x + W / 2 - 16, bottomY - 28, 32, 28);
+    ctx.fillRect(x + W / 2 - 28, bottomY - 49, 56, 49);
     ctx.strokeStyle = '#2a5a80'; ctx.lineWidth = 2;
-    ctx.strokeRect(x + W / 2 - 16, bottomY - 28, 32, 28);
+    ctx.strokeRect(x + W / 2 - 28, bottomY - 49, 56, 49);
 
     // Red dome roof
     ctx.fillStyle = '#d44000';
     ctx.beginPath();
-    ctx.moveTo(x - 8, bottomY - wallH);
-    ctx.quadraticCurveTo(x + W / 2, bottomY - totalH - 5, x + W + 8, bottomY - wallH);
+    ctx.moveTo(x - 14, bottomY - wallH);
+    ctx.quadraticCurveTo(x + W / 2, bottomY - totalH - 9, x + W + 14, bottomY - wallH);
     ctx.closePath(); ctx.fill();
 
     // Darker red border on roof bottom
     ctx.fillStyle = '#a83000';
-    ctx.fillRect(x - 8, bottomY - wallH, W + 16, 8);
+    ctx.fillRect(x - 14, bottomY - wallH, W + 28, 14);
 
     // Roof grid texture
     ctx.strokeStyle = 'rgba(160,60,0,0.35)'; ctx.lineWidth = 1;
@@ -485,9 +526,34 @@ export class Game {
       const tx = x + (W / 10) * i;
       ctx.beginPath();
       ctx.moveTo(tx, bottomY - wallH);
-      ctx.lineTo(x + W / 2, bottomY - totalH - 5);
+      ctx.lineTo(x + W / 2, bottomY - totalH - 9);
       ctx.stroke();
     }
+  }
+
+  _drawScoreTally() {
+    const ctx = this.ctx;
+    ctx.fillStyle = 'rgba(0,0,0,0.6)';
+    ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#ffd23b';
+    ctx.font = 'bold 48px monospace';
+    ctx.fillText('COURSE CLEAR!', CANVAS_WIDTH / 2, 180);
+    const progress = 1 - this.walkToPCTimer / 180;
+    const shownScore = Math.floor(this.score * progress);
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 28px monospace';
+    ctx.fillText('SCORE', CANVAS_WIDTH / 2, 260);
+    ctx.fillStyle = '#ffd23b';
+    ctx.font = 'bold 36px monospace';
+    ctx.fillText(String(shownScore).padStart(7, '0'), CANVAS_WIDTH / 2, 305);
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 24px monospace';
+    ctx.fillText(`POKÉBALLS  ×${this.coinsCollected}`, CANVAS_WIDTH / 2, 360);
+    ctx.fillStyle = '#aaa';
+    ctx.font = '18px monospace';
+    ctx.fillText('Press ENTER to continue', CANVAS_WIDTH / 2, 440);
+    ctx.textAlign = 'left';
   }
 
   _drawMenu() {

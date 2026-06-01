@@ -76,7 +76,7 @@ export function buildWorld1() {
   // === Q-blocks ===
   Q(16, 4, 'coin');
   Q(21, 4, 'grow');
-  Q(22, 5, 'coin');
+  Q(22, 4, 'coin');   // same height as brick row
   Q(23, 4, 'coin');
   Q(64, 5, 'grow');    // hidden-ish, treat as normal
   Q(78, 4, 'grow');
