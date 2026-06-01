@@ -6,8 +6,8 @@ import { resolveCollisions } from '../physics.js';
 export class PowerUp {
   constructor(x, y, kind) {
     // normalise legacy kinds
-    if (kind === 'mushroom') kind = 'candy';
-    if (kind === 'flower')   kind = 'tm';
+    if (kind === 'mushroom' || kind === 'grow') kind = 'candy';
+    if (kind === 'flower'   || kind === 'fire') kind = 'tm';
     this.kind = kind;
     this.x = x;
     this.w = 28;
@@ -32,9 +32,8 @@ export class PowerUp {
 
     this.vy += GRAVITY;
     if (this.vy > MAX_FALL_SPEED) this.vy = MAX_FALL_SPEED;
-    const prevX = this.x;
-    resolveCollisions(this, solids);
-    if (this.x === prevX && this.vx !== 0) this.vx = -this.vx;
+    const res = resolveCollisions(this, solids);
+    if (res.hitSide && this.vx !== 0) this.vx = -this.vx;
   }
 
   draw(r, cam) {
