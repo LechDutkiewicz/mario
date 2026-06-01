@@ -439,8 +439,8 @@ export class Game {
     ctx.fillText('BALLS ' + this.coinsCollected,   CANVAS_WIDTH - 234, 62);
 
     const pw    = this.player.power;
-    const label = pw === POWER.FIRE ? 'FIRE' : pw === POWER.BIG ? 'BIG' : 'SMALL';
-    ctx.fillStyle = pw === POWER.FIRE ? '#ff6600' : '#fff';
+    const label = pw === POWER.FIRE ? 'FLAREON' : pw === POWER.BIG ? 'UMBREON' : 'EEVEE';
+    ctx.fillStyle = pw === POWER.FIRE ? '#ff6600' : pw === POWER.BIG ? '#f0c040' : '#fff';
     ctx.strokeText(label, 24, 64);
     ctx.fillText(label,   24, 64);
     ctx.fillStyle = '#fff';

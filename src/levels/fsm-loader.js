@@ -26,7 +26,7 @@ const uy = u => GY - u * 4;
 
 function mapContents(c) {
   if (!c || Array.isArray(c)) return 'pokeball';
-  const map = { Mushroom:'grow', Mushroom1Up:'grow', FireFlower:'fire', Coin:'coin', Star:'grow' };
+  const map = { Mushroom:'candy', Mushroom1Up:'candy', FireFlower:'firestone', Coin:'coin', Star:'candy' };
   return map[c] || 'pokeball';
 }
 

@@ -53,10 +53,10 @@ export class Player {
   }
 
   powerUp(kind) {
-    // kind: 'candy' (Rare Candy = grow) | 'tm' (TM Fire = fire power)
-    if (kind === 'candy' || kind === 'mushroom') {
+    // kind: 'candy' (Rare Candy → Umbreon) | 'firestone' (Fire Stone → Flareon)
+    if (kind === 'candy' || kind === 'mushroom' || kind === 'grow') {
       if (this.power === POWER.SMALL) { this.power = POWER.BIG; this._applySize(); }
-    } else if (kind === 'tm' || kind === 'flower') {
+    } else if (kind === 'firestone' || kind === 'tm' || kind === 'flower' || kind === 'fire') {
       this.power = POWER.FIRE;
       this._applySize();
     }
@@ -178,6 +178,213 @@ export class Player {
     if (this.x < 0) { this.x = 0; this.vx = 0; }
   }
 
+  _drawUmbreon(ctx, w, h) {
+    // Umbreon: black body, yellow ring markings, red eyes
+    const BODY  = '#1a1a2e';
+    const RING  = '#f0c040';
+    const EYE   = '#cc0000';
+    const SHINE = '#ff6666';
+    const jumping = !this.onGround;
+
+    ctx.save();
+
+    // Tail (sweeping back)
+    ctx.strokeStyle = BODY;
+    ctx.lineWidth = 8;
+    ctx.beginPath();
+    ctx.moveTo(w * 0.7, h * 0.42);
+    ctx.quadraticCurveTo(w * 1.3, h * 0.28, w * 1.15, h * 0.52);
+    ctx.stroke();
+    // Yellow ring on tail tip
+    ctx.strokeStyle = RING;
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(w * 1.12, h * 0.5, 6, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // Body
+    ctx.fillStyle = BODY;
+    ctx.beginPath();
+    ctx.ellipse(w * 0.5, h * 0.62, w * 0.44, h * 0.26, 0, 0, Math.PI * 2);
+    ctx.fill();
+    // Yellow ring on body
+    ctx.strokeStyle = RING;
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.ellipse(w * 0.5, h * 0.62, w * 0.3, h * 0.16, 0, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // Neck/chest
+    ctx.fillStyle = BODY;
+    ctx.beginPath();
+    ctx.ellipse(w * 0.5, h * 0.44, w * 0.3, h * 0.14, 0, 0, Math.PI * 2);
+    ctx.fill();
+    // Yellow ring on neck
+    ctx.strokeStyle = RING;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.ellipse(w * 0.5, h * 0.44, w * 0.22, h * 0.09, 0, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // Head
+    ctx.fillStyle = BODY;
+    ctx.beginPath();
+    ctx.ellipse(w * 0.5, h * 0.24, w * 0.34, h * 0.16, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Ears — pointed and upright
+    const earTilt = jumping ? 0.4 : 0;
+    ctx.fillStyle = BODY;
+    ctx.beginPath();
+    ctx.moveTo(w * 0.22, h * 0.16);
+    ctx.lineTo(w * (0.1 + earTilt * 0.08), h * (-0.02 - earTilt * 0.02));
+    ctx.lineTo(w * 0.36, h * 0.13);
+    ctx.closePath(); ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(w * 0.62, h * 0.16);
+    ctx.lineTo(w * (0.78 - earTilt * 0.08), h * (-0.02 - earTilt * 0.02));
+    ctx.lineTo(w * 0.72, h * 0.13);
+    ctx.closePath(); ctx.fill();
+    // Yellow ear rings
+    ctx.strokeStyle = RING;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(w * 0.25, h * 0.14);
+    ctx.lineTo(w * 0.19, h * 0.06);
+    ctx.lineTo(w * 0.33, h * 0.13);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(w * 0.63, h * 0.14);
+    ctx.lineTo(w * 0.72, h * 0.06);
+    ctx.lineTo(w * 0.69, h * 0.13);
+    ctx.stroke();
+
+    // Red eyes
+    ctx.fillStyle = EYE;
+    ctx.beginPath(); ctx.ellipse(w * 0.37, h * 0.23, 3.5, 4.5, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(w * 0.63, h * 0.23, 3.5, 4.5, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = SHINE;
+    ctx.fillRect(w * 0.36, h * 0.19, 2, 2);
+    ctx.fillRect(w * 0.62, h * 0.19, 2, 2);
+
+    // Legs
+    ctx.fillStyle = BODY;
+    if (jumping) {
+      ctx.fillRect(w * 0.18, h * 0.78, w * 0.2, h * 0.12);
+      ctx.fillRect(w * 0.56, h * 0.72, w * 0.2, h * 0.12);
+    } else {
+      const step = Math.abs(this.vx) > 0.3 ? Math.floor(this.animTimer / 8) % 2 : 0;
+      ctx.fillRect(w * (0.16 + step * 0.06), h * 0.78, w * 0.2, h * 0.18);
+      ctx.fillRect(w * (0.54 - step * 0.06), h * 0.78, w * 0.2, h * 0.18);
+    }
+    // Yellow leg rings
+    ctx.strokeStyle = RING;
+    ctx.lineWidth = 2;
+    const legX1 = w * (0.16 + (Math.abs(this.vx) > 0.3 ? (Math.floor(this.animTimer / 8) % 2) * 0.06 : 0));
+    const legX2 = w * (0.54 - (Math.abs(this.vx) > 0.3 ? (Math.floor(this.animTimer / 8) % 2) * 0.06 : 0));
+    ctx.strokeRect(legX1 + 1, h * 0.82, w * 0.18, h * 0.1);
+    ctx.strokeRect(legX2 + 1, h * 0.82, w * 0.18, h * 0.1);
+
+    ctx.restore();
+  }
+
+  _drawFlareon(ctx, w, h) {
+    // Flareon: cream/orange body, fiery red mane, bushy flame tail
+    const BODY  = '#f5d090';
+    const MANE  = '#e84a0c';
+    const MANE2 = '#ff8c00';
+    const EYE   = '#2a1a0a';
+    const SHINE = '#fff';
+    const jumping = !this.onGround;
+    const t = Math.floor(this.animTimer / 4) % 3;
+
+    ctx.save();
+
+    // Flame tail (animated)
+    for (let i = 0; i < 3; i++) {
+      const flicker = (t === i) ? 0.08 : 0;
+      ctx.fillStyle = i === 0 ? MANE : i === 1 ? MANE2 : '#ffcc00';
+      ctx.beginPath();
+      ctx.ellipse(w * (1.1 + flicker), h * (0.45 - i * 0.04), 9 - i * 2, 11 - i * 2, -0.4, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // Body
+    ctx.fillStyle = BODY;
+    ctx.beginPath();
+    ctx.ellipse(w * 0.5, h * 0.62, w * 0.44, h * 0.26, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Chest mane (large fluffy collar)
+    ctx.fillStyle = MANE;
+    ctx.beginPath();
+    ctx.arc(w * 0.5, h * 0.4, w * 0.44, Math.PI * 0.1, Math.PI * 0.9);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = MANE2;
+    ctx.beginPath();
+    ctx.ellipse(w * 0.5, h * 0.42, w * 0.36, h * 0.17, 0, 0, Math.PI * 2);
+    ctx.fill();
+    // Flame flicker on mane
+    ctx.fillStyle = '#ffcc00';
+    ctx.beginPath();
+    ctx.ellipse(w * 0.5, h * 0.38, w * 0.2 + (t === 0 ? 3 : 0), h * 0.1, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Head
+    ctx.fillStyle = BODY;
+    ctx.beginPath();
+    ctx.ellipse(w * 0.5, h * 0.24, w * 0.34, h * 0.16, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Ears (flame-tipped)
+    const earTilt = jumping ? 0.5 : 0;
+    ctx.fillStyle = BODY;
+    ctx.beginPath();
+    ctx.moveTo(w * 0.22, h * 0.15);
+    ctx.lineTo(w * (0.1 + earTilt * 0.1), h * (0.0 - earTilt * 0.03));
+    ctx.lineTo(w * 0.36, h * 0.12);
+    ctx.closePath(); ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(w * 0.62, h * 0.15);
+    ctx.lineTo(w * (0.78 - earTilt * 0.1), h * (0.0 - earTilt * 0.03));
+    ctx.lineTo(w * 0.72, h * 0.12);
+    ctx.closePath(); ctx.fill();
+    // Flame ear tips
+    ctx.fillStyle = MANE;
+    ctx.beginPath();
+    ctx.moveTo(w * (0.1 + earTilt * 0.1), h * (0.0 - earTilt * 0.03));
+    ctx.lineTo(w * (0.08 + earTilt * 0.1), h * (-0.05 - earTilt * 0.02));
+    ctx.lineTo(w * 0.24, h * 0.1);
+    ctx.closePath(); ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(w * (0.78 - earTilt * 0.1), h * (0.0 - earTilt * 0.03));
+    ctx.lineTo(w * (0.8 - earTilt * 0.1), h * (-0.05 - earTilt * 0.02));
+    ctx.lineTo(w * 0.7, h * 0.1);
+    ctx.closePath(); ctx.fill();
+
+    // Eyes
+    ctx.fillStyle = EYE;
+    ctx.beginPath(); ctx.ellipse(w * 0.37, h * 0.23, 3.5, 4.5, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(w * 0.63, h * 0.23, 3.5, 4.5, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = SHINE;
+    ctx.fillRect(w * 0.36, h * 0.19, 2, 2);
+    ctx.fillRect(w * 0.62, h * 0.19, 2, 2);
+
+    // Legs
+    ctx.fillStyle = BODY;
+    if (jumping) {
+      ctx.fillRect(w * 0.18, h * 0.78, w * 0.2, h * 0.12);
+      ctx.fillRect(w * 0.56, h * 0.72, w * 0.2, h * 0.12);
+    } else {
+      const step = Math.abs(this.vx) > 0.3 ? Math.floor(this.animTimer / 8) % 2 : 0;
+      ctx.fillRect(w * (0.16 + step * 0.06), h * 0.78, w * 0.2, h * 0.18);
+      ctx.fillRect(w * (0.54 - step * 0.06), h * 0.78, w * 0.2, h * 0.18);
+    }
+
+    ctx.restore();
+  }
+
   draw(r, cam) {
     if (this.dead && this.deathTimer < 60 && Math.floor(this.deathTimer / 4) % 2) return;
     if (this.invincible > 0 && Math.floor(this.invincible / 4) % 2) return;
@@ -194,8 +401,7 @@ export class Player {
     const EYE   = COLORS.eeveeEye;   // '#2a1a0a'
     const SHINE = '#fff';
     const TAIL  = COLORS.eeveeRuff;
-    // Fire power tints the ruff orange
-    const ruffCol = this.power === POWER.FIRE ? '#ffc060' : RUFF;
+    const ruffCol = RUFF;
 
     ctx.save();
     if (this.facing < 0) {
@@ -206,6 +412,19 @@ export class Player {
     }
 
     const big = h > PLAYER_SMALL_H + 2;
+
+    // Dispatch big forms to dedicated drawers
+    if (big && !this.crouching) {
+      if (this.power === POWER.FIRE) {
+        this._drawFlareon(ctx, w, h);
+        ctx.restore();
+        return;
+      } else if (this.power === POWER.BIG) {
+        this._drawUmbreon(ctx, w, h);
+        ctx.restore();
+        return;
+      }
+    }
 
     if (this.crouching) {
       // Crouched small Eevee — squashed
@@ -238,97 +457,6 @@ export class Player {
       ctx.fillStyle = BODY;
       ctx.fillRect(w * 0.2, bh * 0.78, w * 0.15, h * 0.2);
       ctx.fillRect(w * 0.6, bh * 0.78, w * 0.15, h * 0.2);
-    } else if (big) {
-      // BIG Eevee (32x56)
-      const jumping = !this.onGround;
-      // Tail (extends right opposite facing — since we flip, always draw right)
-      ctx.fillStyle = BODY;
-      ctx.beginPath();
-      ctx.moveTo(w * 0.7, h * 0.42);
-      ctx.quadraticCurveTo(w * 1.3, h * 0.3, w * 1.1, h * 0.55);
-      ctx.lineWidth = 7;
-      ctx.strokeStyle = BODY;
-      ctx.stroke();
-      ctx.fillStyle = TAIL;
-      ctx.beginPath();
-      ctx.ellipse(w * 1.12, h * 0.52, 8, 7, -0.4, 0, Math.PI * 2);
-      ctx.fill();
-
-      // Body oval
-      ctx.fillStyle = BODY;
-      ctx.beginPath();
-      ctx.ellipse(w * 0.5, h * 0.62, w * 0.44, h * 0.26, 0, 0, Math.PI * 2);
-      ctx.fill();
-
-      // Large ruff
-      ctx.fillStyle = ruffCol;
-      ctx.beginPath();
-      ctx.arc(w * 0.5, h * 0.38, w * 0.42, Math.PI * 0.15, Math.PI * 0.85);
-      ctx.closePath();
-      ctx.fill();
-      ctx.beginPath();
-      ctx.ellipse(w * 0.5, h * 0.4, w * 0.4, h * 0.18, 0, 0, Math.PI * 2);
-      ctx.fill();
-
-      // Head
-      ctx.fillStyle = BODY;
-      ctx.beginPath();
-      ctx.ellipse(w * 0.5, h * 0.24, w * 0.34, h * 0.16, 0, 0, Math.PI * 2);
-      ctx.fill();
-
-      // Ears — swept back if jumping
-      const earTilt = jumping ? 0.5 : 0;
-      ctx.fillStyle = BODY;
-      // Left ear
-      ctx.beginPath();
-      ctx.moveTo(w * 0.22, h * 0.15);
-      ctx.lineTo(w * (0.1 + earTilt * 0.1), h * (0.0 - earTilt * 0.03));
-      ctx.lineTo(w * 0.36, h * 0.12);
-      ctx.closePath(); ctx.fill();
-      // Right ear
-      ctx.beginPath();
-      ctx.moveTo(w * 0.62, h * 0.15);
-      ctx.lineTo(w * (0.78 - earTilt * 0.1), h * (0.0 - earTilt * 0.03));
-      ctx.lineTo(w * 0.72, h * 0.12);
-      ctx.closePath(); ctx.fill();
-      ctx.fillStyle = EAR_I;
-      ctx.beginPath();
-      ctx.moveTo(w * 0.25, h * 0.14);
-      ctx.lineTo(w * (0.16 + earTilt * 0.1), h * 0.04);
-      ctx.lineTo(w * 0.35, h * 0.13);
-      ctx.closePath(); ctx.fill();
-      ctx.beginPath();
-      ctx.moveTo(w * 0.63, h * 0.14);
-      ctx.lineTo(w * (0.74 - earTilt * 0.1), h * 0.04);
-      ctx.lineTo(w * 0.70, h * 0.13);
-      ctx.closePath(); ctx.fill();
-
-      // Eyes
-      ctx.fillStyle = EYE;
-      ctx.beginPath(); ctx.ellipse(w * 0.37, h * 0.23, 3.5, 4.5, 0, 0, Math.PI * 2); ctx.fill();
-      ctx.beginPath(); ctx.ellipse(w * 0.63, h * 0.23, 3.5, 4.5, 0, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = SHINE;
-      ctx.fillRect(w * 0.36, h * 0.19, 2, 2);
-      ctx.fillRect(w * 0.62, h * 0.19, 2, 2);
-
-      // Legs — tuck up if jumping
-      ctx.fillStyle = BODY;
-      if (jumping) {
-        ctx.fillRect(w * 0.18, h * 0.78, w * 0.2, h * 0.12);
-        ctx.fillRect(w * 0.56, h * 0.72, w * 0.2, h * 0.12);
-      } else {
-        const step = Math.abs(this.vx) > 0.3 ? Math.floor(this.animTimer / 8) % 2 : 0;
-        ctx.fillRect(w * (0.16 + step * 0.06), h * 0.78, w * 0.2, h * 0.18);
-        ctx.fillRect(w * (0.54 - step * 0.06), h * 0.78, w * 0.2, h * 0.18);
-      }
-
-      // Fire sparkle on ruff
-      if (this.power === POWER.FIRE) {
-        const t = Math.floor(this.animTimer / 5) % 2;
-        ctx.fillStyle = t ? '#ff6600' : '#ffcc00';
-        ctx.beginPath(); ctx.arc(w * 0.22, h * 0.38, 5, 0, Math.PI * 2); ctx.fill();
-        ctx.beginPath(); ctx.arc(w * 0.78, h * 0.38, 5, 0, Math.PI * 2); ctx.fill();
-      }
     } else {
       // SMALL Eevee (28x32)
       const jumping = !this.onGround;

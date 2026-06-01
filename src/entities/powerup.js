@@ -1,13 +1,11 @@
 import { GRAVITY, MAX_FALL_SPEED } from '../constants.js';
 import { resolveCollisions } from '../physics.js';
 
-// kind: 'candy' (Rare Candy — grow) | 'tm' (TM Fire — fire power)
-// Also accepts legacy 'mushroom' / 'flower' as aliases
+// kind: 'candy' (Rare Candy → Umbreon) | 'firestone' (Fire Stone → Flareon)
 export class PowerUp {
   constructor(x, y, kind) {
-    // normalise legacy kinds
     if (kind === 'mushroom' || kind === 'grow') kind = 'candy';
-    if (kind === 'flower'   || kind === 'fire') kind = 'tm';
+    if (kind === 'flower' || kind === 'fire' || kind === 'tm') kind = 'firestone';
     this.kind = kind;
     this.x = x;
     this.w = 28;
@@ -28,7 +26,7 @@ export class PowerUp {
       if (this.y <= this.targetY) this.emerging = false;
       return;
     }
-    if (this.kind === 'tm') return; // TM stays in place
+    if (this.kind === 'firestone') return; // Fire Stone stays in place
 
     this.vy += GRAVITY;
     if (this.vy > MAX_FALL_SPEED) this.vy = MAX_FALL_SPEED;
@@ -43,46 +41,69 @@ export class PowerUp {
     const w = this.w, h = this.h;
 
     if (this.kind === 'candy') {
-      // Ultra Ball: black top, yellow bottom
-      const cx = x + w / 2, cy = y + h / 2, r = 11;
-      // Black top
-      ctx.fillStyle = '#1a1a1a';
-      ctx.beginPath(); ctx.arc(cx, cy, r, Math.PI, 0); ctx.fill();
-      // Yellow bottom
-      ctx.fillStyle = '#f0c040';
-      ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI); ctx.fill();
-      // Band
-      ctx.fillStyle = '#1a1a1a'; ctx.fillRect(cx - r, cy - 3, r * 2, 6);
-      // Yellow stripe on band
-      ctx.fillStyle = '#f0c040'; ctx.fillRect(cx - r + 2, cy - 1, r * 2 - 4, 2);
-      // Center button
+      // Rare Candy: white capsule with pink top and "R" label
+      const cx = x + w / 2, cy = y + h / 2;
+      // Capsule body
+      ctx.fillStyle = '#f0f0f0';
+      ctx.beginPath();
+      ctx.roundRect(x + 2, y + 4, w - 4, h - 8, 8);
+      ctx.fill();
+      // Pink top half
+      ctx.fillStyle = '#e060b0';
+      ctx.beginPath();
+      ctx.roundRect(x + 2, y + 4, w - 4, (h - 8) / 2, [8, 8, 0, 0]);
+      ctx.fill();
+      // Dividing line
+      ctx.strokeStyle = '#888';
+      ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(x + 2, cy); ctx.lineTo(x + w - 2, cy); ctx.stroke();
+      // Shine
+      ctx.fillStyle = 'rgba(255,255,255,0.5)';
+      ctx.fillRect(x + 5, y + 6, 5, 3);
+      // "R" label
       ctx.fillStyle = '#fff';
-      ctx.beginPath(); ctx.arc(cx, cy, 4, 0, Math.PI * 2); ctx.fill();
-      ctx.strokeStyle = '#1a1a1a'; ctx.lineWidth = 1.5;
-      ctx.beginPath(); ctx.arc(cx, cy, 4, 0, Math.PI * 2); ctx.stroke();
+      ctx.font = 'bold 10px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText('R', cx, cy - 1);
     } else {
-      // Quick Ball: blue top with yellow stripe, white bottom
-      const cx = x + w / 2, cy = y + h / 2, r = 11;
-      // Blue top
-      ctx.fillStyle = '#2980b9';
-      ctx.beginPath(); ctx.arc(cx, cy, r, Math.PI, 0); ctx.fill();
-      // Yellow top stripe
-      ctx.fillStyle = '#f1c40f'; ctx.fillRect(cx - r + 1, cy - r + 1, r * 2 - 2, 6);
-      // White bottom
-      ctx.fillStyle = '#f5f5f5';
-      ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI); ctx.fill();
-      // Speed lines (yellow diagonal lines on top)
-      ctx.strokeStyle = '#f1c40f'; ctx.lineWidth = 1.5;
-      for (let i = -1; i <= 1; i++) {
-        ctx.beginPath(); ctx.moveTo(cx + i * 6 - 4, cy - r + 2); ctx.lineTo(cx + i * 6 + 2, cy - 4); ctx.stroke();
-      }
-      // Band
-      ctx.fillStyle = '#1a1a1a'; ctx.fillRect(cx - r, cy - 3, r * 2, 6);
-      // Button
-      ctx.fillStyle = '#fff';
-      ctx.beginPath(); ctx.arc(cx, cy, 4, 0, Math.PI * 2); ctx.fill();
-      ctx.strokeStyle = '#1a1a1a'; ctx.lineWidth = 1.5;
-      ctx.beginPath(); ctx.arc(cx, cy, 4, 0, Math.PI * 2); ctx.stroke();
+      // Fire Stone: orange gem shape
+      const cx = x + w / 2, cy = y + h / 2;
+      const t = Math.floor(this.anim / 6) % 2;
+      // Gem facets
+      ctx.fillStyle = t ? '#ff6600' : '#ff8c00';
+      ctx.beginPath();
+      ctx.moveTo(cx, y + 2);
+      ctx.lineTo(x + w - 2, cy - 2);
+      ctx.lineTo(cx + 4, y + h - 2);
+      ctx.lineTo(cx - 4, y + h - 2);
+      ctx.lineTo(x + 2, cy - 2);
+      ctx.closePath();
+      ctx.fill();
+      // Inner highlight facet
+      ctx.fillStyle = '#ffcc00';
+      ctx.beginPath();
+      ctx.moveTo(cx, y + 5);
+      ctx.lineTo(cx + 5, cy - 1);
+      ctx.lineTo(cx, cy + 3);
+      ctx.lineTo(cx - 5, cy - 1);
+      ctx.closePath();
+      ctx.fill();
+      // Shine
+      ctx.fillStyle = 'rgba(255,255,255,0.6)';
+      ctx.beginPath();
+      ctx.ellipse(cx - 2, cy - 4, 3, 2, -0.5, 0, Math.PI * 2);
+      ctx.fill();
+      // Outline
+      ctx.strokeStyle = '#cc4400';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(cx, y + 2);
+      ctx.lineTo(x + w - 2, cy - 2);
+      ctx.lineTo(cx + 4, y + h - 2);
+      ctx.lineTo(cx - 4, y + h - 2);
+      ctx.lineTo(x + 2, cy - 2);
+      ctx.closePath();
+      ctx.stroke();
     }
   }
 }
