@@ -1,4 +1,4 @@
-{
+export const world12Data = {
   "locations": [
     { "entry": true },
     { "xloc": 1260 },
@@ -114,4 +114,4 @@
       ]
     }
   ]
-}
+};
