@@ -29,6 +29,7 @@ export class Player {
     this.animTimer = 0;
     this.fireCooldown = 0;
     this.crouching = false;
+    this.poleSliding = false;
   }
 
   get big() { return this.power !== POWER.SMALL; }
@@ -89,6 +90,11 @@ export class Player {
       this.deathTimer--;
       this.vy += GRAVITY;
       this.y += this.vy;
+      return;
+    }
+    if (this.poleSliding) {
+      // game.js controls movement during slide
+      if (this.invincible > 0) this.invincible--;
       return;
     }
 

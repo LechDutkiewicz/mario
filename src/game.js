@@ -1,6 +1,6 @@
 import {
   CANVAS_WIDTH, CANVAS_HEIGHT, STATE, POWER, COLORS,
-  SCORE_POKEBALL, SCORE_STOMP, SCORE_FIRE, SCORE_BOSS, GROUND_Y,
+  SCORE_POKEBALL, SCORE_STOMP, SCORE_FIRE, SCORE_BOSS, GROUND_Y, TILE,
 } from './constants.js';
 import { Renderer } from './renderer.js';
 import { Camera }   from './camera.js';
@@ -129,6 +129,7 @@ export class Game {
     this.fireballs = this.fireballs.filter(fb => !fb.dead);
 
     // Enemies (Ekans + Koffing)
+    let stompedThisFrame = false;
     for (const e of lvl.enemies) {
       e.update(solids, p);
       if (e.dead || e.dying || e.squashTimer > 0) continue;
@@ -148,9 +149,9 @@ export class Game {
         if (stomping && e.stompable) {
           e.squash();
           p.vy = -8;
-          p.invincible = Math.max(p.invincible || 0, 15);
+          stompedThisFrame = true;
           this.score += SCORE_STOMP;
-        } else {
+        } else if (!stompedThisFrame) {
           this._hurtPlayer();
         }
       }
@@ -229,12 +230,27 @@ export class Game {
     }
     this.bossShots = this.bossShots.filter(bs => !bs.dead);
 
-    // Flag pole — touch → WIN
+    // Flag pole — touch → slide → WIN
     const fp = this.level.flagPole;
-    if (fp && !fp.touched) {
+    if (fp) {
       fp.update(p);
-      if (fp.touched) {
-        this.worldClearTimer = 180;
+      if (fp.touched && !p.poleSliding && !p.dead && this.worldClearTimer === 0) {
+        p.poleSliding = true;
+        p.x = fp.x + 2;
+        p.vx = 0;
+        p.vy = 2;
+      }
+      if (p.poleSliding) {
+        p.vy = Math.min(p.vy + 0.15, 4);
+        p.y += p.vy;
+        p.x = fp.x + 2;
+        if (p.y + p.h >= GROUND_Y) {
+          p.y = GROUND_Y - p.h;
+          p.poleSliding = false;
+          if (this.worldClearTimer === 0) {
+            this.worldClearTimer = 180;
+          }
+        }
       }
     }
     if (this.worldClearTimer > 0) {
@@ -286,6 +302,7 @@ export class Game {
     for (const fb of this.fireballs) fb.draw(r, this.cam);
     for (const bs of this.bossShots) bs.draw(r, this.cam);
     if (lvl.flagPole)                lvl.flagPole.draw(r, this.cam);
+    if (lvl.pokeCenterX !== undefined) this._drawPokeCenterBuilding(lvl.pokeCenterX);
     this.player.draw(r, this.cam);
 
     this._drawHUD();
@@ -401,6 +418,76 @@ export class Game {
     ctx.fillStyle = '#b0e0ff';
     ctx.fillText('Press ENTER to play again', CANVAS_WIDTH / 2, 420);
     ctx.textAlign = 'left';
+  }
+
+  _drawPokeCenterBuilding(worldX) {
+    const ctx = this.ctx;
+    const x = Math.floor(worldX - this.cam.x);
+    const bottomY = GROUND_Y;
+    const W = 160, totalH = 120;
+    const wallH = 65;
+
+    // White main building
+    ctx.fillStyle = '#e8eaeb';
+    ctx.fillRect(x, bottomY - wallH, W, wallH);
+
+    // Gray side trim
+    ctx.fillStyle = '#b0b5ba';
+    ctx.fillRect(x, bottomY - wallH, 14, wallH);
+    ctx.fillRect(x + W - 14, bottomY - wallH, 14, wallH);
+
+    // Blue side windows (tall)
+    ctx.fillStyle = '#5baae7';
+    ctx.fillRect(x + 2, bottomY - wallH + 8, 10, 30);
+    ctx.fillRect(x + W - 12, bottomY - wallH + 8, 10, 30);
+
+    // Central Pokéball logo
+    const pcx = x + W / 2, pcy = bottomY - 40;
+    const pr = 22;
+    ctx.fillStyle = '#cc2222';
+    ctx.beginPath(); ctx.arc(pcx, pcy, pr, Math.PI, 0); ctx.fill();
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath(); ctx.arc(pcx, pcy, pr, 0, Math.PI); ctx.fill();
+    ctx.strokeStyle = '#333'; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.arc(pcx, pcy, pr, 0, Math.PI * 2); ctx.stroke();
+    ctx.fillStyle = '#333'; ctx.fillRect(pcx - pr, pcy - 3, pr * 2, 6);
+    ctx.fillStyle = '#f0f0f0';
+    ctx.beginPath(); ctx.arc(pcx, pcy, 8, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = '#333'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(pcx, pcy, 8, 0, Math.PI * 2); ctx.stroke();
+
+    // P.C text
+    ctx.fillStyle = '#cc2222';
+    ctx.font = 'bold 14px monospace';
+    ctx.textAlign = 'left';
+    ctx.fillText('P.C', x + 18, bottomY - 10);
+
+    // Blue entrance door
+    ctx.fillStyle = '#5baae7';
+    ctx.fillRect(x + W / 2 - 16, bottomY - 28, 32, 28);
+    ctx.strokeStyle = '#2a5a80'; ctx.lineWidth = 2;
+    ctx.strokeRect(x + W / 2 - 16, bottomY - 28, 32, 28);
+
+    // Red dome roof
+    ctx.fillStyle = '#d44000';
+    ctx.beginPath();
+    ctx.moveTo(x - 8, bottomY - wallH);
+    ctx.quadraticCurveTo(x + W / 2, bottomY - totalH - 5, x + W + 8, bottomY - wallH);
+    ctx.closePath(); ctx.fill();
+
+    // Darker red border on roof bottom
+    ctx.fillStyle = '#a83000';
+    ctx.fillRect(x - 8, bottomY - wallH, W + 16, 8);
+
+    // Roof grid texture
+    ctx.strokeStyle = 'rgba(160,60,0,0.35)'; ctx.lineWidth = 1;
+    for (let i = 1; i < 10; i++) {
+      const tx = x + (W / 10) * i;
+      ctx.beginPath();
+      ctx.moveTo(tx, bottomY - wallH);
+      ctx.lineTo(x + W / 2, bottomY - totalH - 5);
+      ctx.stroke();
+    }
   }
 
   _drawMenu() {

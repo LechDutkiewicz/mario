@@ -11,12 +11,23 @@ export class FlagPole {
     this.touched = false;
     this.dead = false;
     this.anim = 0;
+    this.flagY = this.y + 5;
+    this.flagTargetY = GROUND_Y - TILE - 22;
+    this.slideComplete = false;
   }
 
   update(player) {
     this.anim++;
     if (!this.touched && !player.dead && aabb(player, this)) {
       this.touched = true;
+    }
+    // Slide flag down after touched
+    if (this.touched && this.flagY < this.flagTargetY) {
+      this.flagY += 2;
+      if (this.flagY >= this.flagTargetY) {
+        this.flagY = this.flagTargetY;
+        this.slideComplete = true;
+      }
     }
   }
 
@@ -42,7 +53,7 @@ export class FlagPole {
 
     // Pokéball flag
     const flagX = sx + 10;
-    const flagY = sy + 5;
+    const flagY = Math.floor(this.flagY) - Math.floor(this.y) + sy;
     const fw = 28;
     const fh = 22;
     // Red top

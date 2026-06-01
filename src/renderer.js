@@ -17,80 +17,164 @@ export class Renderer {
 
   // Pokémon location silhouettes in the far background
   drawPokemonBackground(ctx, camX) {
-    const px = camX * 0.15;
     const groundLine = 490;
-    this._drawHouse(ctx, 400 - px, groundLine, '#5a7a3a', '#4a6a2a');
-    this._drawHouse(ctx, 480 - px, groundLine, '#5a7a3a', '#4a6a2a');
-    this._drawLab(ctx, 600 - px, groundLine);
-    this._drawPokeCenter(ctx, 1200 - px, groundLine);
-    this._drawMountain(ctx, 2000 - px, groundLine);
-    this._drawMountain(ctx, 2150 - px, groundLine);
-    for (let i = 0; i < 5; i++) {
-      this._drawTree(ctx, 3000 - px + i * 120, groundLine);
+    const px = camX * 0.15;
+    // Pallet Town houses at start of level
+    this._drawHouse(ctx, 350 - px, groundLine, '#6a3a2a', '#9a7a5a');
+    this._drawHouse(ctx, 410 - px, groundLine, '#5a7a3a', '#8a9a6a');
+    this._drawLab(ctx, 470 - px, groundLine);
+    // Pokémon Center (most recognizable)
+    this._drawPokeCenter(ctx, 1100 - px, groundLine);
+    // Mt. Moon
+    this._drawMountain(ctx, 1900 - px, groundLine);
+    // Viridian Forest trees
+    for (let i = 0; i < 6; i++) {
+      this._drawTree(ctx, 2800 - px + i * 110, groundLine - (i % 2) * 5);
+    }
+    // Another house cluster later
+    this._drawHouse(ctx, 4000 - px, groundLine, '#6a3a2a', '#9a7a5a');
+    this._drawPokeCenter(ctx, 4400 - px, groundLine);
+  }
+
+  _drawPokeCenter(ctx, x, bottomY) {
+    const W = 90, totalH = 90;
+
+    // White main building (lower 55%)
+    ctx.fillStyle = '#e8eaeb';
+    ctx.fillRect(x, bottomY - 50, W, 50);
+
+    // Gray trim on sides of white building
+    ctx.fillStyle = '#c0c4c8';
+    ctx.fillRect(x, bottomY - 50, 8, 50);
+    ctx.fillRect(x + W - 8, bottomY - 50, 8, 50);
+
+    // Blue side windows
+    ctx.fillStyle = '#5baae7';
+    ctx.fillRect(x + 2, bottomY - 44, 6, 16);
+    ctx.fillRect(x + W - 8, bottomY - 44, 6, 16);
+
+    // Central Pokéball logo circle
+    const pcx = x + W / 2, pcy = bottomY - 32;
+    ctx.fillStyle = '#cc2222';
+    ctx.beginPath(); ctx.arc(pcx, pcy, 14, Math.PI, 0); ctx.fill();
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath(); ctx.arc(pcx, pcy, 14, 0, Math.PI); ctx.fill();
+    ctx.strokeStyle = '#333'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(pcx, pcy, 14, 0, Math.PI * 2); ctx.stroke();
+    ctx.fillStyle = '#333'; ctx.fillRect(pcx - 14, pcy - 2, 28, 4);
+    ctx.fillStyle = '#eee'; ctx.beginPath(); ctx.arc(pcx, pcy, 5, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = '#333'; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.arc(pcx, pcy, 5, 0, Math.PI * 2); ctx.stroke();
+
+    // P.C text
+    ctx.fillStyle = '#cc2222';
+    ctx.font = 'bold 9px monospace';
+    ctx.textAlign = 'left';
+    ctx.fillText('P.C', x + 10, bottomY - 10);
+
+    // Blue entrance door
+    ctx.fillStyle = '#5baae7';
+    ctx.fillRect(x + W / 2 - 10, bottomY - 20, 20, 20);
+
+    // Red dome roof (curved)
+    ctx.fillStyle = '#d44000';
+    ctx.beginPath();
+    ctx.moveTo(x - 5, bottomY - 50);
+    ctx.quadraticCurveTo(x + W / 2, bottomY - totalH - 10, x + W + 5, bottomY - 50);
+    ctx.closePath();
+    ctx.fill();
+    // Darker red edge on roof
+    ctx.fillStyle = '#a83000';
+    ctx.beginPath();
+    ctx.moveTo(x - 5, bottomY - 48);
+    ctx.lineTo(x - 5, bottomY - 50);
+    ctx.quadraticCurveTo(x + W / 2, bottomY - totalH - 10, x + W + 5, bottomY - 50);
+    ctx.lineTo(x + W + 5, bottomY - 48);
+    ctx.quadraticCurveTo(x + W / 2, bottomY - totalH - 8, x - 5, bottomY - 48);
+    ctx.fill();
+    // Roof texture grid lines
+    ctx.strokeStyle = 'rgba(180,80,0,0.4)'; ctx.lineWidth = 1;
+    for (let i = 1; i < 8; i++) {
+      const tx = x + (W / 8) * i;
+      ctx.beginPath();
+      ctx.moveTo(tx, bottomY - 50);
+      ctx.quadraticCurveTo(tx, bottomY - totalH, x + W / 2, bottomY - totalH - 10);
+      ctx.stroke();
     }
   }
 
   _drawHouse(ctx, x, bottomY, roofColor, wallColor) {
-    const wallH = 38, wallW = 48;
+    const W = 44, wallH = 32;
     ctx.fillStyle = wallColor;
-    ctx.fillRect(x, bottomY - wallH, wallW, wallH);
+    ctx.fillRect(x, bottomY - wallH, W, wallH);
+    // Windows
+    ctx.fillStyle = '#8bb8e8';
+    ctx.fillRect(x + 6, bottomY - 26, 10, 10);
+    ctx.fillRect(x + W - 16, bottomY - 26, 10, 10);
+    // Door
+    ctx.fillStyle = '#6b3a2a';
+    ctx.fillRect(x + W / 2 - 5, bottomY - 14, 10, 14);
+    // Roof
     ctx.fillStyle = roofColor;
     ctx.beginPath();
     ctx.moveTo(x - 4, bottomY - wallH);
-    ctx.lineTo(x + wallW / 2, bottomY - wallH - 22);
-    ctx.lineTo(x + wallW + 4, bottomY - wallH);
+    ctx.lineTo(x + W / 2, bottomY - wallH - 20);
+    ctx.lineTo(x + W + 4, bottomY - wallH);
     ctx.closePath(); ctx.fill();
-    ctx.fillStyle = 'rgba(180,220,255,0.4)';
-    ctx.fillRect(x + 8, bottomY - 30, 12, 12);
-    ctx.fillRect(x + 28, bottomY - 30, 12, 12);
   }
 
   _drawLab(ctx, x, bottomY) {
-    const h = 55, w = 72;
-    ctx.fillStyle = '#4a5a3a';
-    ctx.fillRect(x, bottomY - h, w, h);
-    ctx.fillStyle = '#3a4a2a';
+    const W = 70, wallH = 45;
+    ctx.fillStyle = '#5a7040';
+    ctx.fillRect(x, bottomY - wallH, W, wallH);
+    // Big research window
+    ctx.fillStyle = '#a8d0f0';
+    ctx.fillRect(x + 14, bottomY - wallH + 5, W - 28, 22);
+    ctx.strokeStyle = '#3a5020'; ctx.lineWidth = 2;
+    ctx.strokeRect(x + 14, bottomY - wallH + 5, W - 28, 22);
+    // Roof
+    ctx.fillStyle = '#4a5a30';
     ctx.beginPath();
-    ctx.moveTo(x - 6, bottomY - h); ctx.lineTo(x + 36, bottomY - h - 30); ctx.lineTo(x + 78, bottomY - h);
+    ctx.moveTo(x - 5, bottomY - wallH);
+    ctx.lineTo(x + W / 2, bottomY - wallH - 26);
+    ctx.lineTo(x + W + 5, bottomY - wallH);
     ctx.closePath(); ctx.fill();
-    ctx.fillStyle = 'rgba(180,220,255,0.3)';
-    ctx.fillRect(x + 16, bottomY - h + 10, 40, 25);
-  }
-
-  _drawPokeCenter(ctx, x, bottomY) {
-    const h = 48, w = 58;
-    ctx.fillStyle = '#e8e8e8';
-    ctx.fillRect(x, bottomY - h, w, h);
-    ctx.fillStyle = '#c0392b';
-    ctx.beginPath();
-    ctx.ellipse(x + 29, bottomY - h, 34, 20, 0, Math.PI, 0);
-    ctx.fill();
-    ctx.fillStyle = '#fff';
-    ctx.fillRect(x + 24, bottomY - h + 12, 10, 20);
-    ctx.fillRect(x + 18, bottomY - h + 18, 22, 8);
+    // Door
+    ctx.fillStyle = '#8b6030';
+    ctx.fillRect(x + W / 2 - 6, bottomY - 15, 12, 15);
   }
 
   _drawMountain(ctx, x, bottomY) {
-    const peakH = 180;
-    ctx.fillStyle = '#7a8a9a';
+    // Main mountain
+    ctx.fillStyle = '#7a8898';
     ctx.beginPath();
-    ctx.moveTo(x, bottomY); ctx.lineTo(x + 100, bottomY - peakH); ctx.lineTo(x + 200, bottomY);
+    ctx.moveTo(x - 10, bottomY);
+    ctx.lineTo(x + 80, bottomY - 140);
+    ctx.lineTo(x + 170, bottomY);
     ctx.closePath(); ctx.fill();
+    // Second peak
+    ctx.fillStyle = '#8a98a8';
+    ctx.beginPath();
+    ctx.moveTo(x + 90, bottomY);
+    ctx.lineTo(x + 150, bottomY - 90);
+    ctx.lineTo(x + 210, bottomY);
+    ctx.closePath(); ctx.fill();
+    // Snow cap
     ctx.fillStyle = '#ddeeff';
     ctx.beginPath();
-    ctx.moveTo(x + 100, bottomY - peakH);
-    ctx.lineTo(x + 70, bottomY - peakH + 45);
-    ctx.lineTo(x + 130, bottomY - peakH + 45);
+    ctx.moveTo(x + 80, bottomY - 140);
+    ctx.lineTo(x + 54, bottomY - 100);
+    ctx.lineTo(x + 106, bottomY - 100);
     ctx.closePath(); ctx.fill();
   }
 
   _drawTree(ctx, x, bottomY) {
-    ctx.fillStyle = '#4a7a2a';
-    ctx.beginPath(); ctx.arc(x, bottomY - 35, 20, 0, Math.PI * 2); ctx.fill();
-    ctx.beginPath(); ctx.arc(x - 14, bottomY - 27, 16, 0, Math.PI * 2); ctx.fill();
-    ctx.beginPath(); ctx.arc(x + 14, bottomY - 27, 16, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = '#3a5a1a';
-    ctx.fillRect(x - 5, bottomY - 15, 10, 15);
+    ctx.fillStyle = '#2d6a1e';
+    ctx.beginPath(); ctx.arc(x, bottomY - 30, 18, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(x - 12, bottomY - 20, 14, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(x + 12, bottomY - 20, 14, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#1e4a15';
+    ctx.fillRect(x - 5, bottomY - 12, 10, 12);
   }
 
   // Background parallax hills and clouds
