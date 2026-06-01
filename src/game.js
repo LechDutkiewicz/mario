@@ -111,7 +111,13 @@ export class Game {
       return;
     }
     if (this.state === STATE.GAME_OVER || this.state === STATE.WIN) {
-      if (input.justPressed('Enter')) { this.state = STATE.PLAYING; this.resetLevel(true); this.music.start(); }
+      if (input.justPressed('Enter')) {
+        this.world = 1;
+        this.world2Area = 0;
+        this.state = STATE.PLAYING;
+        this.resetLevel(true);
+        this.music.start();
+      }
       return;
     }
     if (this.state === STATE.PLAYING && input.justPressed('KeyP')) {
