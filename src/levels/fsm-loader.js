@@ -1,6 +1,12 @@
 // ============================================================
-// FSM JSON Level Loader
-// Converts FullScreenMario-JSON format → game level objects
+// FSM JSON Level Loader — FullScreenMario-JSON → game objects
+// ============================================================
+// Coordinate system:
+//   FSM y = distance (in FSM units, 1 unit = 4px) from the FLOOR to the
+//           TOP of the entity, measured UPWARD.
+//   Tile size = 8 FSM units = 32px (TILE constant).
+//   Screen y  = GY - json_y * 4   (top of entity in screen coords)
+//   Ground    = GY (= 540)
 // ============================================================
 import { TILE, GROUND_Y, COLORS } from '../constants.js';
 import { Platform, QuestionBlock, PipeBlock, BrickBlock, MovingPlatform } from '../entities/platform.js';
@@ -9,76 +15,64 @@ import { Enemy } from '../entities/enemy.js';
 import { Coin } from '../entities/coin.js';
 import { PipePlant } from '../entities/pipeplant.js';
 
-const T  = TILE;     // 32
-const GY = GROUND_Y; // 540
+const T  = TILE;      // 32
+const GY = GROUND_Y;  // 540
 
-// FSM unit → screen x pixel
-const px = u => u * 4;
+// FSM unit → screen pixel (horizontal)
+const ux = u => u * 4;
 
-// FSM unit → screen y top pixel (h = object height in pixels)
-// FSM y is measured UP from the ground floor (y=0 → object sits at ground level GY)
-const py = (u, h = T) => GY - u * 4 - h;
+// FSM y (top of entity, upward from floor) → screen y (top, downward from top of canvas)
+const uy = u => GY - u * 4;
 
-// Map FSM Q-block contents string → game contents string
 function mapContents(c) {
-  if (!c) return 'pokeball';
-  if (Array.isArray(c)) return 'pokeball'; // Vine, etc.
-  switch (c) {
-    case 'Mushroom':    return 'grow';
-    case 'Mushroom1Up': return 'grow';
-    case 'FireFlower':  return 'fire';
-    case 'Coin':        return 'coin';
-    case 'Star':        return 'grow';
-    default:            return 'pokeball';
-  }
+  if (!c || Array.isArray(c)) return 'pokeball';
+  const map = { Mushroom:'grow', Mushroom1Up:'grow', FireFlower:'fire', Coin:'coin', Star:'grow' };
+  return map[c] || 'pokeball';
 }
 
-// ---- Single Thing processor ----
-function processThing(entry, out) {
-  const { thing, x = 0, y = 0 } = entry;
-  if (!thing) return;
-  const sx = px(x);
+function processThing(e, out) {
+  const x = e.x || 0;
+  const y = e.y || 0;
+  const sx = ux(x);
 
-  switch (thing) {
+  switch (e.thing) {
     case 'Brick':
-      out.platforms.push(new BrickBlock(sx, py(y)));
+      // y = top of brick in FSM units → screen_top = GY - y*4
+      out.platforms.push(new BrickBlock(sx, uy(y)));
       break;
 
-    case 'HardBlock':
-    case 'Stone': {
-      // Stone can stack multiple tiles based on 'height' in FSM units
-      const heightUnits = entry.height || 8;
-      const tiles = Math.max(1, Math.round(heightUnits / 8));
-      const pixH  = tiles * T;
-      out.platforms.push(new Platform(sx, py(y, pixH), T, pixH, COLORS.brick));
+    case 'Stone':
+    case 'HardBlock': {
+      // Stone is a ground-based pillar: y = column height in FSM units (= top position).
+      // Column extends from GY (ground) up to GY - y*4.
+      const hPx = y * 4;
+      out.platforms.push(new Platform(sx, GY - hPx, T, hPx, COLORS.brick));
       break;
     }
 
     case 'Block':
-      out.qblocks.push(new QuestionBlock(sx, py(y), mapContents(entry.contents)));
+      // Q-block: y = top in FSM units
+      out.qblocks.push(new QuestionBlock(sx, uy(y), mapContents(e.contents)));
       break;
 
     case 'Goomba':
     case 'Koopa':
     case 'Lakitu':
-    case 'Blooper':
     case 'BuzzyBeetle':
-    case 'HammerBro':
-      // y=8 means 1 tile up (standing on ground) — spawn at GY for ground enemies
-      if (y <= 16) {
-        out.enemies.push(new Enemy(sx, GY, 'ekans'));
-      } else {
-        // On a platform — position bottom of enemy at py(y - 8, 0)
-        out.enemies.push(new Enemy(sx, py(y - 8, 0), 'ekans'));
-      }
+    case 'HammerBro': {
+      // y = top of enemy (enemy height = 8 FSM units = 32px)
+      // feet = GY - (y - 8) * 4
+      const feetY = GY - (y - 8) * 4;
+      out.enemies.push(new Enemy(sx, feetY, 'ekans'));
       break;
+    }
 
     case 'Piranha':
-      out.plants.push(new PipePlant(sx, py(y, T * 2)));
+      out.plants.push(new PipePlant(sx, uy(y + 8)));
       break;
 
     case 'Coin':
-      out.coins.push(new Coin(sx + 6, py(y, T) + 4));
+      out.coins.push(new Coin(sx + 6, uy(y) + 4));
       break;
 
     case 'Flagpole':
@@ -87,65 +81,59 @@ function processThing(entry, out) {
       break;
 
     case 'Platform': {
-      // Moving/cloud platform (seen in Sky areas)
-      const widthUnits = entry.width || 24;
-      const w = px(widthUnits);
-      out.movingPlatforms.push(
-        new MovingPlatform(sx, py(y, T / 2), w, T / 2, 'x', 1.0, px(48))
-      );
+      const w = ux(e.width || 24);
+      out.movingPlatforms.push(new MovingPlatform(sx, uy(y), w, T / 2, 'x', 1.0, ux(48)));
       break;
     }
 
-    // Skip non-gameplay things
+    // Unsupported / purely visual
     case 'PipeHorizontal':
     case 'PipeVertical':
     case 'ScrollBlocker':
     case 'Vine':
     case 'Springboard':
+    case 'Blooper':
+    case 'CheepCheep':
       break;
 
     default:
-      console.warn('[fsm-loader] Unknown thing:', thing);
-      break;
+      if (e.thing) console.warn('[fsm-loader] Unknown thing:', e.thing);
   }
 }
 
-// ---- Macro processor ----
-function processMacro(entry, out) {
-  const { macro, x = 0, y = 0 } = entry;
+function processMacro(e, out) {
+  const x = e.x || 0;
+  const y = e.y || 0;
+  const xwidth = (e.xwidth !== undefined) ? e.xwidth : 8;
+  const ywidth = (e.ywidth !== undefined) ? e.ywidth : 8;
 
-  switch (macro) {
+  switch (e.macro) {
     case 'Floor': {
-      const widthUnits = entry.width || 0;
-      if (widthUnits <= 0) break;
-      out.platforms.push(new Platform(px(x), GY, px(widthUnits), 120, COLORS.ground));
+      const w = ux(e.width || 0);
+      if (w > 0) out.platforms.push(new Platform(ux(x), GY, w, 120, COLORS.ground));
       break;
     }
 
     case 'Ceiling': {
-      const widthUnits = entry.width || 0;
-      if (widthUnits <= 0) break;
-      // Underground ceiling sits near top of canvas
-      const ceilY = 60;
-      out.platforms.push(new Platform(px(x), ceilY, px(widthUnits), T, COLORS.brick));
+      const w = ux(e.width || 0);
+      if (w > 0) {
+        // Underground ceiling: 11 tiles from floor = GY - 11*T = 188
+        const ceilY = GY - 11 * T;
+        out.platforms.push(new Platform(ux(x), ceilY, w, T, COLORS.brick));
+      }
       break;
     }
 
     case 'Fill': {
-      const thing  = entry.thing;
-      const xnum   = entry.xnum   || 1;
-      const ynum   = entry.ynum   || 1;
-      const xwidth = entry.xwidth !== undefined ? entry.xwidth : 8;
-      const ywidth = entry.ywidth !== undefined ? entry.ywidth : 8;
-
+      const xnum = e.xnum || 1;
+      const ynum = e.ynum || 1;
       for (let yi = 0; yi < ynum; yi++) {
         for (let xi = 0; xi < xnum; xi++) {
           processThing({
-            thing,
-            x: x + xi * xwidth,
-            y: y + yi * ywidth,
-            contents: entry.contents,
-            height:   entry.height,
+            thing:    e.thing,
+            x:        x + xi * xwidth,
+            y:        y + yi * ywidth,
+            contents: e.contents,
           }, out);
         }
       }
@@ -153,33 +141,34 @@ function processMacro(entry, out) {
     }
 
     case 'Pipe': {
-      const heightUnits = entry.height || 16;
-      const heightTiles = Math.max(1, Math.round(heightUnits / 8));
-      const sx          = px(x);
-      const hasPirhana  = entry.pirhana === true || entry.pirhana === 'true';
-      const enterable   = entry.entrance != null || entry.exit != null;
+      const heightTiles = Math.max(1, Math.round((e.height || 16) / 8));
+      const sx = ux(x);
+      const enterable = (e.entrance != null || e.exit != null);
       out.platforms.push(new PipeBlock(sx, heightTiles, enterable));
-      if (hasPirhana) {
-        const topY = GY - heightTiles * T;
-        out.plants.push(new PipePlant(sx, topY - T));
+      if (e.pirhana) {
+        out.plants.push(new PipePlant(sx, GY - heightTiles * T - T));
       }
       break;
     }
 
     case 'PlatformGenerator': {
-      // Generates moving platforms in a region — create a pair
-      const sx = px(x);
-      out.movingPlatforms.push(new MovingPlatform(sx,       GY - T * 6, T * 3, T / 2, 'y', 0.8, T * 4));
-      out.movingPlatforms.push(new MovingPlatform(sx + T*6, GY - T * 4, T * 3, T / 2, 'y', 0.8, T * 4));
+      // Creates two staggered moving platforms over the gap.
+      const sx = ux(x);
+      const dir = (e.direction === -1) ? -1 : 1;
+      out.movingPlatforms.push(
+        new MovingPlatform(sx,         GY - T, T * 3, T / 2, 'x', dir * 1.2, T * 6)
+      );
+      out.movingPlatforms.push(
+        new MovingPlatform(sx + T * 4, GY - T, T * 3, T / 2, 'x', dir * 1.2, T * 6)
+      );
       break;
     }
 
-    case 'EndCastleOutside': {
-      if (!out.flagPole) out.flagPole = new FlagPole(px(x));
+    case 'EndCastleOutside':
+      if (!out.flagPole) out.flagPole = new FlagPole(ux(x));
       break;
-    }
 
-    // Decorative / warp / unsupported macros — skip gracefully
+    // Decorative / warp / unsupported
     case 'Pattern':
     case 'WarpWorld':
     case 'PipeCorner':
@@ -188,13 +177,11 @@ function processMacro(entry, out) {
       break;
 
     default:
-      console.warn('[fsm-loader] Unknown macro:', macro);
-      break;
+      if (e.macro) console.warn('[fsm-loader] Unknown macro:', e.macro);
   }
 }
 
-// ---- Main entry point ----
-// areaIndex: which area in the JSON to load (default 0 = first/overworld area)
+// areaIndex: which area in the JSON to load (0 = first, 1 = underground, etc.)
 export function loadFSMLevel(jsonData, areaIndex = 0) {
   const area = jsonData.areas[areaIndex];
   if (!area) throw new Error(`[fsm-loader] Area ${areaIndex} not found`);
@@ -209,43 +196,33 @@ export function loadFSMLevel(jsonData, areaIndex = 0) {
     flagPole:        null,
   };
 
-  const isUnderground = area.setting === 'Underworld';
-
   for (const entry of area.creation) {
-    if (entry.macro) {
-      processMacro(entry, out);
-    } else if (entry.thing) {
-      processThing(entry, out);
-    }
-    // 'location' entries are navigation hints — skip
+    if (entry.macro)      processMacro(entry, out);
+    else if (entry.thing) processThing(entry, out);
   }
 
-  // Derive level width from rightmost solid object + buffer
+  // Level width: rightmost object + buffer
   let maxX = 800;
   for (const p of [...out.platforms, ...out.qblocks]) {
     maxX = Math.max(maxX, p.x + (p.w || T));
   }
   const levelWidth = maxX + 800;
 
-  // Fallback flagpole if none found in data
-  if (!out.flagPole) {
-    out.flagPole = new FlagPole(maxX - 300);
-  }
-
+  if (!out.flagPole) out.flagPole = new FlagPole(maxX - 300);
   const pokeCenterX = out.flagPole.x + 5 * T;
 
   return {
-    platforms:        out.platforms,
-    qblocks:          out.qblocks,
-    enemies:          out.enemies,
-    coins:            out.coins,
-    plants:           out.plants,
-    movingPlatforms:  out.movingPlatforms,
-    boss:             null,
-    flagPole:         out.flagPole,
+    platforms:       out.platforms,
+    qblocks:         out.qblocks,
+    enemies:         out.enemies,
+    coins:           out.coins,
+    plants:          out.plants,
+    movingPlatforms: out.movingPlatforms,
+    boss:            null,
+    flagPole:        out.flagPole,
     pokeCenterX,
-    setting:          isUnderground ? 'underground' : 'overworld',
+    setting:         area.setting === 'Underworld' ? 'underground' : 'overworld',
     get solids() { return [...this.platforms, ...this.qblocks, ...this.movingPlatforms]; },
-    width:            levelWidth,
+    width:           levelWidth,
   };
 }
