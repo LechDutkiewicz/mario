@@ -12,7 +12,7 @@ export const GRAVITY          = 0.7;
 export const MAX_FALL_SPEED   = 14;
 export const PLAYER_SPEED     = 3.4;
 export const PLAYER_RUN_SPEED = 5.2;
-export const JUMP_VELOCITY    = -14;
+export const JUMP_VELOCITY    = -16;
 export const FRICTION         = 0.82;
 export const AIR_FRICTION     = 0.92;
 

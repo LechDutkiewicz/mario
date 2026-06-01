@@ -95,21 +95,19 @@ export function buildWorld1() {
   brick(77, 4);
   brick(79, 4);
   brick(80, 4);
-  brick(81, 5);
-  brick(82, 5);
-  brick(83, 5); brick(84, 5); brick(85, 5); brick(86, 5); brick(87, 5);
-  brick(91, 5); brick(92, 5); brick(93, 5);
-  brick(94, 5);
+  brick(81, 4);
+  brick(82, 4);
+  brick(83, 4); brick(84, 4); brick(85, 4); brick(86, 4); brick(87, 4);
+  brick(91, 4); brick(92, 4); brick(93, 4);
+  brick(94, 4);
   brick(100, 4);
   brick(101, 4);
   brick(118, 4);
-  brick(121, 5); brick(122, 5); brick(123, 5);
-  brick(128, 5);
+  brick(121, 4); brick(122, 4); brick(123, 4);
+  brick(128, 4);
   brick(129, 4);
-  brick(129, 5);
   brick(130, 4);
-  brick(130, 5);
-  brick(131, 5);
+  brick(131, 4);
   brick(168, 4);
   brick(169, 4);
   brick(171, 4);
@@ -156,8 +154,8 @@ export function buildWorld1() {
   E(42, 'ekans');
   E(51, 'ekans');
   E(52, 'ekans');
-  Ep(80, 5, 'ekans');   // on brick row
-  Ep(82, 5, 'ekans');   // on brick row
+  Ep(80, 4, 'ekans');   // on brick row
+  Ep(82, 4, 'ekans');   // on brick row
   E(97, 'ekans');
   E(98, 'ekans');
   E(107, 'koffing');
@@ -169,11 +167,11 @@ export function buildWorld1() {
 
   // === Pokéballs ===
   // Above mid-section brick row (tiles 83-85, height 5) — 1 tile above = height 6
-  C(83, 6); C(84, 6); C(85, 6);
+  C(83, 5); C(84, 5); C(85, 5);
   // After first gap, start of second floor section
   C(72, 1); C(73, 1); C(74, 1);
   // In second brick area
-  C(91, 6); C(92, 6); C(93, 6);
+  C(91, 5); C(92, 5); C(93, 5);
   // Near the secret area
   C(66, 1); C(67, 1); C(68, 1);
 
