@@ -11,6 +11,7 @@ import { Coin }     from './entities/coin.js';
 import { Fireball } from './entities/projectile.js';
 import { buildWorld1 } from './levels/world1.js';
 import { buildWorld2 } from './levels/world2.js';
+import { buildWorld3 } from './levels/world3.js';
 import { aabb }     from './physics.js';
 
 export class Game {
@@ -39,7 +40,9 @@ export class Game {
   resetLevel(fullReset) {
     const savedPower = fullReset ? POWER.SMALL : (this.player ? this.player.power : POWER.SMALL);
     if (fullReset) this.world2Area = 0;
-    this.level   = this.world === 2 ? buildWorld2(this.world2Area) : buildWorld1();
+    this.level   = this.world === 3 ? buildWorld3()
+                 : this.world === 2 ? buildWorld2(this.world2Area)
+                 : buildWorld1();
     this.area0AutoWalk = (this.world === 2 && this.world2Area === 0);
     this.r.currentSetting = this.level.setting || 'overworld';
     this.player  = new Player(80, GROUND_Y - 60);
@@ -154,16 +157,21 @@ export class Game {
     }
     lvl.platforms = lvl.platforms.filter(s => !s.dead);
 
-    // Area 0 auto-walk: synthesize input so player walks into the entrance pipe
+    // Area 0 auto-walk: player walks right and enters pipe on contact with its left side
     let activeInput = input;
     if (this.area0AutoWalk && !p.dead) {
       const pipeX = lvl.entrancePipeX ?? 10 * TILE;
-      const atPipe = p.x + p.w >= pipeX + TILE * 0.5;
-      if (atPipe) this.area0AutoWalk = false;
+      const atPipe = p.x + p.w >= pipeX - 2;
+      if (atPipe && this.areaTransTimer === 0) {
+        // Touched the pipe's left side — trigger transition directly
+        this.area0AutoWalk = false;
+        this._startAreaTransition(1);
+      }
+      // Keep walking right until we hit the pipe
       activeInput = {
-        left: false, right: !atPipe, down: atPipe, run: false,
+        left: false, right: !atPipe, down: false, run: false,
         jump: false, jumpPressed: false, firePressed: false,
-        justPressed: (c) => atPipe && c === 'ArrowDown',
+        justPressed: () => false,
       };
     }
 
@@ -369,8 +377,14 @@ export class Game {
           this.resetLevel(false);
           this.music.start();
         } else if (this.world === 2 && this.world2Area === 1) {
-          // Underground complete → exit to overworld area 2
           this._doAreaTransition(2);
+        } else if (this.world === 2) {
+          // World 2 area 2 complete → world 3
+          this.world = 3;
+          this.resetLevel(false);
+          this.music.start();
+        } else if (this.world === 3) {
+          this.state = STATE.WIN;
         } else {
           this.state = STATE.WIN;
         }
@@ -435,6 +449,21 @@ export class Game {
     if (this.state === STATE.MENU) { this._drawMenu(); return; }
 
     const lvl = this.level;
+    // Draw horizontal pipe piece connecting to entrance pipe in area 0
+    if (lvl.entrancePipeX !== undefined) {
+      const ctx2 = this.ctx;
+      const hpx = Math.floor(lvl.entrancePipeX - this.cam.x);
+      const hpy = Math.floor(GROUND_Y - TILE * 1.5);
+      const hpw = TILE * 1.5;
+      const hph = TILE * 1.5;
+      ctx2.fillStyle = '#2ecc40';
+      ctx2.fillRect(hpx - hpw, hpy, hpw, hph);
+      ctx2.fillStyle = '#27ae35';
+      ctx2.fillRect(hpx - hpw, hpy, hpw, 6);
+      ctx2.fillRect(hpx - hpw, hpy + hph - 6, hpw, 6);
+      ctx2.fillStyle = '#1a7a28';
+      ctx2.fillRect(hpx - 4, hpy - 4, 8, hph + 8); // joint between H and V pipe
+    }
     for (const pl of lvl.platforms)  pl.draw(r, this.cam);
     if (lvl.movingPlatforms) for (const mp of lvl.movingPlatforms) mp.draw(r, this.cam);
     for (const q  of lvl.qblocks)    q.draw(r, this.cam);
