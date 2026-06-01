@@ -22,7 +22,7 @@ export class Input {
   _isGameKey(code) {
     return [
       'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown',
-      'Space', 'AltLeft', 'KeyP', 'Enter', 'ShiftLeft',
+      'Space', 'AltLeft', 'KeyP', 'Enter', 'ShiftLeft', 'Escape',
     ].includes(code);
   }
 
@@ -41,4 +41,5 @@ export class Input {
   get jumpPressed() { return this.justPressed('Space') || this.justPressed('ArrowUp'); }
   get run()         { return this.isDown('ShiftLeft'); }
   get firePressed() { return this.justPressed('AltLeft'); }
+  get escape()      { return this.isDown('Escape'); }
 }
