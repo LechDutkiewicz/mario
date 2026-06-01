@@ -157,7 +157,7 @@ export class Game {
 
       if (!p.dead && aabb(p, e)) {
         const stomping = p.vy > 0 && (p.y + p.h) - e.y < 22;
-        if (stomping && e.stompable) {
+        if (stomping && e.stompable && !stompedThisFrame) {
           e.squash();
           p.vy = -8;
           stompedThisFrame = true;

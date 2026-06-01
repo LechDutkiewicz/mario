@@ -65,29 +65,23 @@ export function buildWorld2() {
     platforms.push(new Platform(gx(tx), gy(ty) - T, gx(tw), T, '#8b6914'));
   };
 
-  // Brick formations
-  brick(39, 4); brick(39, 5); brick(39, 6);
-  brick(40, 4);
-  brick(41, 4); brick(41, 5); brick(41, 6);
-  brick(42, 6); brick(43, 6);
-  brick(52, 4); brick(52, 5); brick(52, 6); brick(52, 7); brick(52, 8);
-  brick(53, 4); brick(53, 5); brick(53, 6); brick(53, 7); brick(53, 8);
-  brick(54, 2); brick(54, 3); brick(54, 4);
-  brick(55, 2); brick(55, 3); brick(55, 4);
-  brick(54, 9); brick(54, 10); brick(55, 9); brick(55, 10);
-  brick(58, 4); brick(59, 4); brick(60, 4); brick(61, 4);
-  brick(58, 9); brick(59, 9); brick(60, 9); brick(61, 9); brick(62, 9);
-  brick(62, 4); brick(62, 5); brick(62, 6); brick(62, 7); brick(62, 8);
-  brick(63, 4); brick(63, 5); brick(63, 6); brick(63, 7); brick(63, 8);
-  brick(66, 9); brick(67, 9); brick(68, 9); brick(69, 9);
-  brick(67, 4); brick(67, 5); brick(67, 6); brick(67, 7); brick(67, 8);
-  brick(72, 4); brick(73, 4); brick(74, 4);
-  brick(72, 5); brick(72, 6); brick(72, 7); brick(72, 8); brick(72, 9);
-  brick(73, 5); brick(73, 6);
-  brick(76, 4); brick(77, 4); brick(78, 4); brick(79, 4);
-  brick(76, 9); brick(77, 9); brick(78, 9); brick(79, 9);
-  brick(84, 5); brick(85, 5); brick(86, 5); brick(87, 5); brick(88, 5); brick(89, 5);
-  brick(84, 6); brick(85, 6); brick(86, 6); brick(87, 6); brick(88, 6); brick(89, 6);
+  // Section 1: small formation (~tiles 36-43)
+  brick(36, 4); brick(37, 4); brick(38, 4);
+  brick(39, 5); brick(40, 5); brick(41, 5);
+
+  // Section 2: main elevated walkway — flat platforms at height 4 (reachable from ground)
+  // Approach staircase at 48-51 ramps the player up to height 4,
+  // then they run across the three platform groups.
+  brick(52, 4, 5);   // tiles 52-56
+  brick(58, 4, 5);   // tiles 58-62
+  brick(64, 4, 6);   // tiles 64-69
+
+  // Section 3: mid-level platforms
+  brick(72, 4, 4);   // tiles 72-75
+  brick(77, 4, 4);   // tiles 77-80
+  brick(84, 4, 6);   // tiles 84-89
+
+  // End wall columns (player passes under them at ground level)
   brick(163, 4); brick(163, 5); brick(163, 6); brick(163, 7); brick(163, 8);
   brick(164, 4); brick(164, 5); brick(164, 6); brick(164, 7); brick(164, 8);
   brick(188, 4); brick(188, 5); brick(188, 6); brick(188, 7); brick(188, 8);
@@ -98,7 +92,12 @@ export function buildWorld2() {
   const step = (tx, th) =>
     platforms.push(new Platform(gx(tx), GY - T * th, T, T * th, '#5a5a6a'));
 
-  step(17, 1); step(19, 2); step(21, 3); step(23, 4); step(25, 4); step(27, 3); step(31, 3); step(33, 2);
+  // Adjacent ascending/descending pillars — no gaps so enemies traverse naturally
+  step(17, 1); step(18, 2); step(19, 3); step(20, 4); step(21, 4);
+  step(22, 3); step(23, 2); step(24, 1);
+  step(27, 1); step(28, 2); step(29, 3); step(30, 3); step(31, 2); step(32, 1);
+  // Approach ramp leading up to the elevated brick section
+  step(48, 1); step(49, 2); step(50, 3); step(51, 4);
   step(130, 1); step(131, 2); step(132, 3); step(133, 4); step(134, 4);
 
   // --- PIPES ---
@@ -114,8 +113,8 @@ export function buildWorld2() {
   const E = (tx, type = 'ekans') => enemies.push(new Enemy(gx(tx), GY, type));
   const Ep = (tx, th, type = 'ekans') => enemies.push(new Enemy(gx(tx), gy(th), type));
 
-  E(16); E(29); E(61); E(62);
-  Ep(17, 2); Ep(21, 4);
+  E(16); E(25); E(61); E(62);
+  Ep(20, 4); Ep(22, 3);  // on adjacent step pillars — walk off and descend naturally
   E(76); E(77);
   E(96); E(98); E(100);
   E(109);
@@ -126,9 +125,11 @@ export function buildWorld2() {
 
   // --- COINS ---
   const C = (tx, ty) => coins.push(new Coin(gx(tx) + 6, gy(ty + 1) + 4));
-  C(41, 8); C(42, 8); C(43, 8); C(44, 8);
+  // Pokéballs float just above the height-4 platforms (height 5 = 1 tile above)
+  C(36, 5); C(37, 5); C(38, 5);
+  C(52, 5); C(53, 5); C(54, 5); C(55, 5);
   C(58, 5); C(59, 5); C(60, 5); C(61, 5);
-  C(84, 8); C(85, 8); C(86, 8); C(87, 8); C(88, 8); C(89, 8);
+  C(84, 5); C(85, 5); C(86, 5); C(87, 5); C(88, 5); C(89, 5);
 
   // --- FLAGPOLE ---
   const flagPoleObj = new FlagPole(gx(185));

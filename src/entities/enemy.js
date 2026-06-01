@@ -91,18 +91,6 @@ export class Enemy {
     }
     if (this.vx > 0) this.vx = sp; else if (this.vx < 0) this.vx = -sp;
 
-    if (res.onGround) {
-      const aheadX = this.vx > 0 ? this.x + this.w + 2 : this.x - 2;
-      const footY = this.y + this.h + 4;
-      let groundAhead = false;
-      for (const s of solids) {
-        if (s.dead) continue;
-        if (aheadX >= s.x && aheadX <= s.x + s.w && footY >= s.y && footY <= s.y + s.h + 6) {
-          groundAhead = true; break;
-        }
-      }
-      if (!groundAhead) this.vx = -this.vx;
-    }
   }
 
   draw(r, cam) {
