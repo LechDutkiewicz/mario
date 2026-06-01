@@ -33,7 +33,7 @@ export function buildWorld1() {
   addGround(0, 69);      // tiles 0-69
   addGround(71, 86);     // tiles 71-86 (gap at 69-71)
   addGround(89, 153);    // tiles 89-153 (gap at 86-89)
-  addGround(155, 200);   // tiles 155-200 (gap at 153-155)
+  addGround(155, 215);   // tiles 155-215 (gap at 153-155, extends past PC)
 
   // ---- Helper functions ----
   const Q = (tx, ty, c) => {
@@ -207,10 +207,10 @@ export function buildWorld1() {
   // === Flagpole ===
   const flagPoleObj = new FlagPole(gx(198));
 
-  const LEVEL_WIDTH = 200 * T; // 6400
+  const LEVEL_WIDTH = 220 * T; // 7040 — extra space for end animation
 
-  // Pokémon Center at end of level (after flagpole)
-  const pokeCenterX = gx(204);
+  // Pokémon Center at end of level (after flagpole, within camera range)
+  const pokeCenterX = gx(203);
 
   return {
     platforms,

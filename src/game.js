@@ -259,7 +259,7 @@ export class Game {
           p.y = GROUND_Y - p.h;
           p.poleSliding = false;
           if (!this.walkToPC && this.worldClearTimer === 0 && this.walkToPCTimer === 0) {
-            this.pcEnterX = (this.level.pokeCenterX || 6400) + 50;
+            this.pcEnterX = (this.level.pokeCenterX || 6400) + 100; // door center
             p.walkToPC = true;
             this.walkToPC = true;
             this.music.stop();
@@ -272,17 +272,20 @@ export class Game {
       p.vx = 2;
       p.x += p.vx;
       p.vy = 0;
-      if (p.x > this.pcEnterX) {
+      // Camera must follow during end-walk (no level-width cap)
+      this.cam.x = p.x - CANVAS_WIDTH * 0.4;
+      if (this.cam.x < 0) this.cam.x = 0;
+      if (p.x > this.pcEnterX || input.justPressed('Enter')) {
         p.walkToPC = false;
         this.walkToPC = false;
-        p.x = this.pcEnterX + 30;
         this.walkToPCTimer = 180;
       }
       return;
     }
     if (this.walkToPCTimer > 0) {
       this.walkToPCTimer--;
-      if (this.walkToPCTimer === 0) {
+      if (this.walkToPCTimer === 0 || input.justPressed('Enter')) {
+        this.walkToPCTimer = 0;
         if (this.world === 1) {
           this.world = 2;
           this.resetLevel(false);
