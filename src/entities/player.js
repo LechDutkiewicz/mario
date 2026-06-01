@@ -506,14 +506,13 @@ export class Player {
   }
 
   _drawCharmander(ctx, w, h) {
-    const pw = this.power;
-    const jumping = !this.onGround;
+    const pw   = this.power;
     const step = Math.abs(this.vx) > 0.3 ? Math.floor(this.animTimer / 8) % 2 : 0;
-    const t = Math.floor(this.animTimer / 5) % 4;
+    const t    = Math.floor(this.animTimer / 5) % 4;
     const flick = t < 2 ? t : 4 - t;
-    const OL = '#111';
+    const OL   = '#111';
 
-    // Flame helper at position (fx, fy) with scale s
+    // Layered flame helper — draws at (fx, fy), scale s
     const flame = (fx, fy, s) => {
       ctx.fillStyle = '#c83000';
       ctx.beginPath(); ctx.ellipse(fx, fy, s*5, s*9+flick*s, 0, 0, Math.PI*2); ctx.fill();
@@ -641,7 +640,7 @@ export class Player {
 
     } else {
       // Charizard — large, wings, two horns
-      const BODY = '#f05020'; const DARK = '#c03818'; const CREAM = '#f8e090'; const WING = '#4050c0'; const CLAW = '#f0f0b0';
+      const BODY = '#f05020'; const DARK = '#c03818'; const CREAM = '#f8e090'; const WING = '#3860c8'; const CLAW = '#f0f0b0';
 
       // Wings (behind body, fan out left and up)
       ctx.fillStyle = WING;
