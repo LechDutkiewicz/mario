@@ -32,6 +32,7 @@ export class Game {
     this.world2Area = 0;   // current area index within world 2
     this.areaTransTimer = 0; // fade-out frames between area transitions
     this._pendingArea = -1;
+    this.area0AutoWalk = false; // player auto-walks into entrance pipe
     this.resetLevel(true);
   }
 
@@ -39,6 +40,7 @@ export class Game {
     const savedPower = fullReset ? POWER.SMALL : (this.player ? this.player.power : POWER.SMALL);
     if (fullReset) this.world2Area = 0;
     this.level   = this.world === 2 ? buildWorld2(this.world2Area) : buildWorld1();
+    this.area0AutoWalk = (this.world === 2 && this.world2Area === 0);
     this.r.currentSetting = this.level.setting || 'overworld';
     this.player  = new Player(80, GROUND_Y - 60);
     this.player.power = savedPower;
@@ -152,7 +154,30 @@ export class Game {
     }
     lvl.platforms = lvl.platforms.filter(s => !s.dead);
 
+    // Area 0 auto-walk: player auto-walks right into the entrance pipe
+    if (this.area0AutoWalk && !p.dead) {
+      const pipeX = lvl.entrancePipeX ?? 10 * TILE;
+      if (p.x + p.w < pipeX + TILE * 0.5) {
+        // Still walking toward pipe — override input
+        input._autoRight = true;
+      } else {
+        // Player is over the pipe — stop walking and press down
+        input._autoRight = false;
+        input._autoDown  = true;
+        this.area0AutoWalk = false;
+      }
+    }
+    // Inject auto-walk signals into input (checked in player.update via game.js override)
+    const _savedRight = input.right, _savedDown = input.down;
+    if (input._autoRight) { input.right = true; input.left = false; }
+    if (input._autoDown)  { input.down  = true; input._autoDown = false; }
+
     p.update(input, solids, this);
+
+    // Restore real input state
+    input.right = _savedRight;
+    input.down  = _savedDown;
+
     this.cam.follow(p, lvl.width);
 
     for (const q of lvl.qblocks) q.update();
@@ -386,6 +411,7 @@ export class Game {
   _doAreaTransition(toArea) {
     const savedPower = this.player ? this.player.power : POWER.SMALL;
     this.world2Area = toArea;
+    this.area0AutoWalk = false;
     this.level = buildWorld2(toArea);
     this.r.currentSetting = this.level.setting || 'overworld';
     this.player = new Player(80, GROUND_Y - 60);
