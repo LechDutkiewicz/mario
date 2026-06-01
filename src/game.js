@@ -33,9 +33,12 @@ export class Game {
   }
 
   resetLevel(fullReset) {
+    const savedPower = fullReset ? POWER.SMALL : (this.player ? this.player.power : POWER.SMALL);
     this.level   = this.world === 2 ? buildWorld2() : buildWorld1();
     this.r.currentSetting = this.level.setting || 'overworld';
     this.player  = new Player(80, GROUND_Y - 60);
+    this.player.power = savedPower;
+    this.player._applySize();
     this.cam.x   = 0;
     this.fireballs  = [];
     this.bossShots  = [];
