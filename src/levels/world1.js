@@ -2,7 +2,7 @@
 // WORLD 1 — Eevee's Adventure (Exact SMB 1-1 layout, Pokémon style)
 // ============================================================
 import { TILE, GROUND_Y, COLORS } from '../constants.js';
-import { Platform, QuestionBlock, PipeBlock } from '../entities/platform.js';
+import { Platform, QuestionBlock, PipeBlock, BrickBlock } from '../entities/platform.js';
 import { FlagPole } from '../entities/flagpole.js';
 import { Enemy } from '../entities/enemy.js';
 import { Coin }   from '../entities/coin.js';
@@ -51,9 +51,12 @@ export function buildWorld1() {
   // Ep: enemy standing on a platform at height ph tiles above ground
   const Ep = (tx, ph, type) => enemies.push(new Enemy(gx(tx), gy(ph), type || 'ekans'));
 
-  // brick: single-tile-height brick block
-  const brick = (tx, ty) =>
-    platforms.push(new Platform(gx(tx), gy(ty) - T, T, T, COLORS.brick));
+  // brick: breakable brick block (big player destroys, small player bounces)
+  const brick = (tx, ty) => {
+    const b = new BrickBlock(gx(tx), gy(ty) - T);
+    platforms.push(b);
+    return b;
+  };
 
   // pipe(tx, height_in_tiles, enterable, isExit)
   const pipe = (tx, th, enterable = false, isExit = false) => {

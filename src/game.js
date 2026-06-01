@@ -75,6 +75,18 @@ export class Game {
     this.powerups.push(new PowerUp(x, y, kind));
   }
 
+  spawnBrickDebris(x, y) {
+    if (!this._debris) this._debris = [];
+    for (let i = 0; i < 4; i++) {
+      this._debris.push({
+        x: x + (i % 2) * 16, y: y + Math.floor(i / 2) * 16,
+        vx: (i % 2 === 0 ? -2 : 2) + (Math.random() - 0.5),
+        vy: -6 - Math.random() * 4,
+        life: 40,
+      });
+    }
+  }
+
   // ----------------------------------------------------------------
   // UPDATE
   // ----------------------------------------------------------------
@@ -106,6 +118,26 @@ export class Game {
     const lvl    = this.level;
     const solids = lvl.solids;
     const p      = this.player;
+
+    // Moving platforms: update first so solids are current, then carry player
+    if (lvl.movingPlatforms) {
+      for (const mp of lvl.movingPlatforms) {
+        mp.update();
+        // Carry player if standing on this platform
+        const onTop = p.y + p.h >= mp.y - 2 && p.y + p.h <= mp.y + 8 &&
+                      p.x + p.w > mp.x && p.x < mp.x + mp.w;
+        if (onTop) {
+          p.x += mp.velX;
+          p.y += mp.velY;
+        }
+      }
+    }
+
+    // Breakable bricks update
+    for (const s of lvl.platforms) {
+      if (s.update) s.update();
+    }
+    lvl.platforms = lvl.platforms.filter(s => !s.dead);
 
     p.update(input, solids, this);
     this.cam.follow(p, lvl.width);
@@ -336,7 +368,20 @@ export class Game {
 
     const lvl = this.level;
     for (const pl of lvl.platforms)  pl.draw(r, this.cam);
+    if (lvl.movingPlatforms) for (const mp of lvl.movingPlatforms) mp.draw(r, this.cam);
     for (const q  of lvl.qblocks)    q.draw(r, this.cam);
+    // Brick debris particles
+    if (this._debris) {
+      const ctx = r.ctx;
+      this._debris = this._debris.filter(d => d.life > 0);
+      for (const d of this._debris) {
+        d.x += d.vx; d.y += d.vy; d.vy += 0.4; d.life--;
+        ctx.globalAlpha = d.life / 40;
+        ctx.fillStyle = '#b5651d';
+        ctx.fillRect(Math.floor(d.x - this.cam.x), Math.floor(d.y), 10, 10);
+        ctx.globalAlpha = 1;
+      }
+    }
     for (const c  of lvl.coins)      c.draw(r, this.cam);
     for (const pu of this.powerups)  pu.draw(r, this.cam);
     for (const e  of lvl.enemies)    e.draw(r, this.cam);
