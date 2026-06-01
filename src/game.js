@@ -154,29 +154,20 @@ export class Game {
     }
     lvl.platforms = lvl.platforms.filter(s => !s.dead);
 
-    // Area 0 auto-walk: player auto-walks right into the entrance pipe
+    // Area 0 auto-walk: synthesize input so player walks into the entrance pipe
+    let activeInput = input;
     if (this.area0AutoWalk && !p.dead) {
       const pipeX = lvl.entrancePipeX ?? 10 * TILE;
-      if (p.x + p.w < pipeX + TILE * 0.5) {
-        // Still walking toward pipe — override input
-        input._autoRight = true;
-      } else {
-        // Player is over the pipe — stop walking and press down
-        input._autoRight = false;
-        input._autoDown  = true;
-        this.area0AutoWalk = false;
-      }
+      const atPipe = p.x + p.w >= pipeX + TILE * 0.5;
+      if (atPipe) this.area0AutoWalk = false;
+      activeInput = {
+        left: false, right: !atPipe, down: atPipe, run: false,
+        jump: false, jumpPressed: false, firePressed: false,
+        justPressed: (c) => atPipe && c === 'ArrowDown',
+      };
     }
-    // Inject auto-walk signals into input (checked in player.update via game.js override)
-    const _savedRight = input.right, _savedDown = input.down;
-    if (input._autoRight) { input.right = true; input.left = false; }
-    if (input._autoDown)  { input.down  = true; input._autoDown = false; }
 
-    p.update(input, solids, this);
-
-    // Restore real input state
-    input.right = _savedRight;
-    input.down  = _savedDown;
+    p.update(activeInput, solids, this);
 
     this.cam.follow(p, lvl.width);
 
