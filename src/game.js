@@ -70,6 +70,12 @@ export class Game {
   update() {
     const input = this.input;
 
+    // ESC returns to menu from any non-menu state
+    if (input.escape && this.state !== STATE.MENU) {
+      this.state = STATE.MENU;
+      return;
+    }
+
     if (this.state === STATE.MENU) {
       if (input.justPressed('Enter') || input.justPressed('Space')) this.start();
       return;

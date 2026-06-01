@@ -148,6 +148,20 @@ export class Player {
       if (block.onBump) block.onBump(game);
     }
 
+    // Wider proximity bump check for Q-blocks when jumping up
+    if (this.vy < 0) {
+      for (const s of solids) {
+        if (s.dead || s.used || !s.onBump) continue;
+        const blockBottom = s.y + s.h;
+        const playerTop = this.y;
+        if (Math.abs(playerTop - blockBottom) < 10 &&
+            this.x + this.w > s.x + 4 &&
+            this.x < s.x + s.w - 4) {
+          s.onBump(game);
+        }
+      }
+    }
+
     if (this.y > 800) this.die();
     if (this.x < 0) { this.x = 0; this.vx = 0; }
   }

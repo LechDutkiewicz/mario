@@ -18,70 +18,79 @@ export class Renderer {
   // Pokémon location silhouettes in the far background
   drawPokemonBackground(ctx, camX) {
     const px = camX * 0.15;
-    this._drawHouse(ctx, 400 - px, 420, '#5a7a3a', '#4a6a2a');
-    this._drawHouse(ctx, 480 - px, 430, '#5a7a3a', '#4a6a2a');
-    this._drawLab(ctx, 600 - px, 400);
-    this._drawPokeCenter(ctx, 1200 - px, 415);
-    this._drawMountain(ctx, 2000 - px, 300);
-    this._drawMountain(ctx, 2150 - px, 340);
+    const groundLine = 490;
+    this._drawHouse(ctx, 400 - px, groundLine, '#5a7a3a', '#4a6a2a');
+    this._drawHouse(ctx, 480 - px, groundLine, '#5a7a3a', '#4a6a2a');
+    this._drawLab(ctx, 600 - px, groundLine);
+    this._drawPokeCenter(ctx, 1200 - px, groundLine);
+    this._drawMountain(ctx, 2000 - px, groundLine);
+    this._drawMountain(ctx, 2150 - px, groundLine);
     for (let i = 0; i < 5; i++) {
-      this._drawTree(ctx, 3000 - px + i * 120, 390 + (i % 3) * 10);
+      this._drawTree(ctx, 3000 - px + i * 120, groundLine);
     }
   }
 
-  _drawHouse(ctx, x, y, roofColor, wallColor) {
+  _drawHouse(ctx, x, bottomY, roofColor, wallColor) {
+    const wallH = 38, wallW = 48;
     ctx.fillStyle = wallColor;
-    ctx.fillRect(x, y, 48, 38);
+    ctx.fillRect(x, bottomY - wallH, wallW, wallH);
     ctx.fillStyle = roofColor;
     ctx.beginPath();
-    ctx.moveTo(x - 4, y); ctx.lineTo(x + 24, y - 22); ctx.lineTo(x + 52, y);
+    ctx.moveTo(x - 4, bottomY - wallH);
+    ctx.lineTo(x + wallW / 2, bottomY - wallH - 22);
+    ctx.lineTo(x + wallW + 4, bottomY - wallH);
     ctx.closePath(); ctx.fill();
-    ctx.fillStyle = 'rgba(0,0,0,0.3)';
-    ctx.fillRect(x + 10, y + 8, 12, 12);
-    ctx.fillRect(x + 26, y + 8, 12, 12);
+    ctx.fillStyle = 'rgba(180,220,255,0.4)';
+    ctx.fillRect(x + 8, bottomY - 30, 12, 12);
+    ctx.fillRect(x + 28, bottomY - 30, 12, 12);
   }
 
-  _drawLab(ctx, x, y) {
+  _drawLab(ctx, x, bottomY) {
+    const h = 55, w = 72;
     ctx.fillStyle = '#4a5a3a';
-    ctx.fillRect(x, y, 72, 55);
+    ctx.fillRect(x, bottomY - h, w, h);
     ctx.fillStyle = '#3a4a2a';
     ctx.beginPath();
-    ctx.moveTo(x - 6, y); ctx.lineTo(x + 36, y - 30); ctx.lineTo(x + 78, y);
+    ctx.moveTo(x - 6, bottomY - h); ctx.lineTo(x + 36, bottomY - h - 30); ctx.lineTo(x + 78, bottomY - h);
     ctx.closePath(); ctx.fill();
     ctx.fillStyle = 'rgba(180,220,255,0.3)';
-    ctx.fillRect(x + 16, y + 10, 40, 25);
+    ctx.fillRect(x + 16, bottomY - h + 10, 40, 25);
   }
 
-  _drawPokeCenter(ctx, x, y) {
+  _drawPokeCenter(ctx, x, bottomY) {
+    const h = 48, w = 58;
     ctx.fillStyle = '#e8e8e8';
-    ctx.fillRect(x, y, 58, 48);
+    ctx.fillRect(x, bottomY - h, w, h);
     ctx.fillStyle = '#c0392b';
     ctx.beginPath();
-    ctx.ellipse(x + 29, y, 34, 20, 0, Math.PI, 0);
+    ctx.ellipse(x + 29, bottomY - h, 34, 20, 0, Math.PI, 0);
     ctx.fill();
     ctx.fillStyle = '#fff';
-    ctx.fillRect(x + 24, y + 12, 10, 20);
-    ctx.fillRect(x + 18, y + 18, 22, 8);
+    ctx.fillRect(x + 24, bottomY - h + 12, 10, 20);
+    ctx.fillRect(x + 18, bottomY - h + 18, 22, 8);
   }
 
-  _drawMountain(ctx, x, y) {
+  _drawMountain(ctx, x, bottomY) {
+    const peakH = 180;
     ctx.fillStyle = '#7a8a9a';
     ctx.beginPath();
-    ctx.moveTo(x, 480); ctx.lineTo(x + 100, y); ctx.lineTo(x + 200, 480);
+    ctx.moveTo(x, bottomY); ctx.lineTo(x + 100, bottomY - peakH); ctx.lineTo(x + 200, bottomY);
     ctx.closePath(); ctx.fill();
     ctx.fillStyle = '#ddeeff';
     ctx.beginPath();
-    ctx.moveTo(x + 100, y); ctx.lineTo(x + 70, y + 45); ctx.lineTo(x + 130, y + 45);
+    ctx.moveTo(x + 100, bottomY - peakH);
+    ctx.lineTo(x + 70, bottomY - peakH + 45);
+    ctx.lineTo(x + 130, bottomY - peakH + 45);
     ctx.closePath(); ctx.fill();
   }
 
-  _drawTree(ctx, x, y) {
+  _drawTree(ctx, x, bottomY) {
     ctx.fillStyle = '#4a7a2a';
-    ctx.beginPath(); ctx.arc(x, y, 20, 0, Math.PI * 2); ctx.fill();
-    ctx.beginPath(); ctx.arc(x - 14, y + 8, 16, 0, Math.PI * 2); ctx.fill();
-    ctx.beginPath(); ctx.arc(x + 14, y + 8, 16, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(x, bottomY - 35, 20, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(x - 14, bottomY - 27, 16, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(x + 14, bottomY - 27, 16, 0, Math.PI * 2); ctx.fill();
     ctx.fillStyle = '#3a5a1a';
-    ctx.fillRect(x - 5, y + 20, 10, 15);
+    ctx.fillRect(x - 5, bottomY - 15, 10, 15);
   }
 
   // Background parallax hills and clouds

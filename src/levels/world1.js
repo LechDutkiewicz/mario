@@ -1,18 +1,16 @@
 // ============================================================
-// WORLD 1 — Eevee's Adventure (SMB 1-1 Pokémon style)
+// WORLD 1 — Eevee's Adventure (Exact SMB 1-1 layout, Pokémon style)
 // ============================================================
-import { TILE, GROUND_Y, COLORS, LEVEL_WIDTH } from '../constants.js';
+import { TILE, GROUND_Y, COLORS } from '../constants.js';
 import { Platform, QuestionBlock, PipeBlock } from '../entities/platform.js';
 import { FlagPole } from '../entities/flagpole.js';
 import { Enemy } from '../entities/enemy.js';
 import { Coin }   from '../entities/coin.js';
-import { Boss }   from '../entities/boss.js';
 import { PipePlant } from '../entities/pipeplant.js';
 
 export function buildWorld1() {
-  const T  = TILE;
-  const GY = GROUND_Y;
-  const levelWidth = LEVEL_WIDTH; // 6400
+  const T  = TILE;        // 32
+  const GY = GROUND_Y;   // 540
 
   // Helper shortcuts
   const gx = n => n * T;
@@ -24,149 +22,194 @@ export function buildWorld1() {
   const coins     = [];
   const groundH   = 120;
 
-  // Ground — three segments with two small gaps (tiles)
-  const addGround = (tx, tw) =>
-    platforms.push(new Platform(gx(tx), GY, gx(tw), groundH, COLORS.ground));
+  // ---- Ground sections (exact SMB 1-1 gaps) ----
+  // addGround(start_tile, end_tile) — creates ground from start*T to end*T
+  const addGround = (startTile, endTile) => {
+    const x = gx(startTile);
+    const w = gx(endTile - startTile);
+    platforms.push(new Platform(x, GY, w, groundH, COLORS.ground));
+  };
 
-  addGround(0, 52);     // x=0..1664
-  addGround(54, 30);    // x=1728..2688  (gap at tile 52-53)
-  addGround(86, 114);   // x=2752..6400  (gap at tile 84-85)
+  addGround(0, 69);      // tiles 0-69
+  addGround(71, 86);     // tiles 71-86 (gap at 69-71)
+  addGround(89, 153);    // tiles 89-153 (gap at 86-89)
+  addGround(155, 200);   // tiles 155-200 (gap at 153-155)
 
-  // --- Helper functions ---
-  const P = (tx, ty, tw, c) =>
-    platforms.push(new Platform(gx(tx), gy(ty), gx(tw), T, c));
+  // ---- Helper functions ----
   const Q = (tx, ty, c) => {
     const q = new QuestionBlock(gx(tx), gy(ty) - T);
     q.contents = c || 'pokeball';
     qblocks.push(q);
     return q;
   };
+
+  // C(tx, ty): pokéball at tile column tx, ty tiles above ground
   const C = (tx, ty) => coins.push(new Coin(gx(tx) + 6, gy(ty + 1) + 4));
+
   const E = (tx, type) => enemies.push(new Enemy(gx(tx), GY, type || 'ekans'));
-  const Ep = (tx, ty, type) => enemies.push(new Enemy(gx(tx), gy(ty), type || 'ekans'));
 
-  const brick = (tx, ty, tw) =>
-    platforms.push(new Platform(gx(tx), gy(ty) - T, gx(tw), T, COLORS.brick));
+  // Ep: enemy standing on a platform at height ph tiles above ground
+  const Ep = (tx, ph, type) => enemies.push(new Enemy(gx(tx), gy(ph), type || 'ekans'));
 
-  const pipe = (tx, th, enterable = false) => {
-    platforms.push(new PipeBlock(gx(tx), th, enterable));
+  // brick: single-tile-height brick block
+  const brick = (tx, ty) =>
+    platforms.push(new Platform(gx(tx), gy(ty) - T, T, T, COLORS.brick));
+
+  // pipe(tx, height_in_tiles, enterable, isExit)
+  const pipe = (tx, th, enterable = false, isExit = false) => {
+    const p = new PipeBlock(gx(tx), th, enterable);
+    if (isExit) {
+      p.isExit = true;
+      p.exitX = (57 + 2) * T; // just past the enterable pipe
+    }
+    platforms.push(p);
   };
 
+  // step: staircase column — solid block from ground up to th tiles
   const step = (tx, th) =>
     platforms.push(new Platform(gx(tx), GY - T * th, T, T * th, COLORS.brick));
 
   // ============================================================
-  // LAYOUT (matches SMB 1-1 spirit with Pokémon flavour)
+  // LAYOUT — SMB 1-1 exact
   // ============================================================
 
-  // === Zone 1: Opening (tile 0-27) ===
-  Q(16, 5, 'candy');                           // Rare Candy
-  brick(20, 5, 1);
-  Q(21, 5, 'pokeball');
-  brick(22, 5, 1);
-  Q(23, 5, 'pokeball');
-  brick(24, 5, 1);
+  // === Q-blocks ===
+  Q(16, 4, 'coin');
+  Q(21, 4, 'grow');
+  Q(22, 8, 'coin');
+  Q(23, 4, 'coin');
+  Q(64, 5, 'grow');    // hidden-ish, treat as normal
+  Q(78, 4, 'grow');
+  Q(94, 4, 'coin');
+  Q(100, 4, 'coin');
+  Q(106, 4, 'grow');
+  Q(109, 4, 'grow');
+  Q(109, 8, 'grow');
+  Q(112, 4, 'coin');
+  Q(170, 4, 'coin');
 
-  E(22, 'ekans');
-  E(24, 'ekans');
+  // === Bricks ===
+  brick(20, 4);
+  brick(22, 4);
+  brick(24, 4);
+  brick(77, 4);
+  brick(79, 4);
+  brick(80, 4);
+  brick(81, 8);
+  brick(82, 8);
+  brick(83, 8); brick(84, 8); brick(85, 8); brick(86, 8); brick(87, 8);
+  brick(91, 8); brick(92, 8); brick(93, 8);
+  brick(94, 8);
+  brick(100, 4);
+  brick(101, 4);
+  brick(118, 4);
+  brick(121, 8); brick(122, 8); brick(123, 8);
+  brick(128, 8);
+  brick(129, 4);
+  brick(129, 8);
+  brick(130, 4);
+  brick(130, 8);
+  brick(131, 8);
+  brick(168, 4);
+  brick(169, 4);
+  brick(171, 4);
 
-  // === Zone 2: First pipes (tile 28-56) ===
-  pipe(28, 2, true);  // enterable — leads underground
-  pipe(38, 3);
-
-  E(34, 'ekans');
-  E(36, 'ekans');
-
-  Ep(40, 3, 'koffing');
-
-  // === Zone 3: Mid section (tile 57-83) ===
-  pipe(57, 4);
-  pipe(63, 2);
-  pipe(78, 4);
-
-  E(47, 'ekans');
-  E(48, 'ekans');
-  E(69, 'ekans');
-  E(71, 'ekans');
-
-  Q(64, 5, 'pokeball');
-  Q(65, 5, 'tm');       // TM Fire!
-  Q(66, 5, 'pokeball');
-
-  Ep(58, 4, 'koffing');
-  Ep(78, 4, 'koffing');
-
-  // Pokéballs in open air
-  for (let i = 0; i < 5; i++) C(86 + i, 5);
-
-  // === Zone 4: After second gap (tile 86-134) ===
-  E(90, 'ekans');
-  E(92, 'ekans');
-  E(94, 'ekans');
-  E(98, 'ekans');
-  E(102, 'ekans');
-
-  Q(96, 5, 'candy');    // another Rare Candy mid-level
-  brick(100, 5, 3);
-  Q(103, 5, 'pokeball');
-
-  Ep(110, 4, 'koffing');
-
-  // Some brick platforms mid level
-  P(120, 4, 3, COLORS.brick);
-  P(126, 6, 4, COLORS.brick);
-  P(130, 4, 3, COLORS.brick);
-
-  C(120, 5); C(121, 5); C(122, 5);
-  C(127, 7); C(128, 7); C(129, 7); C(130, 7);
-
-  E(116, 'ekans');
-  E(118, 'ekans');
-  Ep(127, 6, 'ekans');
-  Ep(130, 4, 'koffing');
-
-  Q(121, 7, 'tm');       // TM Fire before final climb
-
-  // === Zone 5: Ascending staircase (tile 135-151) ===
-  for (let i = 0; i < 8; i++) step(135 + i, i + 1);
-  for (let i = 0; i < 4; i++) step(145 + i, 4 - i);
+  // === Pipes ===
+  pipe(28, 2, false);           // first pipe, 2 tiles tall
+  pipe(38, 3, false);           // 3 tiles
+  pipe(46, 4, false);           // 4 tiles
+  pipe(57, 4, true, false);     // enterable — goes underground
+  pipe(163, 2, false, true);    // exit from underground
+  pipe(179, 2, false);          // last pipe
 
   // === Pipe plants ===
   const plants = [];
   plants.push(new PipePlant(gx(38), GROUND_Y - T * 3));
-  plants.push(new PipePlant(gx(78), GROUND_Y - T * 4));
+  plants.push(new PipePlant(gx(46), GROUND_Y - T * 4));
+
+  // === Staircases ===
+  // First staircase (ascending then descending)
+  step(134, 1);
+  step(135, 2);
+  step(136, 3);
+  step(137, 4);
+  // descending
+  step(140, 4);
+  step(141, 3);
+  step(142, 2);
+  step(143, 1);
+
+  // Second staircase (ascending)
+  step(148, 1);
+  step(149, 2);
+  step(150, 3);
+  step(151, 4);
+  step(152, 4);
+  // After gap — descending side
+  step(155, 4);
+  step(156, 3);
+  step(157, 2);
+  step(158, 1);
+
+  // === Enemies ===
+  E(22, 'ekans');
+  E(42, 'ekans');
+  E(51, 'ekans');
+  E(52, 'ekans');
+  Ep(80, 8, 'ekans');   // on brick row
+  Ep(82, 8, 'ekans');   // on brick row
+  E(97, 'ekans');
+  E(98, 'ekans');
+  E(107, 'koffing');
+  E(114, 'ekans');
+  E(115, 'ekans');
+  E(124, 'ekans'); E(126, 'ekans'); E(128, 'ekans'); E(130, 'ekans');
+  E(174, 'ekans');
+  E(175, 'ekans');
+
+  // === Pokéballs ===
+  // Above mid-section brick row (tiles 83-85, height 8) — 1 tile above = height 9
+  C(83, 9); C(84, 9); C(85, 9);
+  // After first gap, start of second floor section
+  C(72, 1); C(73, 1); C(74, 1);
+  // In second brick area
+  C(91, 9); C(92, 9); C(93, 9);
+  // Near the secret area
+  C(66, 1); C(67, 1); C(68, 1);
 
   // === Underground bonus room at x=7000 ===
   const UX = 7000;
   const groundH2 = 120;
   // Floor
-  platforms.push(new Platform(UX, GROUND_Y, 1000, groundH2, COLORS.brick));
+  platforms.push(new Platform(UX, GY, 1000, groundH2, COLORS.brick));
   // Ceiling
   platforms.push(new Platform(UX, 60, 1000, T, COLORS.brick));
   // Left wall
-  platforms.push(new Platform(UX - T, 60, T, GROUND_Y - 60 + T, COLORS.brick));
+  platforms.push(new Platform(UX - T, 60, T, GY - 60 + T, COLORS.brick));
   // Right wall
-  platforms.push(new Platform(UX + 1000, 60, T, GROUND_Y - 60 + T, COLORS.brick));
+  platforms.push(new Platform(UX + 1000, 60, T, GY - 60 + T, COLORS.brick));
   // Interior platforms
-  platforms.push(new Platform(UX + 150, GROUND_Y - T * 4, T * 3, T, COLORS.brick));
-  platforms.push(new Platform(UX + 400, GROUND_Y - T * 5, T * 3, T, COLORS.brick));
-  platforms.push(new Platform(UX + 650, GROUND_Y - T * 4, T * 3, T, COLORS.brick));
+  platforms.push(new Platform(UX + 150, GY - T * 4, T * 3, T, COLORS.brick));
+  platforms.push(new Platform(UX + 400, GY - T * 5, T * 3, T, COLORS.brick));
+  platforms.push(new Platform(UX + 650, GY - T * 4, T * 3, T, COLORS.brick));
   // Q-blocks in underground
-  qblocks.push(new QuestionBlock(UX + 200, GROUND_Y - T * 5 - T, 'pokeball'));
-  qblocks.push(new QuestionBlock(UX + 350, GROUND_Y - T * 4 - T, 'ultraball'));
-  qblocks.push(new QuestionBlock(UX + 500, GROUND_Y - T * 5 - T, 'pokeball'));
-  // Pokéballs scattered
+  qblocks.push(new QuestionBlock(UX + 200, GY - T * 5 - T, 'pokeball'));
+  qblocks.push(new QuestionBlock(UX + 350, GY - T * 4 - T, 'ultraball'));
+  qblocks.push(new QuestionBlock(UX + 500, GY - T * 5 - T, 'pokeball'));
+  // Pokéballs scattered underground
   for (let i = 0; i < 8; i++) {
-    coins.push(new Coin(UX + 80 + i * 100, GROUND_Y - T * 3));
+    coins.push(new Coin(UX + 80 + i * 100, GY - T * 3));
   }
   // Exit pipe
   const exitPipe = new PipeBlock(UX + 900, 3);
   exitPipe.isExit = true;
-  exitPipe.exitX = 28 * 32 + 80;
+  exitPipe.exitX = (57 + 2) * T;
   platforms.push(exitPipe);
 
   // === Flagpole ===
-  const flagPoleObj = new FlagPole(gx(152));
+  const flagPoleObj = new FlagPole(gx(198));
+
+  const LEVEL_WIDTH = 200 * T; // 6400
 
   return {
     platforms,
@@ -177,6 +220,6 @@ export function buildWorld1() {
     boss: null,
     flagPole: flagPoleObj,
     get solids() { return [...platforms, ...qblocks]; },
-    width: Math.max(levelWidth, UX + 1100),
+    width: Math.max(LEVEL_WIDTH, UX + 1100),
   };
 }
