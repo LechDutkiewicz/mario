@@ -56,7 +56,6 @@ function processThing(e, out) {
       break;
 
     case 'Goomba':
-    case 'Koopa':
     case 'Lakitu':
     case 'BuzzyBeetle':
     case 'HammerBro': {
@@ -64,6 +63,12 @@ function processThing(e, out) {
       // feet = GY - (y - 8) * 4
       const feetY = GY - (y - 8) * 4;
       out.enemies.push(new Enemy(sx, feetY, 'ekans'));
+      break;
+    }
+
+    case 'Koopa': {
+      const feetY = GY - (y - 8) * 4;
+      out.enemies.push(new Enemy(sx, feetY, 'squirtle'));
       break;
     }
 

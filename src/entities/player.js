@@ -31,6 +31,7 @@ export class Player {
     this.crouching = false;
     this.poleSliding = false;
     this.walkToPC = false;
+    this.char = 'eevee';
   }
 
   get big() { return this.power !== POWER.SMALL; }
@@ -539,6 +540,173 @@ export class Player {
     ctx.restore();
   }
 
+  _drawCharmander(ctx, w, h) {
+    const pw = this.power;
+    const jumping = !this.onGround;
+    const t = Math.floor(this.animTimer / 4) % 3;
+
+    if (pw === POWER.FIRE) {
+      // Charizard
+      const BODY = '#f06030'; const WING = '#8040c0'; const BELLY = '#f8e0b0';
+      // Wings (behind body)
+      ctx.fillStyle = WING;
+      ctx.beginPath();
+      ctx.moveTo(w*0.1, h*0.35);
+      ctx.lineTo(w*(-0.2), h*0.1);
+      ctx.lineTo(w*0.05, h*0.55);
+      ctx.closePath(); ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(w*0.9, h*0.35);
+      ctx.lineTo(w*1.2, h*0.1);
+      ctx.lineTo(w*0.95, h*0.55);
+      ctx.closePath(); ctx.fill();
+      // Body
+      ctx.fillStyle = BODY;
+      ctx.beginPath(); ctx.ellipse(w*0.5, h*0.55, w*0.42, h*0.3, 0, 0, Math.PI*2); ctx.fill();
+      // Belly
+      ctx.fillStyle = BELLY;
+      ctx.beginPath(); ctx.ellipse(w*0.5, h*0.58, w*0.28, h*0.22, 0, 0, Math.PI*2); ctx.fill();
+      // Head
+      ctx.fillStyle = BODY;
+      ctx.beginPath(); ctx.ellipse(w*0.5, h*0.22, w*0.34, h*0.2, 0, 0, Math.PI*2); ctx.fill();
+      // Horn/crest
+      ctx.fillStyle = '#c04020';
+      ctx.beginPath(); ctx.moveTo(w*0.38, h*0.08); ctx.lineTo(w*0.3, h*(-0.05)); ctx.lineTo(w*0.48, h*0.12); ctx.closePath(); ctx.fill();
+      ctx.beginPath(); ctx.moveTo(w*0.62, h*0.08); ctx.lineTo(w*0.7, h*(-0.05)); ctx.lineTo(w*0.52, h*0.12); ctx.closePath(); ctx.fill();
+      // Eyes
+      ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.ellipse(w*0.37, h*0.2, 4, 5, 0, 0, Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(w*0.63, h*0.2, 4, 5, 0, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = '#111'; ctx.beginPath(); ctx.ellipse(w*0.38, h*0.21, 2, 2.5, 0, 0, Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(w*0.64, h*0.21, 2, 2.5, 0, 0, Math.PI*2); ctx.fill();
+      // Legs
+      ctx.fillStyle = BODY;
+      ctx.fillRect(w*0.18, h*0.78, w*0.22, h*0.2);
+      ctx.fillRect(w*0.56, h*0.78, w*0.22, h*0.2);
+      // Flame tail
+      const flameX = w * (this.facing > 0 ? 0.95 : 0.05);
+      ctx.fillStyle = '#ff4400';
+      ctx.beginPath(); ctx.ellipse(flameX, h*0.7, 8+t*2, 14+t*2, 0, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = '#ff8800';
+      ctx.beginPath(); ctx.ellipse(flameX, h*0.68, 5+t, 10+t, 0, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = '#ffcc00';
+      ctx.beginPath(); ctx.ellipse(flameX, h*0.66, 3, 6, 0, 0, Math.PI*2); ctx.fill();
+    } else if (pw === POWER.BIG) {
+      // Charmeleon
+      const BODY = '#e05528'; const BELLY = '#f8d888'; const CLAW = '#f8f8c0';
+      ctx.fillStyle = BODY;
+      ctx.beginPath(); ctx.ellipse(w*0.5, h*0.56, w*0.42, h*0.3, 0, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = BELLY;
+      ctx.beginPath(); ctx.ellipse(w*0.5, h*0.6, w*0.26, h*0.22, 0, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = BODY;
+      ctx.beginPath(); ctx.ellipse(w*0.5, h*0.25, w*0.32, h*0.2, 0, 0, Math.PI*2); ctx.fill();
+      // Head crest
+      ctx.fillStyle = '#c04020';
+      ctx.beginPath(); ctx.moveTo(w*0.42, h*0.1); ctx.lineTo(w*0.34, h*(-0.04)); ctx.lineTo(w*0.52, h*0.14); ctx.closePath(); ctx.fill();
+      // Eyes
+      ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.ellipse(w*0.37, h*0.23, 4, 5, 0, 0, Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(w*0.63, h*0.23, 4, 5, 0, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = '#c00'; ctx.beginPath(); ctx.ellipse(w*0.38, h*0.24, 2, 2.5, 0, 0, Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(w*0.64, h*0.24, 2, 2.5, 0, 0, Math.PI*2); ctx.fill();
+      // Claws
+      ctx.fillStyle = CLAW;
+      ctx.fillRect(w*0.18, h*0.78, 5, 8); ctx.fillRect(w*0.26, h*0.78, 5, 8);
+      ctx.fillRect(w*0.64, h*0.78, 5, 8); ctx.fillRect(w*0.72, h*0.78, 5, 8);
+      ctx.fillStyle = BODY;
+      ctx.fillRect(w*0.15, h*0.72, w*0.22, h*0.14);
+      ctx.fillRect(w*0.6, h*0.72, w*0.22, h*0.14);
+      // Flame tail
+      const ftx = w * (this.facing > 0 ? 0.9 : 0.1);
+      ctx.fillStyle = '#ff4400'; ctx.beginPath(); ctx.ellipse(ftx, h*0.75, 6+t*2, 10+t, 0, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = '#ffaa00'; ctx.beginPath(); ctx.ellipse(ftx, h*0.73, 3, 6, 0, 0, Math.PI*2); ctx.fill();
+    } else {
+      // Charmander (small)
+      const BODY = '#f07840'; const BELLY = '#f8e8b8';
+      ctx.fillStyle = BODY;
+      ctx.beginPath(); ctx.ellipse(w*0.5, h*0.65, w*0.42, h*0.28, 0, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = BELLY;
+      ctx.beginPath(); ctx.ellipse(w*0.5, h*0.67, w*0.26, h*0.2, 0, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = BODY;
+      ctx.beginPath(); ctx.ellipse(w*0.5, h*0.3, w*0.32, h*0.22, 0, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.ellipse(w*0.36, h*0.27, 4, 5, 0, 0, Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(w*0.64, h*0.27, 4, 5, 0, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = '#222'; ctx.beginPath(); ctx.ellipse(w*0.37, h*0.28, 2, 2.5, 0, 0, Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(w*0.65, h*0.28, 2, 2.5, 0, 0, Math.PI*2); ctx.fill();
+      const step = Math.abs(this.vx) > 0.3 ? Math.floor(this.animTimer/8)%2 : 0;
+      ctx.fillStyle = BODY;
+      ctx.fillRect(w*(0.18+step*0.06), h*0.82, w*0.2, h*0.16);
+      ctx.fillRect(w*(0.56-step*0.06), h*0.82, w*0.2, h*0.16);
+      // Flame tail
+      const ftx2 = w * (this.facing > 0 ? 0.88 : 0.12);
+      ctx.fillStyle = '#ff4400'; ctx.beginPath(); ctx.ellipse(ftx2, h*0.78, 5+t*1.5, 8+t, 0, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = '#ffaa00'; ctx.beginPath(); ctx.ellipse(ftx2, h*0.76, 3, 5, 0, 0, Math.PI*2); ctx.fill();
+    }
+  }
+
+  _drawBulbasaur(ctx, w, h) {
+    const pw = this.power;
+    const t = Math.floor(this.animTimer / 4) % 3;
+
+    if (pw === POWER.FIRE) {
+      // Venusaur
+      const BODY = '#4a8840'; const SKIN = '#6ab060'; const FLOWER = '#e84888'; const LEAFG = '#2a6830';
+      // Big flower bloom (petals around)
+      ctx.fillStyle = FLOWER;
+      for (let i=0; i<6; i++) {
+        const angle = (i/6)*Math.PI*2;
+        ctx.beginPath(); ctx.ellipse(w*0.5+Math.cos(angle)*w*0.3, h*0.15+Math.sin(angle)*h*0.12, w*0.12+t*2, h*0.1, angle, 0, Math.PI*2); ctx.fill();
+      }
+      // Center
+      ctx.fillStyle = '#f8d040'; ctx.beginPath(); ctx.arc(w*0.5, h*0.15, w*0.14, 0, Math.PI*2); ctx.fill();
+      // Bulb/stalk
+      ctx.fillStyle = LEAFG; ctx.beginPath(); ctx.ellipse(w*0.5, h*0.32, w*0.22, h*0.18, 0, 0, Math.PI*2); ctx.fill();
+      // Body
+      ctx.fillStyle = SKIN; ctx.beginPath(); ctx.ellipse(w*0.5, h*0.62, w*0.46, h*0.3, 0, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = BODY; ctx.beginPath(); ctx.ellipse(w*0.5, h*0.55, w*0.3, h*0.12, 0, 0, Math.PI*2); ctx.fill();
+      // Head
+      ctx.fillStyle = SKIN; ctx.beginPath(); ctx.ellipse(w*0.5, h*0.28, w*0.36, h*0.2, 0, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.ellipse(w*0.36, h*0.25, 5, 6, 0, 0, Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(w*0.64, h*0.25, 5, 6, 0, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = '#333'; ctx.beginPath(); ctx.ellipse(w*0.37, h*0.26, 2.5, 3, 0, 0, Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(w*0.65, h*0.26, 2.5, 3, 0, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = SKIN; ctx.fillRect(w*0.15, h*0.78, w*0.24, h*0.2); ctx.fillRect(w*0.58, h*0.78, w*0.24, h*0.2);
+    } else if (pw === POWER.BIG) {
+      // Ivysaur
+      const BODY = '#5a9850'; const SKIN = '#78b868'; const BUD = '#d060a0'; const LEAFG = '#386840';
+      // Large bud
+      ctx.fillStyle = LEAFG; ctx.beginPath(); ctx.ellipse(w*0.5, h*0.26, w*0.26, h*0.22, 0, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = BUD; ctx.beginPath(); ctx.ellipse(w*0.5, h*0.2, w*0.18, h*0.14, 0, 0, Math.PI*2); ctx.fill();
+      // Body
+      ctx.fillStyle = SKIN; ctx.beginPath(); ctx.ellipse(w*0.5, h*0.6, w*0.44, h*0.3, 0, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = BODY; ctx.beginPath(); ctx.ellipse(w*0.5, h*0.53, w*0.28, h*0.1, 0, 0, Math.PI*2); ctx.fill();
+      // Head
+      ctx.fillStyle = SKIN; ctx.beginPath(); ctx.ellipse(w*0.5, h*0.28, w*0.34, h*0.2, 0, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.ellipse(w*0.36, h*0.25, 4, 5, 0, 0, Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(w*0.64, h*0.25, 4, 5, 0, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = '#222'; ctx.beginPath(); ctx.ellipse(w*0.37, h*0.26, 2, 2.5, 0, 0, Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(w*0.65, h*0.26, 2, 2.5, 0, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = SKIN; ctx.fillRect(w*0.16, h*0.78, w*0.22, h*0.2); ctx.fillRect(w*0.58, h*0.78, w*0.22, h*0.2);
+    } else {
+      // Bulbasaur (small)
+      const BODY = '#68a858'; const SKIN = '#88c878'; const BULB = '#5a7840';
+      // Small bulb on back
+      ctx.fillStyle = BULB; ctx.beginPath(); ctx.ellipse(w*0.5, h*0.28, w*0.18, h*0.14, 0, 0, Math.PI*2); ctx.fill();
+      // Body
+      ctx.fillStyle = SKIN; ctx.beginPath(); ctx.ellipse(w*0.5, h*0.66, w*0.44, h*0.3, 0, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = BODY; ctx.beginPath(); ctx.ellipse(w*0.5, h*0.6, w*0.3, h*0.1, 0, 0, Math.PI*2); ctx.fill();
+      // Head
+      ctx.fillStyle = SKIN; ctx.beginPath(); ctx.ellipse(w*0.5, h*0.32, w*0.34, h*0.24, 0, 0, Math.PI*2); ctx.fill();
+      // Big eyes
+      ctx.fillStyle = '#cc0000'; ctx.beginPath(); ctx.ellipse(w*0.34, h*0.28, 5, 6, 0, 0, Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(w*0.66, h*0.28, 5, 6, 0, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.ellipse(w*0.33, h*0.26, 2, 2, 0, 0, Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(w*0.65, h*0.26, 2, 2, 0, 0, Math.PI*2); ctx.fill();
+      const step = Math.abs(this.vx) > 0.3 ? Math.floor(this.animTimer/8)%2 : 0;
+      ctx.fillStyle = SKIN;
+      ctx.fillRect(w*(0.16+step*0.06), h*0.82, w*0.22, h*0.16);
+      ctx.fillRect(w*(0.56-step*0.06), h*0.82, w*0.22, h*0.16);
+    }
+  }
+
   draw(r, cam) {
     if (this.dead && this.deathTimer < 60 && Math.floor(this.deathTimer / 4) % 2) return;
     if (this.invincible > 0 && Math.floor(this.invincible / 4) % 2) return;
@@ -566,6 +734,19 @@ export class Player {
     }
 
     const big = h > PLAYER_SMALL_H + 2;
+
+    // Dispatch to character family
+    if (this.char === 'charmander') {
+      this._drawCharmander(ctx, w, h);
+      ctx.restore();
+      return;
+    }
+    if (this.char === 'bulbasaur') {
+      this._drawBulbasaur(ctx, w, h);
+      ctx.restore();
+      return;
+    }
+    // default: eevee family (existing code)
 
     // Dispatch big forms to dedicated drawers
     if (big && !this.crouching) {

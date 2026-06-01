@@ -30,6 +30,8 @@ export class Game {
     this.walkToPCTimer = 0;
     this.pcEnterX = 0;
     this.world = 1;
+    this.selectedChar = 'eevee';
+    this.charSelectIdx = 0;
     this.world2Area = 0;   // current area index within world 2
     this.areaTransTimer = 0; // fade-out frames between area transitions
     this._pendingArea = -1;
@@ -47,6 +49,7 @@ export class Game {
     this.r.currentSetting = this.level.setting || 'overworld';
     this.player  = new Player(80, GROUND_Y - 60);
     this.player.power = savedPower;
+    this.player.char = this.selectedChar || 'eevee';
     this.player._applySize();
     this.cam.x   = 0;
     this.fireballs  = [];
@@ -112,7 +115,20 @@ export class Game {
     }
 
     if (this.state === STATE.MENU) {
-      if (input.justPressed('Enter') || input.justPressed('Space')) this.start();
+      if (input.justPressed('Enter') || input.justPressed('Space')) {
+        this.state = STATE.CHAR_SELECT;
+        this.charSelectIdx = 0;
+      }
+      return;
+    }
+    if (this.state === STATE.CHAR_SELECT) {
+      const chars = ['eevee', 'charmander', 'bulbasaur'];
+      if (input.justPressed('ArrowLeft')) this.charSelectIdx = (this.charSelectIdx + 2) % 3;
+      if (input.justPressed('ArrowRight')) this.charSelectIdx = (this.charSelectIdx + 1) % 3;
+      if (input.justPressed('Enter') || input.justPressed('Space')) {
+        this.selectedChar = chars[this.charSelectIdx];
+        this.start();
+      }
       return;
     }
     if (this.state === STATE.GAME_OVER || this.state === STATE.WIN) {
@@ -208,18 +224,31 @@ export class Game {
     for (const fb of this.fireballs) fb.update(solids);
     this.fireballs = this.fireballs.filter(fb => !fb.dead);
 
-    // Enemies (Ekans + Koffing)
+    // Enemies (Ekans + Koffing + Squirtle)
     let stompedThisFrame = false;
     for (const e of lvl.enemies) {
       e.update(solids, p);
-      if (e.dead || e.dying || e.squashTimer > 0) continue;
+      if (e.dead && !e.dying) continue;
 
-      for (const fb of this.fireballs) {
-        if (!fb.dead && aabb(fb, e)) {
-          fb.dead = true;
-          e.kill();
-          this.score += SCORE_FIRE;
-          break;
+      // Sliding shell kills other enemies
+      if (e.type === 'squirtle' && e.shellSliding && !e.dead) {
+        for (const other of lvl.enemies) {
+          if (other !== e && !other.dead && !other.dying && !other.inShell && aabb(e, other)) {
+            other.kill();
+            this.score += SCORE_STOMP;
+          }
+        }
+      }
+
+      // Fireballs don't affect shells
+      if (!e.inShell) {
+        for (const fb of this.fireballs) {
+          if (!fb.dead && aabb(fb, e)) {
+            fb.dead = true;
+            e.kill();
+            this.score += SCORE_FIRE;
+            break;
+          }
         }
       }
       if (e.dead || e.squashTimer > 0) continue;
@@ -227,12 +256,19 @@ export class Game {
       if (!p.dead && aabb(p, e)) {
         const stomping = p.vy > 0 && (p.y + p.h) - e.y < 22;
         if (stomping && e.stompable && !stompedThisFrame) {
-          e.squash();
+          e.squash(); // squirtle enters/stops shell; others die
           p.vy = -8;
           stompedThisFrame = true;
           this.score += SCORE_STOMP;
-        } else if (!stompedThisFrame) {
-          this._hurtPlayer();
+        } else if (!stomping) {
+          if (e.type === 'squirtle' && e.inShell && !e.shellSliding) {
+            // Kick sitting shell
+            const kickDir = (p.x + p.w / 2 < e.x + e.w / 2) ? 1 : -1;
+            e.kickShell(kickDir);
+          } else if (!stompedThisFrame) {
+            // sliding shell or normal enemy — hurt player
+            if (!e.inShell || e.shellSliding) this._hurtPlayer();
+          }
         }
       }
     }
@@ -421,6 +457,7 @@ export class Game {
     this.r.currentSetting = this.level.setting || 'overworld';
     this.player = new Player(80, GROUND_Y - 60);
     this.player.power = savedPower;
+    this.player.char = this.selectedChar || 'eevee';
     this.player._applySize();
     this.cam.x = 0;
     this.fireballs = []; this.bossShots = []; this.powerups = [];
@@ -447,6 +484,7 @@ export class Game {
     r.drawBackground(this.cam.x);
 
     if (this.state === STATE.MENU) { this._drawMenu(); return; }
+    if (this.state === STATE.CHAR_SELECT) { this._drawCharSelect(); return; }
 
     const lvl = this.level;
     // Draw horizontal pipe piece connecting to entrance pipe in area 0
@@ -522,6 +560,66 @@ export class Game {
     }
   }
 
+  _drawCharSelect() {
+    const ctx = this.ctx;
+    ctx.fillStyle = '#1a0830';
+    ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+    ctx.fillStyle = '#ffffff';
+    for (let i = 0; i < 40; i++) {
+      const sx = (i * 137.5) % CANVAS_WIDTH;
+      const sy = (i * 97.3) % (CANVAS_HEIGHT * 0.55);
+      ctx.fillRect(sx, sy, i % 3 === 0 ? 2 : 1, i % 3 === 0 ? 2 : 1);
+    }
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#ffd23b';
+    ctx.font = 'bold 34px monospace';
+    ctx.strokeStyle = '#000'; ctx.lineWidth = 4;
+    ctx.strokeText('CHOOSE YOUR PARTNER!', CANVAS_WIDTH / 2, 70);
+    ctx.fillText('CHOOSE YOUR PARTNER!', CANVAS_WIDTH / 2, 70);
+
+    const chars = [
+      { name: 'EEVEE',      evolves: 'UMBREON / FLAREON',       color: '#c8864a' },
+      { name: 'CHARMANDER', evolves: 'CHARMELEON / CHARIZARD',  color: '#f07840' },
+      { name: 'BULBASAUR',  evolves: 'IVYSAUR / VENUSAUR',      color: '#68a858' },
+    ];
+    const boxW = 200, boxH = 240, spacing = 230;
+    const startX = CANVAS_WIDTH / 2 - spacing;
+
+    for (let i = 0; i < chars.length; i++) {
+      const c = chars[i];
+      const bx = startX + i * spacing - boxW / 2;
+      const by = 100;
+      const selected = this.charSelectIdx === i;
+      ctx.fillStyle = selected ? 'rgba(255,210,59,0.2)' : 'rgba(255,255,255,0.07)';
+      ctx.fillRect(bx, by, boxW, boxH);
+      ctx.strokeStyle = selected ? '#ffd23b' : 'rgba(255,255,255,0.3)';
+      ctx.lineWidth = selected ? 3 : 1;
+      ctx.strokeRect(bx, by, boxW, boxH);
+      const pcx = bx + boxW / 2, pcy = by + 100;
+      ctx.fillStyle = c.color;
+      ctx.beginPath(); ctx.arc(pcx, pcy, 36, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = '#000'; ctx.lineWidth = 2; ctx.stroke();
+      ctx.fillStyle = '#fff';
+      ctx.font = 'bold 30px monospace';
+      ctx.fillText(c.name[0], pcx, pcy + 11);
+      ctx.fillStyle = selected ? '#ffd23b' : '#ffffff';
+      ctx.font = `bold ${selected ? 15 : 13}px monospace`;
+      ctx.fillText(c.name, bx + boxW / 2, by + boxH - 58);
+      ctx.fillStyle = 'rgba(255,255,255,0.6)';
+      ctx.font = '11px monospace';
+      ctx.fillText(c.evolves, bx + boxW / 2, by + boxH - 38);
+      if (selected) {
+        ctx.fillStyle = '#ffd23b';
+        ctx.font = 'bold 22px monospace';
+        ctx.fillText('▼', bx + boxW / 2, by - 12);
+      }
+    }
+    ctx.fillStyle = 'rgba(255,255,255,0.7)';
+    ctx.font = '16px monospace';
+    ctx.fillText('← → to choose   ENTER to confirm', CANVAS_WIDTH / 2, CANVAS_HEIGHT - 30);
+    ctx.textAlign = 'left';
+  }
+
   _drawHUD() {
     const ctx = this.ctx;
     // Heart lives
@@ -541,8 +639,19 @@ export class Game {
     ctx.fillText('BALLS ' + this.coinsCollected,   CANVAS_WIDTH - 234, 62);
 
     const pw    = this.player.power;
-    const label = pw === POWER.FIRE ? 'FLAREON' : pw === POWER.BIG ? 'UMBREON' : 'EEVEE';
-    ctx.fillStyle = pw === POWER.FIRE ? '#ff6600' : pw === POWER.BIG ? '#f0c040' : '#fff';
+    const charNames = {
+      eevee:      ['EEVEE', 'UMBREON', 'FLAREON'],
+      charmander: ['CHARMANDER', 'CHARMELEON', 'CHARIZARD'],
+      bulbasaur:  ['BULBASAUR', 'IVYSAUR', 'VENUSAUR'],
+    };
+    const charColors = {
+      eevee:      ['#fff', '#f0c040', '#ff6600'],
+      charmander: ['#f07840', '#e05528', '#cc3300'],
+      bulbasaur:  ['#88c878', '#5a9850', '#2a9030'],
+    };
+    const char = this.player.char || 'eevee';
+    const label = (charNames[char] || charNames.eevee)[pw];
+    ctx.fillStyle = (charColors[char] || charColors.eevee)[pw];
     ctx.strokeText(label, 24, 64);
     ctx.fillText(label,   24, 64);
     ctx.fillStyle = '#fff';

@@ -1,7 +1,7 @@
 import { GRAVITY, MAX_FALL_SPEED } from '../constants.js';
 import { resolveCollisions } from '../physics.js';
 
-// type: 'ekans' (stompable purple snake) | 'koffing' (floating toxic ball, fireball only)
+// type: 'ekans' (stompable purple snake) | 'koffing' (floating toxic ball, fireball only) | 'squirtle' (shell mechanic)
 export class Enemy {
   constructor(x, y, type = 'ekans') {
     this.type = type;
@@ -9,7 +9,7 @@ export class Enemy {
     this.w = 30;
     this.h = type === 'koffing' ? 32 : 26;
     this.y = y - this.h;
-    this.vx = type === 'koffing' ? -0.8 : -1.1;
+    this.vx = type === 'koffing' ? -0.8 : type === 'squirtle' ? -1.3 : -1.1;
     this.vy = 0;
     this.dead = false;
     this.squashTimer = 0;
@@ -17,13 +17,30 @@ export class Enemy {
     this.active = false;
     this.dying = false;
     this.deathAlpha = 1;
+    this.inShell = false;
+    this.shellSliding = false;
   }
 
   get stompable() { return true; }
 
   squash() {
+    if (this.type === 'squirtle') {
+      if (this.shellSliding) {
+        this.shellSliding = false;
+        this.vx = 0;
+      } else if (!this.inShell) {
+        this.inShell = true;
+        this.vx = 0;
+      }
+      return;
+    }
     this.squashTimer = 30;
     this.vx = 0;
+  }
+
+  kickShell(dir) {
+    this.shellSliding = true;
+    this.vx = dir * 9;
   }
 
   kill() {
@@ -39,6 +56,27 @@ export class Enemy {
     if (this.squashTimer > 0) {
       this.squashTimer--;
       if (this.squashTimer === 0) this.dead = true;
+      return;
+    }
+
+    // Squirtle shell states — handled after squashTimer block
+    if (this.type === 'squirtle' && this.inShell && !this.shellSliding) {
+      this.vy += GRAVITY;
+      if (this.vy > MAX_FALL_SPEED) this.vy = MAX_FALL_SPEED;
+      resolveCollisions(this, solids);
+      this.vx = 0;
+      return;
+    }
+    if (this.type === 'squirtle' && this.inShell && this.shellSliding) {
+      this.vy += GRAVITY;
+      if (this.vy > MAX_FALL_SPEED) this.vy = MAX_FALL_SPEED;
+      const prevVx = this.vx;
+      const res = resolveCollisions(this, solids);
+      if (res.hitSide) {
+        this.vx = prevVx > 0 ? -9 : 9;
+      } else {
+        this.vx = prevVx > 0 ? 9 : -9;
+      }
       return;
     }
 
@@ -78,12 +116,12 @@ export class Enemy {
       return;
     }
 
-    // Ekans — walks on ground
+    // Ekans / Squirtle — walks on ground
     this.vy += GRAVITY;
     if (this.vy > MAX_FALL_SPEED) this.vy = MAX_FALL_SPEED;
     const prevVx = this.vx;
     const res = resolveCollisions(this, solids);
-    const sp = 1.1;
+    const sp = this.type === 'squirtle' ? 1.3 : 1.1;
 
     // If wall was hit (hitSide), reverse direction
     if (res.hitSide && prevVx !== 0) {
@@ -101,6 +139,8 @@ export class Enemy {
 
     if (this.type === 'koffing') {
       this._drawKoffing(ctx, x, y, w, h);
+    } else if (this.type === 'squirtle') {
+      this._drawSquirtle(ctx, x, y, w, h);
     } else {
       this._drawEkans(ctx, x, y, w, h);
     }
@@ -228,5 +268,61 @@ export class Enemy {
     }
 
     ctx.globalAlpha = 1;
+  }
+
+  _drawSquirtle(ctx, x, y, w, h) {
+    if (this.inShell) {
+      // Oval shell on ground
+      const sy2 = y + h - 20;
+      ctx.fillStyle = '#8B6914';
+      ctx.beginPath(); ctx.ellipse(x + w / 2, sy2, w * 0.48, 14, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#C8A832';
+      ctx.beginPath(); ctx.ellipse(x + w / 2, sy2, w * 0.38, 10, 0, 0, Math.PI * 2); ctx.fill();
+      // Shell pattern lines
+      ctx.strokeStyle = '#7a5a10'; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.moveTo(x + w / 2, sy2 - 10); ctx.lineTo(x + w / 2, sy2 + 10); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(x + w * 0.12, sy2); ctx.lineTo(x + w * 0.88, sy2); ctx.stroke();
+      // If sliding, add motion lines
+      if (this.shellSliding) {
+        ctx.strokeStyle = 'rgba(255,255,255,0.5)'; ctx.lineWidth = 2;
+        const dir = this.vx > 0 ? -1 : 1;
+        for (let i = 1; i <= 3; i++) {
+          ctx.beginPath();
+          ctx.moveTo(x + w / 2 + dir * (w * 0.5 + i * 6), sy2 - 6 + i * 3);
+          ctx.lineTo(x + w / 2 + dir * (w * 0.5 + i * 6 + 12), sy2 - 6 + i * 3);
+          ctx.stroke();
+        }
+      }
+      return;
+    }
+
+    // Walking Squirtle
+    // Shell on back (behind body)
+    ctx.fillStyle = '#8B6914';
+    ctx.beginPath(); ctx.ellipse(x + w / 2, y + h * 0.55, w * 0.44, h * 0.3, 0, Math.PI, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#C8A832';
+    ctx.beginPath(); ctx.ellipse(x + w / 2, y + h * 0.52, w * 0.38, h * 0.22, 0, Math.PI, Math.PI * 2); ctx.fill();
+
+    // Body
+    ctx.fillStyle = '#4a90d9';
+    ctx.beginPath(); ctx.ellipse(x + w / 2, y + h * 0.62, w * 0.4, h * 0.28, 0, 0, Math.PI * 2); ctx.fill();
+
+    // Head
+    ctx.fillStyle = '#5aa0e0';
+    ctx.beginPath(); ctx.ellipse(x + w / 2, y + h * 0.28, w * 0.32, h * 0.22, 0, 0, Math.PI * 2); ctx.fill();
+
+    // Eyes
+    ctx.fillStyle = '#fff';
+    ctx.beginPath(); ctx.ellipse(x + w * 0.33, y + h * 0.22, 5, 6, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(x + w * 0.67, y + h * 0.22, 5, 6, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#111';
+    ctx.beginPath(); ctx.ellipse(x + w * 0.34, y + h * 0.23, 2.5, 3, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(x + w * 0.68, y + h * 0.23, 2.5, 3, 0, 0, Math.PI * 2); ctx.fill();
+
+    // Legs (animated)
+    const step = Math.abs(this.vx) > 0.3 ? Math.floor(this.animTimer / 8) % 2 : 0;
+    ctx.fillStyle = '#4a90d9';
+    ctx.fillRect(x + w * 0.12 + step * 4, y + h * 0.78, w * 0.22, h * 0.2);
+    ctx.fillRect(x + w * 0.58 - step * 4, y + h * 0.78, w * 0.22, h * 0.2);
   }
 }

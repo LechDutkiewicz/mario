@@ -26,11 +26,12 @@ export const INVINCIBLE_TIME = 120;
 
 // Game states
 export const STATE = Object.freeze({
-  MENU:      'MENU',
-  PLAYING:   'PLAYING',
-  PAUSED:    'PAUSED',
-  GAME_OVER: 'GAME_OVER',
-  WIN:       'WIN',
+  MENU:        'MENU',
+  CHAR_SELECT: 'CHAR_SELECT',
+  PLAYING:     'PLAYING',
+  PAUSED:      'PAUSED',
+  GAME_OVER:   'GAME_OVER',
+  WIN:         'WIN',
 });
 
 // Player power states
