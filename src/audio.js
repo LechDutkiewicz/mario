@@ -3,34 +3,45 @@
 // Cheerful pentatonic melody in G major, 140 BPM
 // ============================================================
 
-const BPM  = 140;
+const BPM  = 130;
 const STEP = 60 / BPM / 2; // 8th note duration in seconds
 
-// Note frequencies
+// Note frequencies — G major pentatonic + extras
 const N = {
   _: 0,
-  G2: 97.999, D3: 146.832,
-  E4: 329.628, G4: 391.995, A4: 440.000,
-  B4: 493.883, C5: 523.251, D5: 587.330, G5: 783.991,
+  G2: 97.999, D3: 146.832, G3: 195.998,
+  E4: 329.628, Fs4: 369.994, G4: 391.995, A4: 440.000,
+  B4: 493.883, C5: 523.251, D5: 587.330, E5: 659.255, G5: 783.991,
+  A3: 220.000, B3: 246.942,
 };
 
 // [melody_hz, dur_8ths, bass_hz]
-// Melody: G4, B4, D5, G5, D5, B4, G4, E4, G4, B4, D5, B4, G4, A4, B4, C5, B4, A4, G4
+// Pokémon-style melody — G major pentatonic, ~16 bars at 130 BPM
 const MELODY = [
-  // Phrase 1: ascending
-  [N.G4, 2, N.G2],  [N.B4, 2, N.D3],
-  [N.D5, 2, N.G2],  [N.G5, 2, N.D3],
-  // Phrase 2: descending
-  [N.D5, 2, N.G2],  [N.B4, 2, N.D3],
-  [N.G4, 2, N.G2],  [N.E4, 2, N.D3],
-  // Phrase 3: mid sequence
-  [N.G4, 2, N.G2],  [N.B4, 2, N.D3],
-  [N.D5, 2, N.G2],  [N.B4, 2, N.D3],
-  // Phrase 4: cadence
+  // Bar 1-2: opening fanfare
+  [N.G4, 1, N.G2],  [N.G4, 1, N.G2],  [N.D5, 2, N.D3],
+  [N.B4, 1, N.G2],  [N.G4, 1, N.G2],  [N.A4, 2, N.D3],
+  // Bar 3-4
+  [N.A4, 1, N.G2],  [N.A4, 1, N.G2],  [N.E5, 2, N.D3],
+  [N.D5, 1, N.G2],  [N.B4, 1, N.G2],  [N.G4, 2, N.D3],
+  // Bar 5-6: ascending run
+  [N.G4, 1, N.G2],  [N.A4, 1, N.G2],  [N.B4, 1, N.D3],  [N.D5, 1, N.D3],
+  [N.E5, 1, N.G2],  [N.G5, 3, N.D3],
+  // Bar 7-8: answer phrase
+  [N.E5, 1, N.G2],  [N.D5, 1, N.G2],  [N.B4, 2, N.D3],
+  [N.A4, 1, N.G2],  [N.G4, 3, N.D3],
+  // Bar 9-10: bridge
+  [N.D5, 1, N.G2],  [N.D5, 1, N.G2],  [N.E5, 1, N.D3],  [N.D5, 1, N.D3],
+  [N.B4, 1, N.G2],  [N.G4, 1, N.G2],  [N.A4, 2, N.D3],
+  // Bar 11-12
+  [N.A4, 1, N.G2],  [N.G4, 1, N.G2],  [N.A4, 1, N.D3],  [N.B4, 1, N.D3],
+  [N.D5, 2, N.G2],  [N.G4, 2, N.D3],
+  // Bar 13-14: climax
+  [N.G5, 1, N.G2],  [N.E5, 1, N.G2],  [N.D5, 1, N.D3],  [N.B4, 1, N.D3],
   [N.G4, 2, N.G2],  [N.A4, 2, N.D3],
-  [N.B4, 2, N.G2],  [N.C5, 2, N.D3],
-  [N.B4, 2, N.G2],  [N.A4, 2, N.D3],
-  [N.G4, 4, N.G2],  [N._, 2, N._],
+  // Bar 15-16: cadence back to start
+  [N.B4, 1, N.G2],  [N.A4, 1, N.G2],  [N.G4, 2, N.D3],
+  [N._, 2, N._],    [N.G4, 2, N.G2],
 ];
 
 export class Music {

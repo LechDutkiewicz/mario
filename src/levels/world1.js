@@ -7,6 +7,7 @@ import { FlagPole } from '../entities/flagpole.js';
 import { Enemy } from '../entities/enemy.js';
 import { Coin }   from '../entities/coin.js';
 import { Boss }   from '../entities/boss.js';
+import { PipePlant } from '../entities/pipeplant.js';
 
 export function buildWorld1() {
   const T  = TILE;
@@ -35,20 +36,20 @@ export function buildWorld1() {
   const P = (tx, ty, tw, c) =>
     platforms.push(new Platform(gx(tx), gy(ty), gx(tw), T, c));
   const Q = (tx, ty, c) => {
-    const q = new QuestionBlock(gx(tx), gy(ty) - (T + 4));
+    const q = new QuestionBlock(gx(tx), gy(ty) - T);
     q.contents = c || 'pokeball';
     qblocks.push(q);
     return q;
   };
-  const C = (tx, ty) => coins.push(new Coin(gx(tx) + 6, gy(ty) - 24));
+  const C = (tx, ty) => coins.push(new Coin(gx(tx) + 6, gy(ty + 1) + 4));
   const E = (tx, type) => enemies.push(new Enemy(gx(tx), GY, type || 'ekans'));
   const Ep = (tx, ty, type) => enemies.push(new Enemy(gx(tx), gy(ty), type || 'ekans'));
 
   const brick = (tx, ty, tw) =>
     platforms.push(new Platform(gx(tx), gy(ty) - T, gx(tw), T, COLORS.brick));
 
-  const pipe = (tx, th) => {
-    platforms.push(new PipeBlock(gx(tx), th));
+  const pipe = (tx, th, enterable = false) => {
+    platforms.push(new PipeBlock(gx(tx), th, enterable));
   };
 
   const step = (tx, th) =>
@@ -70,7 +71,7 @@ export function buildWorld1() {
   E(24, 'ekans');
 
   // === Zone 2: First pipes (tile 28-56) ===
-  pipe(28, 2);
+  pipe(28, 2, true);  // enterable — leads underground
   pipe(38, 3);
 
   E(34, 'ekans');
@@ -130,6 +131,40 @@ export function buildWorld1() {
   for (let i = 0; i < 8; i++) step(135 + i, i + 1);
   for (let i = 0; i < 4; i++) step(145 + i, 4 - i);
 
+  // === Pipe plants ===
+  const plants = [];
+  plants.push(new PipePlant(gx(38), GROUND_Y - T * 3));
+  plants.push(new PipePlant(gx(78), GROUND_Y - T * 4));
+
+  // === Underground bonus room at x=7000 ===
+  const UX = 7000;
+  const groundH2 = 120;
+  // Floor
+  platforms.push(new Platform(UX, GROUND_Y, 1000, groundH2, COLORS.brick));
+  // Ceiling
+  platforms.push(new Platform(UX, 60, 1000, T, COLORS.brick));
+  // Left wall
+  platforms.push(new Platform(UX - T, 60, T, GROUND_Y - 60 + T, COLORS.brick));
+  // Right wall
+  platforms.push(new Platform(UX + 1000, 60, T, GROUND_Y - 60 + T, COLORS.brick));
+  // Interior platforms
+  platforms.push(new Platform(UX + 150, GROUND_Y - T * 4, T * 3, T, COLORS.brick));
+  platforms.push(new Platform(UX + 400, GROUND_Y - T * 5, T * 3, T, COLORS.brick));
+  platforms.push(new Platform(UX + 650, GROUND_Y - T * 4, T * 3, T, COLORS.brick));
+  // Q-blocks in underground
+  qblocks.push(new QuestionBlock(UX + 200, GROUND_Y - T * 5 - T, 'pokeball'));
+  qblocks.push(new QuestionBlock(UX + 350, GROUND_Y - T * 4 - T, 'ultraball'));
+  qblocks.push(new QuestionBlock(UX + 500, GROUND_Y - T * 5 - T, 'pokeball'));
+  // Pokéballs scattered
+  for (let i = 0; i < 8; i++) {
+    coins.push(new Coin(UX + 80 + i * 100, GROUND_Y - T * 3));
+  }
+  // Exit pipe
+  const exitPipe = new PipeBlock(UX + 900, 3);
+  exitPipe.isExit = true;
+  exitPipe.exitX = 28 * 32 + 80;
+  platforms.push(exitPipe);
+
   // === Flagpole ===
   const flagPoleObj = new FlagPole(gx(152));
 
@@ -138,9 +173,10 @@ export function buildWorld1() {
     qblocks,
     enemies,
     coins,
+    plants,
     boss: null,
     flagPole: flagPoleObj,
     get solids() { return [...platforms, ...qblocks]; },
-    width: levelWidth,
+    width: Math.max(levelWidth, UX + 1100),
   };
 }

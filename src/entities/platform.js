@@ -23,7 +23,7 @@ export class Platform {
 // Question block: bump from below to release pokeball or power-up.
 export class QuestionBlock {
   constructor(x, y, contents = 'pokeball') {
-    this.x = x; this.y = y; this.w = TILE + 4; this.h = TILE + 4;
+    this.x = x; this.y = y; this.w = TILE; this.h = TILE;
     this.contents = contents;
     this.used = false;
     this.dead = false;
@@ -89,7 +89,7 @@ export class QuestionBlock {
 
 // Pipe block — solid hitbox is exactly T*2 wide; cap is drawn visually wider but doesn't affect collision
 export class PipeBlock {
-  constructor(tx, tileHeight) {
+  constructor(tx, tileHeight, enterable = false) {
     const T = TILE;
     // Solid hitbox: exact pipe body width, full height
     this.x = tx;
@@ -98,6 +98,8 @@ export class PipeBlock {
     this.h = T * tileHeight;
     this.dead = false;
     this.kind = 'platform';
+    this.enterable = enterable;
+    this.isExit = false;
     this._capOverhang = 4; // visual only
   }
 

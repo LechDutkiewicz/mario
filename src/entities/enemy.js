@@ -19,7 +19,7 @@ export class Enemy {
     this.deathAlpha = 1;
   }
 
-  get stompable() { return this.type === 'ekans'; }
+  get stompable() { return true; }
 
   squash() {
     this.squashTimer = 30;
@@ -81,11 +81,14 @@ export class Enemy {
     // Ekans — walks on ground
     this.vy += GRAVITY;
     if (this.vy > MAX_FALL_SPEED) this.vy = MAX_FALL_SPEED;
-    const prevX = this.x;
+    const prevVx = this.vx;
     const res = resolveCollisions(this, solids);
-
-    if (this.x === prevX && this.vx !== 0) this.vx = -this.vx;
     const sp = 1.1;
+
+    // If wall was hit (hitSide), reverse direction
+    if (res.hitSide && prevVx !== 0) {
+      this.vx = prevVx > 0 ? -sp : sp;
+    }
     if (this.vx > 0) this.vx = sp; else if (this.vx < 0) this.vx = -sp;
 
     if (res.onGround) {

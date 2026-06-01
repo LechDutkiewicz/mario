@@ -44,91 +44,46 @@ export class PowerUp {
     const w = this.w, h = this.h;
 
     if (this.kind === 'candy') {
-      // Rare Candy: small purple diamond with white sheen
-      const cx = x + w / 2;
-      const cy = y + h / 2;
-      const hw = w * 0.42; // half-width
-      const hh = h * 0.46; // half-height
-
-      // Outer diamond
-      ctx.fillStyle = '#9b59b6';
-      ctx.beginPath();
-      ctx.moveTo(cx, cy - hh);
-      ctx.lineTo(cx + hw, cy);
-      ctx.lineTo(cx, cy + hh);
-      ctx.lineTo(cx - hw, cy);
-      ctx.closePath();
-      ctx.fill();
-
-      // Inner lighter diamond (sheen)
-      ctx.fillStyle = '#c39bd3';
-      ctx.beginPath();
-      ctx.moveTo(cx, cy - hh * 0.5);
-      ctx.lineTo(cx + hw * 0.5, cy);
-      ctx.lineTo(cx, cy + hh * 0.5);
-      ctx.lineTo(cx - hw * 0.5, cy);
-      ctx.closePath();
-      ctx.fill();
-
-      // Sparkle highlights
-      ctx.fillStyle = '#e8daef';
-      ctx.fillRect(cx - 2, cy - hh + 2, 4, 5);
-      ctx.fillRect(cx - hh * 0.2, cy - 2, 5, 4);
-
-      // Outline
-      ctx.strokeStyle = '#6c3483'; ctx.lineWidth = 1.5;
-      ctx.beginPath();
-      ctx.moveTo(cx, cy - hh);
-      ctx.lineTo(cx + hw, cy);
-      ctx.lineTo(cx, cy + hh);
-      ctx.lineTo(cx - hw, cy);
-      ctx.closePath();
-      ctx.stroke();
-
-      // "RC" text
+      // Ultra Ball: black top, yellow bottom
+      const cx = x + w / 2, cy = y + h / 2, r = 11;
+      // Black top
+      ctx.fillStyle = '#1a1a1a';
+      ctx.beginPath(); ctx.arc(cx, cy, r, Math.PI, 0); ctx.fill();
+      // Yellow bottom
+      ctx.fillStyle = '#f0c040';
+      ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI); ctx.fill();
+      // Band
+      ctx.fillStyle = '#1a1a1a'; ctx.fillRect(cx - r, cy - 3, r * 2, 6);
+      // Yellow stripe on band
+      ctx.fillStyle = '#f0c040'; ctx.fillRect(cx - r + 2, cy - 1, r * 2 - 4, 2);
+      // Center button
       ctx.fillStyle = '#fff';
-      ctx.font = 'bold 8px monospace';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText('RC', cx, cy + 1);
-      ctx.textAlign = 'left';
-      ctx.textBaseline = 'alphabetic';
+      ctx.beginPath(); ctx.arc(cx, cy, 4, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = '#1a1a1a'; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.arc(cx, cy, 4, 0, Math.PI * 2); ctx.stroke();
     } else {
-      // TM Fire: orange disc with flame mark, animates
-      const t = Math.floor(this.anim / 8) % 2;
-      const cx = x + w / 2;
-      const cy = y + h / 2;
-
-      // Disc
-      ctx.fillStyle = t ? '#e67e22' : '#f39c12';
-      ctx.beginPath();
-      ctx.arc(cx, cy, w / 2 - 1, 0, Math.PI * 2);
-      ctx.fill();
-
-      // Dark rim
-      ctx.strokeStyle = '#c0392b'; ctx.lineWidth = 2.5;
-      ctx.stroke();
-
-      // Flame mark in centre
-      ctx.fillStyle = t ? '#fff' : '#ff6b35';
-      // Draw a simple flame shape
-      ctx.beginPath();
-      ctx.moveTo(cx, cy + 8);
-      ctx.quadraticCurveTo(cx - 7, cy + 2, cx - 3, cy - 4);
-      ctx.quadraticCurveTo(cx - 1, cy, cx, cy - 8);
-      ctx.quadraticCurveTo(cx + 1, cy, cx + 3, cy - 4);
-      ctx.quadraticCurveTo(cx + 7, cy + 2, cx, cy + 8);
-      ctx.closePath();
-      ctx.fill();
-
-      // "TM" text
+      // Quick Ball: blue top with yellow stripe, white bottom
+      const cx = x + w / 2, cy = y + h / 2, r = 11;
+      // Blue top
+      ctx.fillStyle = '#2980b9';
+      ctx.beginPath(); ctx.arc(cx, cy, r, Math.PI, 0); ctx.fill();
+      // Yellow top stripe
+      ctx.fillStyle = '#f1c40f'; ctx.fillRect(cx - r + 1, cy - r + 1, r * 2 - 2, 6);
+      // White bottom
+      ctx.fillStyle = '#f5f5f5';
+      ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI); ctx.fill();
+      // Speed lines (yellow diagonal lines on top)
+      ctx.strokeStyle = '#f1c40f'; ctx.lineWidth = 1.5;
+      for (let i = -1; i <= 1; i++) {
+        ctx.beginPath(); ctx.moveTo(cx + i * 6 - 4, cy - r + 2); ctx.lineTo(cx + i * 6 + 2, cy - 4); ctx.stroke();
+      }
+      // Band
+      ctx.fillStyle = '#1a1a1a'; ctx.fillRect(cx - r, cy - 3, r * 2, 6);
+      // Button
       ctx.fillStyle = '#fff';
-      ctx.font = 'bold 7px monospace';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'bottom';
-      ctx.fillText('TM', cx, cy + 13);
-      ctx.textAlign = 'left';
-      ctx.textBaseline = 'alphabetic';
+      ctx.beginPath(); ctx.arc(cx, cy, 4, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = '#1a1a1a'; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.arc(cx, cy, 4, 0, Math.PI * 2); ctx.stroke();
     }
   }
 }

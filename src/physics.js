@@ -15,7 +15,7 @@ export function rectsOverlap(ax, ay, aw, ah, bx, by, bw, bh) {
 // Resolve entity (with vx, vy, x, y, w, h) against a list of solid platform rects.
 // Returns { onGround, hitBelow:[blocks], hitSide }
 export function resolveCollisions(ent, solids) {
-  const result = { onGround: false, hitBelow: [], hitTop: false };
+  const result = { onGround: false, hitBelow: [], hitTop: false, hitSide: false };
 
   // Horizontal pass
   ent.x += ent.vx;
@@ -28,6 +28,7 @@ export function resolveCollisions(ent, solids) {
         ent.x = s.x + s.w;
       }
       ent.vx = 0;
+      result.hitSide = true;
     }
   }
 

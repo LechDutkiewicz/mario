@@ -142,6 +142,7 @@ export class Game {
         if (stomping && e.stompable) {
           e.squash();
           p.vy = -8;
+          p.invincible = Math.max(p.invincible || 0, 15);
           this.score += SCORE_STOMP;
         } else {
           this._hurtPlayer();
@@ -173,6 +174,48 @@ export class Game {
     }
     if (boss && boss.dead) { this.state = STATE.WIN; return; }
 
+    // Pipe plants (Victreebel)
+    for (const pl of lvl.plants || []) {
+      pl.update();
+      for (const fb of this.fireballs) {
+        if (!fb.dead && pl.isVisible() && aabb(fb, pl)) {
+          fb.dead = true;
+          pl.kill();
+          this.score += 200;
+        }
+      }
+      if (pl.isVisible() && !pl.dead && !p.dead && aabb(p, pl)) {
+        this._hurtPlayer();
+      }
+    }
+    if (lvl.plants) lvl.plants = lvl.plants.filter(pl => !pl.dead);
+
+    // Pipe entry / exit — player presses DOWN on enterable pipe
+    if (input.down && p.onGround) {
+      for (const pl of lvl.platforms) {
+        if (pl.enterable && !pl.isExit) {
+          if (p.x + p.w > pl.x && p.x < pl.x + pl.w &&
+              Math.abs((p.y + p.h) - pl.y) < 8) {
+            p.x = 7050;
+            p.y = GROUND_Y - p.h - 5;
+            this.cam.x = 7000;
+            this._showMsg('UNDERGROUND BONUS!', 90);
+            break;
+          }
+        }
+        if (pl.isExit) {
+          if (p.x + p.w > pl.x && p.x < pl.x + pl.w &&
+              Math.abs((p.y + p.h) - pl.y) < 8 && input.down) {
+            p.x = pl.exitX;
+            p.y = GROUND_Y - p.h - 5;
+            this.cam.x = Math.max(0, pl.exitX - 200);
+            this._showMsg('BACK ON TRACK!', 90);
+            break;
+          }
+        }
+      }
+    }
+
     // Boss shots
     for (const bs of this.bossShots) {
       bs.update();
@@ -201,6 +244,10 @@ export class Game {
 
   _hurtPlayer() { this.player.takeDamage(); }
 
+  _showMsg(text, frames) {
+    this._msg = { text, frames };
+  }
+
   _loseLife() {
     this.lives--;
     if (this.lives <= 0) {
@@ -228,6 +275,7 @@ export class Game {
     for (const c  of lvl.coins)      c.draw(r, this.cam);
     for (const pu of this.powerups)  pu.draw(r, this.cam);
     for (const e  of lvl.enemies)    e.draw(r, this.cam);
+    for (const pl of lvl.plants || []) pl.draw(r, this.cam);
     if (lvl.boss && !lvl.boss.dead)  lvl.boss.draw(r, this.cam);
     for (const fb of this.fireballs) fb.draw(r, this.cam);
     for (const bs of this.bossShots) bs.draw(r, this.cam);
@@ -235,6 +283,21 @@ export class Game {
     this.player.draw(r, this.cam);
 
     this._drawHUD();
+
+    // On-screen message overlay
+    if (this._msg && this._msg.frames > 0) {
+      this._msg.frames--;
+      const ctx = this.ctx;
+      ctx.save();
+      ctx.fillStyle = 'rgba(0,0,0,0.55)';
+      ctx.fillRect(0, CANVAS_HEIGHT / 2 - 44, CANVAS_WIDTH, 60);
+      ctx.fillStyle = '#ffd23b';
+      ctx.font = 'bold 32px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText(this._msg.text, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2);
+      ctx.textAlign = 'left';
+      ctx.restore();
+    }
 
     if (this.worldClearTimer > 0)    this._drawWorldClear();
     if (this.state === STATE.PAUSED)    this._overlay('PAUSED', 'Press P to resume');
