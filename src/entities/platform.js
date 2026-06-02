@@ -254,18 +254,21 @@ export class PipeBlock {
     ctx.fillStyle = '#0f4010';
     ctx.fillRect(sx + w - 6, sy + TILE + 2, 4, h - TILE - 4);
 
-    // Pipe cap — visually wider by overhang (pure rendering)
-    ctx.fillStyle = '#2a9e2a';
-    ctx.fillRect(sx - overhang, sy, w + overhang * 2, TILE);
-    // Cap highlight
-    ctx.fillStyle = '#3ab83a';
-    ctx.fillRect(sx - overhang, sy, w + overhang * 2, 5);
-    ctx.fillStyle = '#186018';
-    ctx.fillRect(sx - overhang, sy + TILE - 4, w + overhang * 2, 4);
+    // Pipe cap — only draw if visible (not buried near/above ceiling)
+    const showCap = this.y > 40;
+    if (showCap) {
+      ctx.fillStyle = '#2a9e2a';
+      ctx.fillRect(sx - overhang, sy, w + overhang * 2, TILE);
+      ctx.fillStyle = '#3ab83a';
+      ctx.fillRect(sx - overhang, sy, w + overhang * 2, 5);
+      ctx.fillStyle = '#186018';
+      ctx.fillRect(sx - overhang, sy + TILE - 4, w + overhang * 2, 4);
+      ctx.strokeStyle = '#0a2e0a'; ctx.lineWidth = 1.5;
+      ctx.strokeRect(sx - overhang, sy, w + overhang * 2, TILE);
+    }
 
     // Outlines
     ctx.strokeStyle = '#0a2e0a'; ctx.lineWidth = 1.5;
-    ctx.strokeRect(sx - overhang, sy, w + overhang * 2, TILE);
-    ctx.strokeRect(sx, sy + TILE, w, h - TILE);
+    ctx.strokeRect(sx, showCap ? sy + TILE : sy, w, showCap ? h - TILE : h);
   }
 }

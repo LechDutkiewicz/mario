@@ -40,9 +40,9 @@ export class Game {
     this._pendingWorld1SubArea = -1;
     this.area0AutoWalk = false; // player auto-walks into entrance pipe
     this.scorePopups = [];
-    this._cachedBoard = [];
+    this._cachedBoard = this._loadLocalScores(); // show immediately from localStorage
     this._leaderboardLoading = false;
-    // Pre-fetch leaderboard so top 3 shows on menu
+    // Refresh from Google Sheets in background; updates _cachedBoard when done
     this._fetchLeaderboardJSONP();
     this.resetLevel(true);
   }
@@ -738,7 +738,6 @@ export class Game {
     if (this.state === STATE.MENU) { this._drawMenu(); return; }
     if (this.state === STATE.CHAR_SELECT) { this._drawCharSelect(); return; }
     if (this.state === STATE.LEADERBOARD) { this._drawLeaderboard(); return; }
-    if (this.state === STATE.LEVEL_SELECT) { this._drawGame(); this._drawLevelSelect(); return; }
 
     const lvl = this.level;
     // Draw horizontal pipe piece connecting to entrance pipe in area 0
@@ -796,24 +795,49 @@ export class Game {
       ctx2.textAlign = 'left';
       ctx2.restore();
     }
-    // Draw horizontal pipe exit sections
+    // Draw horizontal pipe exit sections — looks like a sideways pipe, opening faces right
     for (const hp of (lvl.hPipeExits || [])) {
       const ctx2 = this.ctx;
-      const hx = Math.floor(hp.x - this.cam.x);
-      const hy = Math.floor(hp.y - TILE);
-      const hw = TILE * 2, hh = TILE * 2;
+      // hp.x = right edge of opening; hp.y = bottom of pipe (roughly)
+      const bodyH = TILE * 2;           // pipe body height (2 tiles)
+      const capH  = bodyH + 10;        // cap (rim) is slightly taller
+      const capW  = TILE;              // cap width (1 tile)
+      const bodyW = TILE * 5;          // body extends left
+      const capX  = Math.floor(hp.x - this.cam.x) - capW;
+      const capY  = Math.floor(hp.y) - capH;
+      const bodyX = capX - bodyW;
+      const bodyY = capY + (capH - bodyH) / 2;
+
+      // Body
       ctx2.fillStyle = '#186018';
-      ctx2.fillRect(hx - hw, hy, hw, hh);
+      ctx2.fillRect(bodyX, bodyY, bodyW, bodyH);
+      // Body top/bottom highlights
       ctx2.fillStyle = '#1e7a1e';
-      ctx2.fillRect(hx - hw, hy + 2, 6, hh - 4);
+      ctx2.fillRect(bodyX, bodyY + 3, bodyW, 6);
       ctx2.fillStyle = '#0f4010';
-      ctx2.fillRect(hx - 6, hy + 2, 4, hh - 4);
+      ctx2.fillRect(bodyX, bodyY + bodyH - 7, bodyW, 5);
+      // Body left edge (darker — no opening there)
+      ctx2.fillStyle = '#0f4010';
+      ctx2.fillRect(bodyX, bodyY, 5, bodyH);
+
+      // Cap (the rim/lip on the opening side)
+      ctx2.fillStyle = '#2a9e2a';
+      ctx2.fillRect(capX, capY, capW, capH);
+      // Cap highlights
+      ctx2.fillStyle = '#3ab83a';
+      ctx2.fillRect(capX, capY + 3, capW, 6);
+      ctx2.fillStyle = '#186018';
+      ctx2.fillRect(capX, capY + capH - 7, capW, 5);
+
+      // Outlines
       ctx2.strokeStyle = '#0a2e0a'; ctx2.lineWidth = 1.5;
-      ctx2.strokeRect(hx - hw, hy, hw, hh);
+      ctx2.strokeRect(bodyX, bodyY, bodyW, bodyH);
+      ctx2.strokeRect(capX, capY, capW, capH);
+      ctx2.lineWidth = 1;
     }
     if (lvl.flagPole)                lvl.flagPole.draw(r, this.cam);
-    if (lvl.pokeShopX !== undefined)   this._drawPokeShopBuilding(lvl.pokeShopX);
-    else if (lvl.pokeCenterX !== undefined) this._drawPokeCenterBuilding(lvl.pokeCenterX);
+    if (lvl.pokeShopX != null)   this._drawPokeShopBuilding(lvl.pokeShopX);
+    else if (lvl.pokeCenterX != null) this._drawPokeCenterBuilding(lvl.pokeCenterX);
     this.player.draw(r, this.cam);
 
     this._drawHUD();
@@ -838,6 +862,7 @@ export class Game {
     if (this.state === STATE.PAUSED)    this._overlay('PAUSED', 'Press P to resume');
     if (this.state === STATE.GAME_OVER) this._overlay('GAME OVER', 'Press ENTER to save score');
     if (this.state === STATE.WIN)       this._drawWin();
+    if (this.state === STATE.LEVEL_SELECT) this._drawLevelSelect();
 
     // Area transition fade
     if (this.areaTransTimer > 0) {

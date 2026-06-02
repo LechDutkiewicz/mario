@@ -144,7 +144,7 @@ export class Enemy {
     if (this.vx > 0) this.vx = sp; else if (this.vx < 0) this.vx = -sp;
 
     // Smart enemies check for ledge ahead and turn before falling off
-    if (this.smart && res.hitFloor) {
+    if (this.smart && res.onGround) {
       const probeX = this.vx > 0 ? this.x + this.w + 2 : this.x - 4;
       const probeY = this.y + this.h + 4;
       let hasGround = false;
