@@ -96,14 +96,22 @@ function processThing(e, out) {
       break;
     }
 
-    // Unsupported / purely visual
+    // Unsupported / purely visual / decorative
     case 'PipeHorizontal':
     case 'PipeVertical':
     case 'ScrollBlocker':
+    case 'ScrollEnabler':
     case 'Vine':
     case 'Springboard':
     case 'Blooper':
     case 'CheepCheep':
+    case 'DecorativeBack':
+    case 'DecorativeDot':
+    case 'CustomText':
+    case 'FireFlower':
+    case 'Mushroom':
+    case 'Star':
+    case 'Mushroom1Up':
       break;
 
     default:
@@ -154,12 +162,12 @@ function processMacro(e, out) {
     case 'Pipe': {
       const heightTiles = Math.max(1, Math.round((e.height || 16) / 8));
       const sx = ux(x);
-      const enterable = (e.entrance != null || e.exit != null);
+      const enterable = (e.entrance != null || e.exit != null || e.transport != null);
       const pb = new PipeBlock(sx, heightTiles, enterable);
       // Tag exit pipes so game.js can trigger area transition
       if (e.exit != null) pb.leadsToArea = 2;
       out.platforms.push(pb);
-      if (e.pirhana) {
+      if (e.pirhana || e.piranha) {
         out.plants.push(new PipePlant(sx, GY - heightTiles * T));
       }
       break;
@@ -201,6 +209,10 @@ function processMacro(e, out) {
     case 'Water':
     case 'Tree':
     case 'CastleSmall':
+    case 'ScrollBlocker':
+    case 'ScrollEnabler':
+    case 'BackFence':
+    case 'BackRegular':
       break;
 
     default:
