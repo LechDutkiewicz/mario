@@ -44,10 +44,13 @@ function processThing(e, out) {
     case 'Stone':
     case 'HardBlock':
     case 'CastleBlock': {
-      // Stone is a ground-based pillar: y = column height in FSM units (= top position).
-      // Column extends from GY (ground) up to GY - y*4.
-      const hPx = y * 4;
-      out.platforms.push(new Platform(sx, GY - hPx, T, hPx, COLORS.brick));
+      // y = top of stone (upward from ground in FSM units)
+      // height (optional) = thickness in FSM units; if absent, stone extends to ground
+      // width  (optional) = width in FSM units; default = 1 tile (8 FSM units)
+      const stoneTopY = GY - y * 4;
+      const stoneH    = e.height !== undefined ? e.height * 4 : y * 4;
+      const stoneW    = e.width  !== undefined ? ux(e.width)  : T;
+      out.platforms.push(new Platform(sx, stoneTopY, stoneW, stoneH, COLORS.brick));
       break;
     }
 
@@ -92,7 +95,21 @@ function processThing(e, out) {
 
     case 'Platform': {
       const w = ux(e.width || 24);
-      out.movingPlatforms.push(new MovingPlatform(sx, uy(y), w, T / 2, 'x', 1.0, ux(48)));
+      if (e.sliding && e.begin !== undefined && e.end !== undefined) {
+        // Horizontal sliding platform — moves between ux(begin) and ux(end)
+        const bx    = ux(e.begin);
+        const ex    = ux(e.end);
+        const range = Math.abs(ex - bx);
+        out.movingPlatforms.push(new MovingPlatform(Math.min(bx, ex), uy(y), w, T / 2, 'x', 1.0, range));
+      } else if (e.floating && e.begin !== undefined && e.end !== undefined) {
+        // Vertical floating platform — oscillates between uy(begin) and uy(end)
+        const by    = uy(e.begin);
+        const ey    = uy(e.end);
+        const range = Math.abs(ey - by);
+        out.movingPlatforms.push(new MovingPlatform(sx, Math.min(by, ey), w, T / 2, 'y', 1.0, range));
+      } else {
+        out.movingPlatforms.push(new MovingPlatform(sx, uy(y), w, T / 2, 'x', 1.0, ux(48)));
+      }
       break;
     }
 
@@ -128,7 +145,13 @@ function processMacro(e, out) {
   switch (e.macro) {
     case 'Floor': {
       const w = ux(e.width || 0);
-      if (w > 0) out.platforms.push(new Platform(ux(x), GY, w, 120, COLORS.ground));
+      if (w <= 0) break;
+      if (e.y) {
+        // Elevated floor (castle shelves, raised sections) — thin platform
+        out.platforms.push(new Platform(ux(x), GY - e.y * 4, w, T, COLORS.brick));
+      } else {
+        out.platforms.push(new Platform(ux(x), GY, w, 120, COLORS.ground));
+      }
       break;
     }
 
@@ -200,6 +223,13 @@ function processMacro(e, out) {
       if (!out.flagPole) out.flagPole = new FlagPole(ux(x));
       break;
 
+    case 'Tree': {
+      // Tree platform: y = top height in FSM units from ground, width = platform width
+      const w = ux(e.width || 8);
+      out.platforms.push(new Platform(ux(x), GY - y * 4, w, T, '#5a8830'));
+      break;
+    }
+
     // Decorative / warp / unsupported
     case 'Pattern':
     case 'WarpWorld':
@@ -207,7 +237,6 @@ function processMacro(e, out) {
     case 'CastleWall':
     case 'StartInsideCastle':
     case 'Water':
-    case 'Tree':
     case 'CastleSmall':
     case 'ScrollBlocker':
     case 'ScrollEnabler':
