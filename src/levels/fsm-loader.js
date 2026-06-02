@@ -46,10 +46,10 @@ function processThing(e, out) {
     case 'Stone':
     case 'HardBlock': {
       // y = top of stone (upward from ground in FSM units)
-      // height (optional) = thickness in FSM units; if absent, stone extends to ground
+      // height (optional) = thickness in FSM units; if absent, 1 tile default
       // width  (optional) = width in FSM units; default = 1 tile (8 FSM units)
       const stoneTopY = GY - y * 4;
-      const stoneH    = e.height !== undefined ? e.height * 4 : y * 4;
+      const stoneH    = e.height !== undefined ? e.height * 4 : T;
       const stoneW    = e.width  !== undefined ? ux(e.width)  : T;
       out.platforms.push(new Platform(sx, stoneTopY, stoneW, stoneH, COLORS.brick));
       break;
@@ -57,7 +57,7 @@ function processThing(e, out) {
 
     case 'CastleBlock': {
       const stoneTopY = GY - y * 4;
-      const stoneH    = e.height !== undefined ? e.height * 4 : y * 4;
+      const stoneH    = e.height !== undefined ? e.height * 4 : T;
       const stoneW    = e.width  !== undefined ? ux(e.width)  : T;
       out.platforms.push(new Platform(sx, stoneTopY, stoneW, stoneH, COLORS.brick));
       if (e.fireballs) {
@@ -146,10 +146,17 @@ function processThing(e, out) {
     }
     // PipeVertical — vertical pipe visual drawn as a tall PipeBlock
     case 'PipeVertical': {
-      if (e.height !== undefined) {
-        const htiles = Math.max(1, Math.round((e.height || 8) / 8));
-        out.platforms.push(new PipeBlock(ux(x), htiles, false));
+      const pipeTopFSM = y || (e.height ? Math.round(e.height / 8) * 8 : 8);
+      let htiles;
+      if (pipeTopFSM >= 40) {
+        // Tall underground exit pipe — extend beyond canvas top so cap is hidden
+        htiles = Math.ceil(GY / T) + 1; // 18 tiles: top at -4px (above canvas)
+      } else if (e.height !== undefined) {
+        htiles = Math.max(1, Math.round(e.height / 8));
+      } else {
+        htiles = Math.max(1, Math.round(pipeTopFSM / 8));
       }
+      out.platforms.push(new PipeBlock(ux(x), htiles, false));
       break;
     }
     case 'ScrollBlocker':

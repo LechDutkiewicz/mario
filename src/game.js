@@ -795,44 +795,40 @@ export class Game {
       ctx2.textAlign = 'left';
       ctx2.restore();
     }
-    // Draw horizontal pipe exit sections — looks like a sideways pipe, opening faces right
+    // Draw horizontal pipe exit sections — opening (cap) on LEFT, body extends RIGHT to vertical pipe
     for (const hp of (lvl.hPipeExits || [])) {
       const ctx2 = this.ctx;
-      // hp.x = right edge of opening; hp.y = bottom of pipe (roughly)
-      const bodyH = TILE * 2;           // pipe body height (2 tiles)
-      const capH  = bodyH + 10;        // cap (rim) is slightly taller
-      const capW  = TILE;              // cap width (1 tile)
-      const bodyW = TILE * 5;          // body extends left
-      const capX  = Math.floor(hp.x - this.cam.x) - capW;
-      const capY  = Math.floor(hp.y) - capH;
-      const bodyX = capX - bodyW;
-      const bodyY = capY + (capH - bodyH) / 2;
+      const BODY_H = TILE * 2;          // pipe body height (2 tiles)
+      const CAP_H  = BODY_H + 10;      // cap (rim) slightly taller
+      const CAP_W  = TILE;             // cap width (1 tile)
+      const BODY_W = TILE * 2;         // body extends 2 tiles right to vertical pipe
 
-      // Body
+      const openX  = Math.floor(hp.x - this.cam.x);  // left edge = player entry point
+      const bodyTop = Math.floor(hp.y);               // hp.y = top of pipe body in screen coords
+      const capTop  = bodyTop - Math.floor((CAP_H - BODY_H) / 2);
+
+      // Body (extends right from cap)
       ctx2.fillStyle = '#186018';
-      ctx2.fillRect(bodyX, bodyY, bodyW, bodyH);
-      // Body top/bottom highlights
+      ctx2.fillRect(openX + CAP_W, bodyTop, BODY_W, BODY_H);
       ctx2.fillStyle = '#1e7a1e';
-      ctx2.fillRect(bodyX, bodyY + 3, bodyW, 6);
+      ctx2.fillRect(openX + CAP_W, bodyTop + 3, BODY_W, 6);
       ctx2.fillStyle = '#0f4010';
-      ctx2.fillRect(bodyX, bodyY + bodyH - 7, bodyW, 5);
-      // Body left edge (darker — no opening there)
+      ctx2.fillRect(openX + CAP_W, bodyTop + BODY_H - 7, BODY_W, 5);
+      // Body right edge (closed — meets vertical pipe)
       ctx2.fillStyle = '#0f4010';
-      ctx2.fillRect(bodyX, bodyY, 5, bodyH);
+      ctx2.fillRect(openX + CAP_W + BODY_W - 5, bodyTop, 5, BODY_H);
 
-      // Cap (the rim/lip on the opening side)
+      // Cap (the wider rim on the LEFT — the opening the player enters)
       ctx2.fillStyle = '#2a9e2a';
-      ctx2.fillRect(capX, capY, capW, capH);
-      // Cap highlights
+      ctx2.fillRect(openX, capTop, CAP_W, CAP_H);
       ctx2.fillStyle = '#3ab83a';
-      ctx2.fillRect(capX, capY + 3, capW, 6);
+      ctx2.fillRect(openX, capTop + 3, CAP_W, 6);
       ctx2.fillStyle = '#186018';
-      ctx2.fillRect(capX, capY + capH - 7, capW, 5);
+      ctx2.fillRect(openX, capTop + CAP_H - 7, CAP_W, 5);
 
-      // Outlines
       ctx2.strokeStyle = '#0a2e0a'; ctx2.lineWidth = 1.5;
-      ctx2.strokeRect(bodyX, bodyY, bodyW, bodyH);
-      ctx2.strokeRect(capX, capY, capW, capH);
+      ctx2.strokeRect(openX, capTop, CAP_W, CAP_H);
+      ctx2.strokeRect(openX + CAP_W, bodyTop, BODY_W, BODY_H);
       ctx2.lineWidth = 1;
     }
     if (lvl.flagPole)                lvl.flagPole.draw(r, this.cam);

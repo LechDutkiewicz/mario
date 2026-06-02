@@ -31,12 +31,18 @@ function _buildLevel1_1(subArea = 0) {
   return lvl;
 }
 
-// subArea: 0 = overworld entrance, 1 = underground, 2 = overworld exit (flagpole)
+// subArea: 0 = overworld entrance (auto-walk only), 1 = underground, 2 = overworld exit (flagpole)
 function _buildLevel1_2(subArea = 0) {
   const fsmArea = [0, 1, 3][subArea] ?? 1;
   const lvl = loadFSMLevel(world12Data, fsmArea);
   lvl.areaIndex = fsmArea;
   lvl.subArea   = subArea;
+  if (subArea === 0) {
+    // Tiny auto-walk entrance — no flag, no Pokemon Center, no pipe exit visuals
+    lvl.flagPole    = null;
+    lvl.pokeCenterX = null;
+    lvl.hPipeExits  = [];
+  }
   return lvl;
 }
 
