@@ -41,7 +41,8 @@ export const STATE = Object.freeze({
   PAUSED:      'PAUSED',
   GAME_OVER:   'GAME_OVER',
   WIN:         'WIN',
-  LEADERBOARD: 'LEADERBOARD',
+  LEADERBOARD:  'LEADERBOARD',
+  LEVEL_SELECT: 'LEVEL_SELECT',
   NAME_ENTRY:  'NAME_ENTRY',
 });
 

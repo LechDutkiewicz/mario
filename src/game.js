@@ -53,7 +53,8 @@ export class Game {
     this.level   = this.world === 3 ? buildWorld3()
                  : this.world === 2 ? buildWorld2(this.world2Area)
                  : buildWorld1(this.world1Level, this.world1SubArea);
-    this.area0AutoWalk = (this.world === 2 && this.world2Area === 0);
+    this.area0AutoWalk = (this.world === 2 && this.world2Area === 0)
+                      || (this.world === 1 && this.world1Level === 1 && this.world1SubArea === 0);
     this.r.currentSetting = this.level.setting || 'overworld';
     this.player  = new Player(80, GROUND_Y - 60);
     this.player.power = savedPower;
@@ -160,12 +161,15 @@ export class Game {
 
   // GET: try JSONP (requires Apps Script redeployment), fall back to localStorage
   _fetchLeaderboardJSONP() {
+    const local = this._loadLocalScores();
+    console.log('[Leaderboard] localStorage scores:', JSON.stringify(local));
     return new Promise((resolve) => {
       const cbName = '_gscb' + Date.now();
+      console.log('[Leaderboard] Fetching JSONP:', `${Game.SHEETS_URL}?action=get&callback=${cbName}`);
+
       const timer  = setTimeout(() => {
         delete window[cbName];
-        // JSONP timed out — fall back to local scores
-        const local = this._loadLocalScores();
+        console.log('[Leaderboard] JSONP timed out, using localStorage');
         if (local.length > 0) this._cachedBoard = local;
         this._leaderboardLoading = false;
         resolve([]);
@@ -174,10 +178,12 @@ export class Game {
       window[cbName] = (data) => {
         clearTimeout(timer);
         delete window[cbName];
+        console.log('[Leaderboard] JSONP response:', JSON.stringify(data));
         if (Array.isArray(data) && data.length > 0) {
           this._cachedBoard = data;
         } else {
-          this._cachedBoard = this._loadLocalScores();
+          console.log('[Leaderboard] Empty/invalid JSONP data, using localStorage');
+          this._cachedBoard = local;
         }
         this._leaderboardLoading = false;
         resolve(this._cachedBoard);
@@ -185,10 +191,11 @@ export class Game {
 
       const script = document.createElement('script');
       script.src = `${Game.SHEETS_URL}?action=get&callback=${cbName}`;
-      script.onerror = () => {
+      script.onerror = (e) => {
         clearTimeout(timer);
         delete window[cbName];
-        this._cachedBoard = this._loadLocalScores();
+        console.warn('[Leaderboard] JSONP script error:', e);
+        this._cachedBoard = local;
         this._leaderboardLoading = false;
         resolve([]);
       };
@@ -260,6 +267,10 @@ export class Game {
       if (input.justPressed('KeyP')) this.state = STATE.PLAYING;
       return;
     }
+    if (this.state === STATE.LEVEL_SELECT) {
+      if (input.justPressed('KeyP') || input.justPressed('Escape')) { this.state = STATE.PLAYING; return; }
+      return;
+    }
 
     const lvl    = this.level;
     const solids = lvl.solids;
@@ -291,9 +302,12 @@ export class Game {
       const pipeX = lvl.entrancePipeX ?? 10 * TILE;
       const atPipe = p.x + p.w >= pipeX - 2;
       if (atPipe && this.areaTransTimer === 0) {
-        // Touched the pipe's left side — trigger transition directly
         this.area0AutoWalk = false;
-        this._startAreaTransition(1);
+        if (this.world === 1 && this.world1Level === 1 && this.world1SubArea === 0) {
+          this._startWorld1AreaTransition(1); // 1-2: overworld → underground
+        } else {
+          this._startAreaTransition(1);       // world 2 area 0
+        }
       }
       // Keep walking right until we hit the pipe
       activeInput = {
@@ -436,13 +450,8 @@ export class Game {
               Math.abs((p.y + p.h) - pl.y) < 8) {
             if (this.world === 2 && pl.leadsToArea !== undefined) {
               this._startAreaTransition(pl.leadsToArea);
-            } else if (this.world === 1 && this.world1Level === 1) {
-              // World 1-2: cycle through areas 0 → 1 → 2
-              if (this.world1SubArea === 0) {
-                this._startWorld1AreaTransition(1); // overworld → underground
-              } else if (this.world1SubArea === 1) {
-                this._startWorld1AreaTransition(2); // underground → exit overworld
-              }
+            } else if (this.world === 1) {
+              this._handleWorld1PipeEntry(pl);
             }
             break;
           }
@@ -580,6 +589,27 @@ export class Game {
     this.areaTransTimer = 40;
   }
 
+  _handleWorld1PipeEntry(pipe) {
+    const lvl = this.level;
+    // Pipe with transportId: N means "go to FSM area N" (0-indexed, or N=2 → area 1 for 1-1)
+    if (pipe.transportId != null) {
+      if (this.world1Level === 0) {
+        // 1-1: transport:2 → underground (area 1)
+        if (pipe.transportId === 2) this._startWorld1AreaTransition(1);
+      } else if (this.world1Level === 1) {
+        // 1-2: transport:2 → second underground (subArea 2 = FSM area 2 is not handled yet)
+        // For now treat any transport in underground area 1 as exit to overworld area 3
+        if (this.world1SubArea === 1) this._startWorld1AreaTransition(2);
+      }
+    } else if (pipe.leadsToArea !== undefined) {
+      this._startAreaTransition(pipe.leadsToArea);
+    } else if (this.world1Level === 1) {
+      // Plain enterable pipe in 1-2
+      if (this.world1SubArea === 0) this._startWorld1AreaTransition(1);
+      else if (this.world1SubArea === 1) this._startWorld1AreaTransition(2);
+    }
+  }
+
   _startWorld1AreaTransition(toSubArea) {
     this._pendingWorld1SubArea = toSubArea;
     this.areaTransTimer = 40;
@@ -587,14 +617,21 @@ export class Game {
 
   _doWorld1AreaTransition(toSubArea) {
     const savedPower = this.player ? this.player.power : POWER.SMALL;
+    const prevSubArea = this.world1SubArea;
     this.world1SubArea = toSubArea;
     this.level = buildWorld1(this.world1Level, toSubArea);
     this.r.currentSetting = this.level.setting || 'overworld';
-    this.player = new Player(80, GROUND_Y - 60);
+
+    // Determine spawn X: if returning to overworld from underground, use exitOverworldX
+    let spawnX = 80;
+    if (toSubArea === 0 && this.level.exitOverworldX) {
+      spawnX = this.level.exitOverworldX;
+    }
+    this.player = new Player(spawnX, GROUND_Y - 60);
     this.player.power = savedPower;
     this.player.char = this.selectedChar || 'eevee';
     this.player._applySize();
-    this.cam.x = 0;
+    this.cam.x = Math.max(0, spawnX - 200);
     this.fireballs = []; this.bossShots = []; this.powerups = [];
     this._debris = [];
   }
@@ -637,6 +674,7 @@ export class Game {
     if (this.state === STATE.MENU) { this._drawMenu(); return; }
     if (this.state === STATE.CHAR_SELECT) { this._drawCharSelect(); return; }
     if (this.state === STATE.LEADERBOARD) { this._drawLeaderboard(); return; }
+    if (this.state === STATE.LEVEL_SELECT) { this._drawGame(); this._drawLevelSelect(); return; }
 
     const lvl = this.level;
     // Draw horizontal pipe piece connecting to entrance pipe in area 0
@@ -832,7 +870,19 @@ export class Game {
     ctx.font = 'bold 20px monospace';
     ctx.strokeText(`WORLD ${worldLabel}  AREA ${areaIdx}`, CANVAS_WIDTH - 234, 88);
     ctx.fillText(`WORLD ${worldLabel}  AREA ${areaIdx}`,   CANVAS_WIDTH - 234, 88);
-    ctx.fillStyle = '#fff';
+
+    // LEVELS button (top-left, below char name)
+    const bx = 14, by = 76, bw = 76, bh = 22;
+    ctx.fillStyle = 'rgba(0,0,0,0.55)';
+    ctx.fillRect(bx, by, bw, bh);
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5;
+    ctx.strokeRect(bx, by, bw, bh);
+    ctx.fillStyle = '#ffd23b';
+    ctx.font = 'bold 14px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('LEVELS', bx + bw / 2, by + 15);
+    ctx.textAlign = 'left';
+    this._levelsBtnRect = { x: bx, y: by, w: bw, h: bh };
   }
 
   _heart(x, y, full) {
@@ -860,6 +910,90 @@ export class Game {
     ctx.fillStyle = '#fff';
     ctx.font = 'bold 24px monospace';
     ctx.fillText('Score: ' + this.score, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 30);
+    ctx.textAlign = 'left';
+  }
+
+  handleClick(mx, my) {
+    // LEVELS button in HUD
+    const btn = this._levelsBtnRect;
+    if (btn && this.state === STATE.PLAYING &&
+        mx >= btn.x && mx < btn.x + btn.w && my >= btn.y && my < btn.y + btn.h) {
+      this.state = STATE.LEVEL_SELECT;
+      return;
+    }
+    // Level select overlay buttons
+    if (this.state === STATE.LEVEL_SELECT && this._levelSelectBtns) {
+      for (const b of this._levelSelectBtns) {
+        if (mx >= b.x && mx < b.x + b.w && my >= b.y && my < b.y + b.h) {
+          this._jumpToLevel(b.world, b.level, b.sub ?? 0);
+          this.state = STATE.PLAYING;
+          return;
+        }
+      }
+    }
+  }
+
+  _jumpToLevel(world, level, sub = 0) {
+    const savedPower = this.player ? this.player.power : POWER.SMALL;
+    this.world = world;
+    this.world1Level = level;
+    this.world1SubArea = sub;
+    this.world2Area = level;
+    this.level = world === 2 ? buildWorld2(level)
+               : world === 1 ? buildWorld1(level, sub)
+               : buildWorld3();
+    this.r.currentSetting = this.level.setting || 'overworld';
+    this.player = new Player(80, GROUND_Y - 60);
+    this.player.power = savedPower;
+    this.player.char = this.selectedChar || 'eevee';
+    this.player._applySize();
+    this.cam.x = 0;
+    this.fireballs = []; this.bossShots = []; this.powerups = [];
+    this._debris = []; this.scorePopups = [];
+    this.area0AutoWalk = (world === 2 && level === 0)
+                      || (world === 1 && level === 1 && sub === 0);
+  }
+
+  _drawLevelSelect() {
+    const ctx = this.ctx;
+    ctx.fillStyle = 'rgba(0,0,0,0.75)';
+    ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+    ctx.fillStyle = '#ffd23b';
+    ctx.font = 'bold 28px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('LEVEL SELECT', CANVAS_WIDTH / 2, 60);
+    ctx.font = '16px monospace';
+    ctx.fillStyle = '#aaa';
+    ctx.fillText('Click a level  |  P or ESC to close', CANVAS_WIDTH / 2, 88);
+
+    const levels = [
+      { label: '1-1', world: 1, level: 0, sub: 0 },
+      { label: '1-2a', world: 1, level: 1, sub: 0 },
+      { label: '1-2b', world: 1, level: 1, sub: 1 },
+      { label: '1-2c', world: 1, level: 1, sub: 2 },
+      { label: '1-3', world: 1, level: 2, sub: 0 },
+      { label: '1-4', world: 1, level: 3, sub: 0 },
+      { label: '2-1', world: 2, level: 0 },
+      { label: '2-2', world: 2, level: 1 },
+    ];
+    const cols = 4, bw = 140, bh = 48, gx = 30, gy = 130;
+    const gap = 20;
+    this._levelSelectBtns = [];
+    levels.forEach((lv, i) => {
+      const col = i % cols, row = Math.floor(i / cols);
+      const bx = gx + col * (bw + gap);
+      const by = gy + row * (bh + gap);
+      this._levelSelectBtns.push({ ...lv, x: bx, y: by, w: bw, h: bh });
+      ctx.fillStyle = 'rgba(255,255,255,0.12)';
+      ctx.fillRect(bx, by, bw, bh);
+      ctx.strokeStyle = '#ffd23b'; ctx.lineWidth = 2;
+      ctx.strokeRect(bx, by, bw, bh);
+      ctx.fillStyle = '#fff';
+      ctx.font = 'bold 20px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText(lv.label, bx + bw / 2, by + bh / 2 + 7);
+    });
     ctx.textAlign = 'left';
   }
 

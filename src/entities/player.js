@@ -146,7 +146,7 @@ export class Player {
       this.onGround = false;
     }
     if (this.isJumping) {
-      if (!input.jump || this.onGround || this.vy >= 0) {
+      if (!input.jump || (this.onGround && this.jumpFrames > 0) || this.vy > 0) {
         this.isJumping = false;
       } else if (this.jumpFrames < JUMP_FRAMES_MAX) {
         this.jumpFrames++;

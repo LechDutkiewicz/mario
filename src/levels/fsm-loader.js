@@ -195,8 +195,9 @@ function processMacro(e, out) {
       const sx = ux(x);
       const enterable = (e.entrance != null || e.exit != null || e.transport != null);
       const pb = new PipeBlock(sx, heightTiles, enterable);
-      // Tag exit pipes so game.js can trigger area transition
-      if (e.exit != null) pb.leadsToArea = 2;
+      if (e.exit != null)      pb.leadsToArea   = 2;
+      if (e.transport != null) pb.transportId   = typeof e.transport === 'object' ? null : e.transport;
+      if (e.entrance  != null) pb.entranceId    = e.entrance;
       out.platforms.push(pb);
       if (e.pirhana || e.piranha) {
         out.plants.push(new PipePlant(sx, GY - heightTiles * T));

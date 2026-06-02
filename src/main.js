@@ -11,6 +11,16 @@ ctx.imageSmoothingEnabled = false;
 const input = new Input();
 const game  = new Game(ctx, input);
 
+// Handle LEVELS button click and level-select overlay clicks
+canvas.addEventListener('click', (e) => {
+  const rect = canvas.getBoundingClientRect();
+  const scaleX = CANVAS_WIDTH  / rect.width;
+  const scaleY = CANVAS_HEIGHT / rect.height;
+  const mx = (e.clientX - rect.left) * scaleX;
+  const my = (e.clientY - rect.top)  * scaleY;
+  game.handleClick(mx, my);
+});
+
 // Fixed-timestep 60fps game loop with accumulator
 const STEP = 1000 / 60;
 let last = performance.now();

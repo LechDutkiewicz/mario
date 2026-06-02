@@ -12,17 +12,22 @@ import { FlagPole } from '../entities/flagpole.js';
 
 export function buildWorld1(levelIndex = 0, subArea = 0) {
   switch (levelIndex) {
-    case 0:  return _buildLevel1_1();
+    case 0:  return _buildLevel1_1(subArea);
     case 1:  return _buildLevel1_2(subArea);
     case 2:  return _buildLevel1_3();
     case 3:  return _buildLevel1_4();
-    default: return _buildLevel1_1();
+    default: return _buildLevel1_1(0);
   }
 }
 
-function _buildLevel1_1() {
-  const lvl = loadFSMLevel(world11Data, 0);
-  lvl.areaIndex = 0;
+// subArea 0 = overworld, 1 = underground bonus
+function _buildLevel1_1(subArea = 0) {
+  const fsmArea = subArea === 1 ? 1 : 0;
+  const lvl = loadFSMLevel(world11Data, fsmArea);
+  lvl.areaIndex = fsmArea;
+  lvl.subArea   = subArea;
+  // Underground exit: player emerges near the pipe at x:1304 in overworld (1304*4 = 5216px)
+  if (subArea === 1) lvl.exitOverworldX = 5216;
   return lvl;
 }
 
