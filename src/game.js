@@ -117,16 +117,7 @@ export class Game {
     return 'https://script.google.com/macros/s/AKfycbwB9GUQCCestn49uPAuc-GDF4S3FLTT-4-Ae2_kngxLg10eJRctHPb4t2zQWxxOeefECw/exec';
   }
 
-  async _fetchLeaderboard() {
-    try {
-      const res = await fetch(Game.SHEETS_URL + '?action=get');
-      const data = await res.json();
-      this._cachedBoard = Array.isArray(data) ? data : [];
-    } catch (e) {
-      console.warn('Leaderboard fetch failed:', e);
-    }
-  }
-
+  // POST uses no-cors (fire-and-forget — we don't need the response body)
   async _postScore(name, score, char) {
     const world = this.world === 1
       ? `1-${this.world1Level + 1}`
@@ -136,17 +127,41 @@ export class Game {
     try {
       await fetch(Game.SHEETS_URL, {
         method: 'POST',
-        body: JSON.stringify({
-          name,
-          score,
-          char,
-          world,
-          date: new Date().toLocaleDateString(),
-        }),
+        mode: 'no-cors',
+        body: JSON.stringify({ name, score, char, world, date: new Date().toLocaleDateString() }),
       });
     } catch (e) {
       console.warn('Score post failed:', e);
     }
+  }
+
+  // GET uses JSONP to bypass CORS (Apps Script must support ?callback= parameter)
+  _fetchLeaderboardJSONP() {
+    return new Promise((resolve) => {
+      const cbName = '_gscb' + Date.now();
+      const timer  = setTimeout(() => {
+        delete window[cbName];
+        this._leaderboardLoading = false;
+        resolve([]);
+      }, 8000);
+
+      window[cbName] = (data) => {
+        clearTimeout(timer);
+        delete window[cbName];
+        this._cachedBoard = Array.isArray(data) ? data : [];
+        this._leaderboardLoading = false;
+      };
+
+      const script = document.createElement('script');
+      script.src = `${Game.SHEETS_URL}?action=get&callback=${cbName}`;
+      script.onerror = () => {
+        clearTimeout(timer);
+        delete window[cbName];
+        this._leaderboardLoading = false;
+        resolve([]);
+      };
+      document.head.appendChild(script);
+    });
   }
 
   _enterNameAndSave(isWin) {
@@ -155,9 +170,9 @@ export class Game {
     this._leaderboardIsWin = isWin;
     this._leaderboardLoading = true;
     this.state = STATE.LEADERBOARD;
+    // POST first (no-cors), then fetch updated board via JSONP
     this._postScore(name, this.score, this.selectedChar || 'eevee')
-      .then(() => this._fetchLeaderboard())
-      .then(() => { this._leaderboardLoading = false; });
+      .then(() => this._fetchLeaderboardJSONP());
   }
 
   // ----------------------------------------------------------------
@@ -748,15 +763,16 @@ export class Game {
     ctx.strokeText(label, 24, 64);
     ctx.fillText(label,   24, 64);
 
-    // World / level debug label
+    // World / level / area debug label
     let worldLabel;
     if (this.world === 1)      worldLabel = `1-${this.world1Level + 1}`;
     else if (this.world === 2) worldLabel = `2-${this.world2Area + 1}`;
     else                       worldLabel = '3-1';
+    const areaIdx = this.level ? (this.level.areaIndex ?? this.world2Area ?? 0) : 0;
     ctx.fillStyle = '#fff';
     ctx.font = 'bold 20px monospace';
-    ctx.strokeText('WORLD ' + worldLabel, CANVAS_WIDTH - 234, 88);
-    ctx.fillText('WORLD ' + worldLabel,   CANVAS_WIDTH - 234, 88);
+    ctx.strokeText(`WORLD ${worldLabel}  AREA ${areaIdx}`, CANVAS_WIDTH - 234, 88);
+    ctx.fillText(`WORLD ${worldLabel}  AREA ${areaIdx}`,   CANVAS_WIDTH - 234, 88);
     ctx.fillStyle = '#fff';
   }
 

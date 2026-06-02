@@ -21,23 +21,26 @@ export function buildWorld1(levelIndex = 0) {
 }
 
 function _buildLevel1_1() {
-  return loadFSMLevel(world11Data, 0);
+  const lvl = loadFSMLevel(world11Data, 0);
+  lvl.areaIndex = 0;
+  return lvl;
 }
 
 function _buildLevel1_2() {
-  // 1-2 is primarily underground with overworld intro
-  // Use the main underground area (area 1) from world1-2 data
   const lvl = loadFSMLevel(world12Data, 1);
+  lvl.areaIndex = 1;
   return lvl;
 }
 
 function _buildLevel1_3() {
-  return loadFSMLevel(world13Data, 0);
+  const lvl = loadFSMLevel(world13Data, 0);
+  lvl.areaIndex = 0;
+  return lvl;
 }
 
 function _buildLevel1_4() {
   const lvl = loadFSMLevel(world14Data, 0);
-  // Castle level — ensure dark setting
   lvl.setting = 'castle';
+  lvl.areaIndex = 0;
   return lvl;
 }
