@@ -111,23 +111,53 @@ export class Game {
   }
 
   // ----------------------------------------------------------------
-  // LEADERBOARD
+  // LEADERBOARD — Google Sheets backend
   // ----------------------------------------------------------------
-  _getLeaderboard() {
-    try { return JSON.parse(localStorage.getItem('eeveeleaderboard') || '[]'); } catch { return []; }
+  static get SHEETS_URL() {
+    return 'https://script.google.com/macros/s/AKfycbwB9GUQCCestn49uPAuc-GDF4S3FLTT-4-Ae2_kngxLg10eJRctHPb4t2zQWxxOeefECw/exec';
   }
-  _saveScore(name, score, char) {
-    const board = this._getLeaderboard();
-    board.push({ name, score, char, date: new Date().toLocaleDateString() });
-    board.sort((a, b) => b.score - a.score);
-    board.splice(10);
-    localStorage.setItem('eeveeleaderboard', JSON.stringify(board));
+
+  async _fetchLeaderboard() {
+    try {
+      const res = await fetch(Game.SHEETS_URL + '?action=get');
+      const data = await res.json();
+      this._cachedBoard = Array.isArray(data) ? data : [];
+    } catch (e) {
+      console.warn('Leaderboard fetch failed:', e);
+    }
   }
+
+  async _postScore(name, score, char) {
+    const world = this.world === 1
+      ? `1-${this.world1Level + 1}`
+      : this.world === 2
+        ? `2-${this.world2Area + 1}`
+        : '3-1';
+    try {
+      await fetch(Game.SHEETS_URL, {
+        method: 'POST',
+        body: JSON.stringify({
+          name,
+          score,
+          char,
+          world,
+          date: new Date().toLocaleDateString(),
+        }),
+      });
+    } catch (e) {
+      console.warn('Score post failed:', e);
+    }
+  }
+
   _enterNameAndSave(isWin) {
-    const name = prompt('Enter your name for the leaderboard:', 'Player') || 'Player';
-    this._saveScore(name.slice(0, 12), this.score, this.selectedChar || 'eevee');
-    this.state = STATE.LEADERBOARD;
+    const name = (prompt('Enter your name for the leaderboard:', 'Player') || 'Player').slice(0, 12);
+    this._cachedBoard = this._cachedBoard || [];
     this._leaderboardIsWin = isWin;
+    this._leaderboardLoading = true;
+    this.state = STATE.LEADERBOARD;
+    this._postScore(name, this.score, this.selectedChar || 'eevee')
+      .then(() => this._fetchLeaderboard())
+      .then(() => { this._leaderboardLoading = false; });
   }
 
   // ----------------------------------------------------------------
@@ -717,6 +747,16 @@ export class Game {
     ctx.fillStyle = (charColors[char] || charColors.eevee)[pw];
     ctx.strokeText(label, 24, 64);
     ctx.fillText(label,   24, 64);
+
+    // World / level debug label
+    let worldLabel;
+    if (this.world === 1)      worldLabel = `1-${this.world1Level + 1}`;
+    else if (this.world === 2) worldLabel = `2-${this.world2Area + 1}`;
+    else                       worldLabel = '3-1';
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 20px monospace';
+    ctx.strokeText('WORLD ' + worldLabel, CANVAS_WIDTH - 234, 88);
+    ctx.fillText('WORLD ' + worldLabel,   CANVAS_WIDTH - 234, 88);
     ctx.fillStyle = '#fff';
   }
 
@@ -964,7 +1004,13 @@ export class Game {
     ctx.strokeText('TOP 10 SCORES', CANVAS_WIDTH / 2, 60);
     ctx.fillText('TOP 10 SCORES', CANVAS_WIDTH / 2, 60);
 
-    const board = this._getLeaderboard();
+    const board = this._cachedBoard || [];
+    if (this._leaderboardLoading) {
+      ctx.fillStyle = 'rgba(255,255,255,0.6)';
+      ctx.font = '20px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText('Loading scores...', CANVAS_WIDTH / 2, 200);
+    }
     const charColors = { eevee: '#c8864a', charmander: '#f07840', bulbasaur: '#68a858' };
     ctx.font = 'bold 18px monospace';
     for (let i = 0; i < Math.min(10, board.length); i++) {
