@@ -188,6 +188,18 @@ export class Renderer {
       return;  // skip hills and clouds
     }
 
+    if (this.currentSetting === 'castle') {
+      ctx.fillStyle = '#1a0a0a';
+      ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+      // Draw lava glow at ground level
+      const grad = ctx.createLinearGradient(0, CANVAS_HEIGHT - 80, 0, CANVAS_HEIGHT);
+      grad.addColorStop(0, 'rgba(200,40,0,0)');
+      grad.addColorStop(1, 'rgba(200,40,0,0.5)');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, CANVAS_HEIGHT - 80, CANVAS_WIDTH, 80);
+      return;
+    }
+
     // Soft green hills at 0.3x parallax
     ctx.fillStyle = '#6ecb6e';
     const hillPeriod = 700;

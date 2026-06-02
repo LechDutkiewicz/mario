@@ -42,7 +42,8 @@ function processThing(e, out) {
       break;
 
     case 'Stone':
-    case 'HardBlock': {
+    case 'HardBlock':
+    case 'CastleBlock': {
       // Stone is a ground-based pillar: y = column height in FSM units (= top position).
       // Column extends from GY (ground) up to GY - y*4.
       const hPx = y * 4;
@@ -72,9 +73,13 @@ function processThing(e, out) {
       break;
     }
 
-    case 'Piranha':
-      out.plants.push(new PipePlant(sx, uy(y + 8)));
+    case 'Piranha': {
+      // y is the top of the piranha in FSM units (= top of the pipe it sits in).
+      // pipeTopY in screen coords = GY - y*4
+      const pipeTopY = GY - y * 4;
+      out.plants.push(new PipePlant(sx, pipeTopY));
       break;
+    }
 
     case 'Coin':
       out.coins.push(new Coin(sx + 6, uy(y) + 4));
@@ -155,7 +160,7 @@ function processMacro(e, out) {
       if (e.exit != null) pb.leadsToArea = 2;
       out.platforms.push(pb);
       if (e.pirhana) {
-        out.plants.push(new PipePlant(sx, GY - heightTiles * T - T));
+        out.plants.push(new PipePlant(sx, GY - heightTiles * T));
       }
       break;
     }
@@ -178,6 +183,12 @@ function processMacro(e, out) {
     }
 
     case 'EndCastleOutside':
+    case 'EndOutsideCastle':
+      if (!out.flagPole) out.flagPole = new FlagPole(ux(x));
+      break;
+
+    case 'EndInsideCastle':
+      // Castle level end — place a flagpole as level completion trigger
       if (!out.flagPole) out.flagPole = new FlagPole(ux(x));
       break;
 
@@ -186,7 +197,10 @@ function processMacro(e, out) {
     case 'WarpWorld':
     case 'PipeCorner':
     case 'CastleWall':
-    case 'EndOutsideCastle':
+    case 'StartInsideCastle':
+    case 'Water':
+    case 'Tree':
+    case 'CastleSmall':
       break;
 
     default:
@@ -234,7 +248,9 @@ export function loadFSMLevel(jsonData, areaIndex = 0) {
     boss:            null,
     flagPole:        out.flagPole,
     pokeCenterX,
-    setting:         area.setting === 'Underworld' ? 'underground' : 'overworld',
+    setting:         area.setting === 'Underworld' ? 'underground'
+                   : area.setting === 'Castle'     ? 'castle'
+                   : 'overworld',
     get solids() { return [...this.platforms, ...this.qblocks, ...this.movingPlatforms]; },
     width:           levelWidth,
   };

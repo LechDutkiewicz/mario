@@ -30,21 +30,23 @@ export class Game {
     this.walkToPCTimer = 0;
     this.pcEnterX = 0;
     this.world = 1;
+    this.world1Level = 0; // which sub-level of world 1 (0-3)
     this.selectedChar = 'eevee';
     this.charSelectIdx = 0;
     this.world2Area = 0;   // current area index within world 2
     this.areaTransTimer = 0; // fade-out frames between area transitions
     this._pendingArea = -1;
     this.area0AutoWalk = false; // player auto-walks into entrance pipe
+    this.scorePopups = [];
     this.resetLevel(true);
   }
 
-  resetLevel(fullReset) {
-    const savedPower = fullReset ? POWER.SMALL : (this.player ? this.player.power : POWER.SMALL);
-    if (fullReset) this.world2Area = 0;
+  resetLevel(fullReset, resetPower = fullReset) {
+    const savedPower = resetPower ? POWER.SMALL : (this.player ? this.player.power : POWER.SMALL);
+    if (fullReset) { this.world2Area = 0; this.world1Level = 0; }
     this.level   = this.world === 3 ? buildWorld3()
                  : this.world === 2 ? buildWorld2(this.world2Area)
-                 : buildWorld1();
+                 : buildWorld1(this.world1Level);
     this.area0AutoWalk = (this.world === 2 && this.world2Area === 0);
     this.r.currentSetting = this.level.setting || 'overworld';
     this.player  = new Player(80, GROUND_Y - 60);
@@ -61,11 +63,13 @@ export class Game {
       this.coinsCollected = 0;
       this.worldClearTimer = 0;
     }
+    this.scorePopups = this.scorePopups || [];
   }
 
   start() {
     this.state = STATE.PLAYING;
     this.world = 1;
+    this.world1Level = 0;
     this.walkToPC = false;
     this.walkToPCTimer = 0;
     this.resetLevel(true);
@@ -90,6 +94,10 @@ export class Game {
     this.powerups.push(new PowerUp(x, y, kind));
   }
 
+  _spawnScorePopup(x, y, score) {
+    this.scorePopups.push({ x, y, score, vy: -1.5, life: 50 });
+  }
+
   spawnBrickDebris(x, y) {
     if (!this._debris) this._debris = [];
     for (let i = 0; i < 4; i++) {
@@ -100,6 +108,26 @@ export class Game {
         life: 40,
       });
     }
+  }
+
+  // ----------------------------------------------------------------
+  // LEADERBOARD
+  // ----------------------------------------------------------------
+  _getLeaderboard() {
+    try { return JSON.parse(localStorage.getItem('eeveeleaderboard') || '[]'); } catch { return []; }
+  }
+  _saveScore(name, score, char) {
+    const board = this._getLeaderboard();
+    board.push({ name, score, char, date: new Date().toLocaleDateString() });
+    board.sort((a, b) => b.score - a.score);
+    board.splice(10);
+    localStorage.setItem('eeveeleaderboard', JSON.stringify(board));
+  }
+  _enterNameAndSave(isWin) {
+    const name = prompt('Enter your name for the leaderboard:', 'Player') || 'Player';
+    this._saveScore(name.slice(0, 12), this.score, this.selectedChar || 'eevee');
+    this.state = STATE.LEADERBOARD;
+    this._leaderboardIsWin = isWin;
   }
 
   // ----------------------------------------------------------------
@@ -133,11 +161,16 @@ export class Game {
     }
     if (this.state === STATE.GAME_OVER || this.state === STATE.WIN) {
       if (input.justPressed('Enter')) {
+        this._enterNameAndSave(this.state === STATE.WIN);
+      }
+      return;
+    }
+    if (this.state === STATE.LEADERBOARD) {
+      if (input.justPressed('Enter') || input.justPressed('Space')) {
         this.world = 1;
+        this.world1Level = 0;
         this.world2Area = 0;
-        this.state = STATE.PLAYING;
-        this.resetLevel(true);
-        this.music.start();
+        this.state = STATE.MENU;
       }
       return;
     }
@@ -236,6 +269,7 @@ export class Game {
           if (other !== e && !other.dead && !other.dying && !other.inShell && aabb(e, other)) {
             other.kill();
             this.score += SCORE_STOMP;
+            this._spawnScorePopup(other.x + other.w / 2, other.y, SCORE_STOMP);
           }
         }
       }
@@ -247,6 +281,7 @@ export class Game {
             fb.dead = true;
             e.kill();
             this.score += SCORE_FIRE;
+            this._spawnScorePopup(e.x + e.w / 2, e.y, SCORE_FIRE);
             break;
           }
         }
@@ -260,6 +295,7 @@ export class Game {
           p.vy = -8;
           stompedThisFrame = true;
           this.score += SCORE_STOMP;
+          this._spawnScorePopup(e.x + e.w / 2, e.y, SCORE_STOMP);
         } else if (!stomping) {
           if (e.type === 'squirtle' && e.inShell && !e.shellSliding) {
             // Kick sitting shell
@@ -282,13 +318,13 @@ export class Game {
       for (const fb of this.fireballs) {
         if (!fb.dead && aabb(fb, boss) && !boss.defeated) {
           fb.dead = true;
-          if (boss.takeHit()) this.score += SCORE_BOSS;
+          if (boss.takeHit()) { this.score += SCORE_BOSS; this._spawnScorePopup(boss.x + boss.w / 2, boss.y, SCORE_BOSS); }
         }
       }
       if (!p.dead && !boss.defeated && aabb(p, boss)) {
         const stomping = p.vy > 0 && (p.y + p.h) - boss.y < 30;
         if (stomping) {
-          if (boss.takeHit()) this.score += SCORE_BOSS;
+          if (boss.takeHit()) { this.score += SCORE_BOSS; this._spawnScorePopup(boss.x + boss.w / 2, boss.y, SCORE_BOSS); }
           p.vy = -11;
         } else {
           this._hurtPlayer();
@@ -407,7 +443,13 @@ export class Game {
       this.walkToPCTimer--;
       if (this.walkToPCTimer === 0 || input.justPressed('Enter')) {
         this.walkToPCTimer = 0;
-        if (this.world === 1) {
+        if (this.world === 1 && this.world1Level < 3) {
+          // Advance to next sub-level within world 1
+          this.world1Level++;
+          this.resetLevel(false);
+          this.music.start();
+        } else if (this.world === 1 && this.world1Level === 3) {
+          // All of world 1 done — proceed to world 2
           this.world = 2;
           this.world2Area = 0;
           this.resetLevel(false);
@@ -430,10 +472,14 @@ export class Game {
     if (this.worldClearTimer > 0) {
       this.worldClearTimer--;
       if (this.worldClearTimer === 0) {
-        this.state = STATE.WIN;
+        this._enterNameAndSave(true);
       }
       return;
     }
+
+    // Update score popups
+    for (const sp of this.scorePopups) { sp.y += sp.vy; sp.life--; }
+    this.scorePopups = this.scorePopups.filter(sp => sp.life > 0);
 
     if (p.dead && p.deathTimer <= 0) this._loseLife();
   }
@@ -470,7 +516,8 @@ export class Game {
       this.state = STATE.GAME_OVER;
       this.music.stop();
     } else {
-      this.resetLevel(false);
+      // On death, reset power to SMALL
+      this.resetLevel(false, true);
     }
   }
 
@@ -485,6 +532,7 @@ export class Game {
 
     if (this.state === STATE.MENU) { this._drawMenu(); return; }
     if (this.state === STATE.CHAR_SELECT) { this._drawCharSelect(); return; }
+    if (this.state === STATE.LEADERBOARD) { this._drawLeaderboard(); return; }
 
     const lvl = this.level;
     // Draw horizontal pipe piece connecting to entrance pipe in area 0
@@ -524,6 +572,21 @@ export class Game {
     if (lvl.boss && !lvl.boss.dead)  lvl.boss.draw(r, this.cam);
     for (const fb of this.fireballs) fb.draw(r, this.cam);
     for (const bs of this.bossShots) bs.draw(r, this.cam);
+    // Score popups
+    for (const sp of this.scorePopups) {
+      const ctx2 = this.ctx;
+      ctx2.save();
+      ctx2.globalAlpha = sp.life / 50;
+      ctx2.font = 'bold 14px sans-serif';
+      ctx2.textAlign = 'center';
+      ctx2.strokeStyle = '#000';
+      ctx2.lineWidth = 3;
+      ctx2.strokeText('+' + sp.score, Math.floor(sp.x - this.cam.x), Math.floor(sp.y));
+      ctx2.fillStyle = '#fff';
+      ctx2.fillText('+' + sp.score, Math.floor(sp.x - this.cam.x), Math.floor(sp.y));
+      ctx2.textAlign = 'left';
+      ctx2.restore();
+    }
     if (lvl.flagPole)                lvl.flagPole.draw(r, this.cam);
     if (lvl.pokeShopX !== undefined)   this._drawPokeShopBuilding(lvl.pokeShopX);
     else if (lvl.pokeCenterX !== undefined) this._drawPokeCenterBuilding(lvl.pokeCenterX);
@@ -549,7 +612,7 @@ export class Game {
     if (this.worldClearTimer > 0)    this._drawWorldClear();
     if (this.walkToPCTimer > 0)      this._drawScoreTally();
     if (this.state === STATE.PAUSED)    this._overlay('PAUSED', 'Press P to resume');
-    if (this.state === STATE.GAME_OVER) this._overlay('GAME OVER', 'Press ENTER to restart');
+    if (this.state === STATE.GAME_OVER) this._overlay('GAME OVER', 'Press ENTER to save score');
     if (this.state === STATE.WIN)       this._drawWin();
 
     // Area transition fade
@@ -886,6 +949,55 @@ export class Game {
     ctx.fillStyle = '#aaa';
     ctx.font = '18px monospace';
     ctx.fillText('Press ENTER to continue', CANVAS_WIDTH / 2, 440);
+    ctx.textAlign = 'left';
+  }
+
+  _drawLeaderboard() {
+    const ctx = this.ctx;
+    ctx.fillStyle = 'rgba(10,5,40,0.95)';
+    ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+    ctx.textAlign = 'center';
+
+    ctx.fillStyle = '#ffd23b';
+    ctx.font = 'bold 40px monospace';
+    ctx.strokeStyle = '#000'; ctx.lineWidth = 4;
+    ctx.strokeText('TOP 10 SCORES', CANVAS_WIDTH / 2, 60);
+    ctx.fillText('TOP 10 SCORES', CANVAS_WIDTH / 2, 60);
+
+    const board = this._getLeaderboard();
+    const charColors = { eevee: '#c8864a', charmander: '#f07840', bulbasaur: '#68a858' };
+    ctx.font = 'bold 18px monospace';
+    for (let i = 0; i < Math.min(10, board.length); i++) {
+      const e = board[i];
+      const y = 105 + i * 44;
+      const rowAlpha = i === 0 ? 1 : 0.85 - i * 0.04;
+      ctx.globalAlpha = rowAlpha;
+      ctx.fillStyle = i < 3 ? '#ffd23b' : '#ffffff';
+      ctx.textAlign = 'right';
+      ctx.fillText(`${i + 1}.`, CANVAS_WIDTH / 2 - 200, y);
+      ctx.fillStyle = charColors[e.char] || '#fff';
+      ctx.textAlign = 'left';
+      ctx.fillText(e.name, CANVAS_WIDTH / 2 - 185, y);
+      ctx.fillStyle = '#fff';
+      ctx.textAlign = 'right';
+      ctx.fillText(String(e.score).padStart(7, '0'), CANVAS_WIDTH / 2 + 160, y);
+      ctx.fillStyle = 'rgba(255,255,255,0.5)';
+      ctx.font = '13px monospace';
+      ctx.textAlign = 'left';
+      ctx.fillText(e.date || '', CANVAS_WIDTH / 2 + 170, y);
+      ctx.font = 'bold 18px monospace';
+    }
+    ctx.globalAlpha = 1;
+    if (board.length === 0) {
+      ctx.fillStyle = 'rgba(255,255,255,0.5)';
+      ctx.font = '20px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText('No scores yet!', CANVAS_WIDTH / 2, 200);
+    }
+    ctx.fillStyle = '#b0e0ff';
+    ctx.font = 'bold 20px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('Press ENTER or SPACE to continue', CANVAS_WIDTH / 2, CANVAS_HEIGHT - 30);
     ctx.textAlign = 'left';
   }
 

@@ -8,11 +8,11 @@ export const TILE          = 32;
 export const LEVEL_WIDTH   = 6400;
 
 // Physics
-export const GRAVITY          = 0.7;
-export const MAX_FALL_SPEED   = 14;
-export const PLAYER_SPEED     = 3.4;
+export const GRAVITY          = 0.77;
+export const MAX_FALL_SPEED   = 11;
+export const PLAYER_SPEED     = 2.75;
 export const PLAYER_RUN_SPEED = 5.2;
-export const JUMP_VELOCITY    = -16;
+export const JUMP_VELOCITY    = -17;
 export const FRICTION         = 0.82;
 export const AIR_FRICTION     = 0.92;
 
@@ -32,6 +32,8 @@ export const STATE = Object.freeze({
   PAUSED:      'PAUSED',
   GAME_OVER:   'GAME_OVER',
   WIN:         'WIN',
+  LEADERBOARD: 'LEADERBOARD',
+  NAME_ENTRY:  'NAME_ENTRY',
 });
 
 // Player power states
