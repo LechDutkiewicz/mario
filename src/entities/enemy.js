@@ -3,8 +3,9 @@ import { resolveCollisions } from '../physics.js';
 
 // type: 'ekans' (stompable purple snake) | 'koffing' (floating toxic ball, fireball only) | 'squirtle' (shell mechanic)
 export class Enemy {
-  constructor(x, y, type = 'ekans') {
-    this.type = type;
+  constructor(x, y, type = 'ekans', smart = false) {
+    this.type  = type;
+    this.smart = smart;  // smart enemies turn at ledge edges
     this.x = x;
     this.w = 30;
     this.h = type === 'koffing' ? 32 : 26;
@@ -128,6 +129,22 @@ export class Enemy {
       this.vx = prevVx > 0 ? -sp : sp;
     }
     if (this.vx > 0) this.vx = sp; else if (this.vx < 0) this.vx = -sp;
+
+    // Smart enemies check for ledge ahead and turn before falling off
+    if (this.smart && res.hitFloor) {
+      const probeX = this.vx > 0 ? this.x + this.w + 2 : this.x - 4;
+      const probeY = this.y + this.h + 4;
+      let hasGround = false;
+      for (const s of solids) {
+        if (s.dead) continue;
+        if (probeX >= s.x && probeX < s.x + s.w &&
+            probeY >= s.y && probeY < s.y + s.h) {
+          hasGround = true;
+          break;
+        }
+      }
+      if (!hasGround) this.vx = -this.vx;
+    }
 
   }
 

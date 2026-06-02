@@ -72,7 +72,7 @@ function processThing(e, out) {
 
     case 'Koopa': {
       const feetY = GY - (y - 8) * 4;
-      out.enemies.push(new Enemy(sx, feetY, 'squirtle'));
+      out.enemies.push(new Enemy(sx, feetY, 'squirtle', !!e.smart));
       break;
     }
 
@@ -197,19 +197,23 @@ function processMacro(e, out) {
     }
 
     case 'PlatformGenerator': {
-      // Vertical lifts over a gap — create 3 staggered platforms going up & down
-      const sx = ux(x);
-      const dir = (e.direction === -1) ? -1 : 1;
-      const range = T * 5;
-      out.movingPlatforms.push(
-        new MovingPlatform(sx,           GY - T * 2,  T * 3, T / 2, 'y',  dir * 1.0, range)
-      );
-      out.movingPlatforms.push(
-        new MovingPlatform(sx + T * 4,   GY - T * 5,  T * 3, T / 2, 'y', -dir * 1.0, range)
-      );
-      out.movingPlatforms.push(
-        new MovingPlatform(sx + T * 8,   GY - T * 3,  T * 3, T / 2, 'y',  dir * 1.0, range)
-      );
+      // Continuous elevator — 4 platforms staggered so one is always visible.
+      // direction=1 (default): platforms descend.  direction=-1: platforms ascend.
+      // Each wraps around when it exits the playfield.
+      const sx      = ux(x);
+      const pW      = T * 3;
+      const pSpeed  = (e.direction === -1) ? -1.5 : 1.5;   // positive = down
+      const topY    = GY - 11 * T;   // ceiling of underground (approx)
+      const bottomY = GY - T;         // one tile above ground
+      const totalH  = bottomY - topY;  // total travel distance
+      const count   = 4;
+      for (let i = 0; i < count; i++) {
+        // Stagger starting positions evenly across the travel range
+        const startY = topY + (totalH / count) * i;
+        out.movingPlatforms.push(
+          new MovingPlatform(sx, startY, pW, T / 2, 'y', pSpeed, totalH, 'conveyor')
+        );
+      }
       break;
     }
 
@@ -230,12 +234,33 @@ function processMacro(e, out) {
       break;
     }
 
-    // Decorative / warp / unsupported
+    case 'StartInsideCastle': {
+      // Creates the floor at the castle entrance (before the first lava pit)
+      const w = ux(e.width || 8);
+      out.platforms.push(new Platform(0, GY, w, 120, COLORS.brick));
+      break;
+    }
+
+    case 'WarpWorld': {
+      // Secret warp zone — three pipes leading to worlds listed in warps[]
+      const worlds = Array.isArray(e.warps) ? e.warps : [4, 3, 2];
+      const sx = ux(x);
+      // Ground under warp room
+      out.platforms.push(new Platform(sx - T * 2, GY, ux(worlds.length * 16 + 8), 120, COLORS.brick));
+      for (let i = 0; i < worlds.length; i++) {
+        const px = sx + i * ux(16);
+        const pb = new PipeBlock(px, 2, false);
+        pb.warpWorld = worlds[i];
+        pb.isWarp = true;
+        out.platforms.push(pb);
+      }
+      break;
+    }
+
+    // Decorative / purely visual / unsupported
     case 'Pattern':
-    case 'WarpWorld':
     case 'PipeCorner':
     case 'CastleWall':
-    case 'StartInsideCastle':
     case 'Water':
     case 'CastleSmall':
     case 'ScrollBlocker':

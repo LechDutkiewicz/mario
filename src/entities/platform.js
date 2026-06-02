@@ -135,11 +135,14 @@ export class BrickBlock {
 
 // Moving platform — travels between two points horizontally or vertically
 export class MovingPlatform {
-  constructor(x, y, w, h, axis, speed, range) {
+  // mode: 'oscillate' (default) — bounces back and forth
+  //       'conveyor'            — moves in one direction, wraps around (elevator effect)
+  constructor(x, y, w, h, axis, speed, range, mode = 'oscillate') {
     this.x = x; this.y = y; this.w = w; this.h = h;
-    this.axis = axis;  // 'x' or 'y'
+    this.axis = axis;
     this.speed = speed;
     this.range = range;
+    this.mode  = mode;
     this.startX = x; this.startY = y;
     this.dir = 1;
     this.dead = false;
@@ -149,16 +152,36 @@ export class MovingPlatform {
 
   update() {
     const prev = this.axis === 'x' ? this.x : this.y;
-    if (this.axis === 'x') {
-      this.x += this.speed * this.dir;
-      if (Math.abs(this.x - this.startX) >= this.range) this.dir = -this.dir;
-      this.velX = this.x - prev;
-      this.velY = 0;
+    if (this.mode === 'conveyor') {
+      // Move continuously in one direction, wrap when exceeding range
+      if (this.axis === 'y') {
+        this.y += this.speed;
+        const lo = this.startY, hi = this.startY + this.range;
+        if (this.speed > 0 && this.y > hi)  this.y = lo;
+        if (this.speed < 0 && this.y < lo)  this.y = hi;
+        this.velY = this.y - prev;
+        this.velX = 0;
+      } else {
+        this.x += this.speed;
+        const lo = this.startX, hi = this.startX + this.range;
+        if (this.speed > 0 && this.x > hi)  this.x = lo;
+        if (this.speed < 0 && this.x < lo)  this.x = hi;
+        this.velX = this.x - prev;
+        this.velY = 0;
+      }
     } else {
-      this.y += this.speed * this.dir;
-      if (Math.abs(this.y - this.startY) >= this.range) this.dir = -this.dir;
-      this.velY = this.y - prev;
-      this.velX = 0;
+      // Oscillate mode (original behaviour)
+      if (this.axis === 'x') {
+        this.x += this.speed * this.dir;
+        if (Math.abs(this.x - this.startX) >= this.range) this.dir = -this.dir;
+        this.velX = this.x - prev;
+        this.velY = 0;
+      } else {
+        this.y += this.speed * this.dir;
+        if (Math.abs(this.y - this.startY) >= this.range) this.dir = -this.dir;
+        this.velY = this.y - prev;
+        this.velX = 0;
+      }
     }
   }
 
@@ -166,7 +189,6 @@ export class MovingPlatform {
     const x = Math.floor(this.x - cam.x);
     const y = Math.floor(this.y);
     r.platform(x, y, this.w, this.h, '#a0522d');
-    // light stripe on top
     const ctx = r.ctx;
     ctx.fillStyle = '#c87a38';
     ctx.fillRect(x + 2, y + 2, this.w - 4, 6);

@@ -38,6 +38,10 @@ export class Game {
     this._pendingArea = -1;
     this.area0AutoWalk = false; // player auto-walks into entrance pipe
     this.scorePopups = [];
+    this._cachedBoard = [];
+    this._leaderboardLoading = false;
+    // Pre-fetch leaderboard so top 3 shows on menu
+    this._fetchLeaderboardJSONP();
     this.resetLevel(true);
   }
 
@@ -1089,6 +1093,27 @@ export class Game {
       'Collect Pokeballs. Find Rare Candy and TM Fire!',
     ];
     lines.forEach((l, i) => ctx.fillText(l, CANVAS_WIDTH / 2, 368 + i * 27));
+
+    // Top 3 leaderboard in bottom-right corner
+    const board = this._cachedBoard || [];
+    if (board.length > 0) {
+      const top3 = board.slice(0, 3);
+      ctx.font = 'bold 14px monospace';
+      ctx.fillStyle = '#ffd700';
+      ctx.fillText('TOP SCORES', CANVAS_WIDTH / 2 + 240, 370);
+      ctx.font = '13px monospace';
+      const medals = ['🥇', '🥈', '🥉'];
+      top3.forEach((e, i) => {
+        ctx.fillStyle = i === 0 ? '#ffd700' : i === 1 ? '#c0c0c0' : '#cd7f32';
+        const name  = (e.name  || '???').slice(0, 8).padEnd(8);
+        const score = String(e.score || 0).padStart(7, '0');
+        ctx.fillText(`${i + 1}. ${name}  ${score}`, CANVAS_WIDTH / 2 + 208, 390 + i * 20);
+      });
+    } else if (this._leaderboardLoading) {
+      ctx.font = '13px monospace';
+      ctx.fillStyle = '#aaa';
+      ctx.fillText('Loading scores...', CANVAS_WIDTH / 2 + 230, 390);
+    }
     ctx.textAlign = 'left';
   }
 }
