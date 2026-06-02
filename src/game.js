@@ -64,6 +64,7 @@ export class Game {
     this.fireballs  = [];
     this.bossShots  = [];
     this.powerups   = [];
+    this._castleBossComplete = false;
     if (fullReset) {
       this.score          = 0;
       this.lives          = 3;
@@ -404,7 +405,7 @@ export class Game {
     lvl.enemies = lvl.enemies.filter(e => !e.dead || e.dying);
     lvl.enemies = lvl.enemies.filter(e => !(e.dead && e.y > 850));
 
-    // Boss (Persian)
+    // Boss (Persian — world 3)
     const boss = lvl.boss;
     if (boss && !boss.dead) {
       boss.update(solids, p, this);
@@ -425,6 +426,54 @@ export class Game {
       }
     }
     if (boss && boss.dead) { this.state = STATE.WIN; return; }
+
+    // Castle boss (Charizard — world 1-4)
+    const castleBoss = lvl.castleBoss;
+    if (castleBoss && !castleBoss.dead) {
+      castleBoss.update(solids, p, this);
+      for (const fb of this.fireballs) {
+        if (!fb.dead && aabb(fb, castleBoss) && !castleBoss.defeated) {
+          fb.dead = true;
+          if (castleBoss.takeHit()) {
+            this.score += SCORE_BOSS;
+            this._spawnScorePopup(castleBoss.x + castleBoss.w / 2, castleBoss.y, SCORE_BOSS);
+          }
+        }
+      }
+      if (!p.dead && !castleBoss.defeated && aabb(p, castleBoss)) {
+        this._hurtPlayer();
+      }
+    }
+    // Boss axe
+    const bossAxe = lvl.bossAxe;
+    if (bossAxe && !bossAxe.taken) {
+      bossAxe.update();
+      if (!p.dead && aabb(p, bossAxe)) {
+        bossAxe.taken = true;
+        if (castleBoss && !castleBoss.defeated) {
+          castleBoss.defeatByAxe();
+          this.score += SCORE_BOSS * 2;
+          this._spawnScorePopup(castleBoss.x + castleBoss.w / 2, castleBoss.y, SCORE_BOSS * 2);
+        }
+        this._castleBossComplete = true;
+        this.walkToPCTimer = 180;
+      }
+    }
+    if (castleBoss && castleBoss.dead && !this._castleBossComplete) {
+      // Defeated with fireballs — also trigger level complete
+      this._castleBossComplete = true;
+      this.walkToPCTimer = 180;
+    }
+
+    // Fire bars
+    for (const fb of (lvl.fireBars || [])) {
+      fb.update();
+      if (!p.dead) {
+        for (const ball of fb.getBalls()) {
+          if (aabb(p, ball)) { this._hurtPlayer(); break; }
+        }
+      }
+    }
 
     // Pipe plants (Victreebel)
     for (const pl of lvl.plants || []) {
@@ -647,7 +696,7 @@ export class Game {
     this.player.char = this.selectedChar || 'eevee';
     this.player._applySize();
     this.cam.x = Math.max(0, spawnX - 200);
-    this.fireballs = []; this.bossShots = []; this.powerups = [];
+    this.fireballs = []; this.bossShots = []; this.powerups = []; this._castleBossComplete = false;
     this._debris = [];
   }
 
@@ -662,7 +711,7 @@ export class Game {
     this.player.char = this.selectedChar || 'eevee';
     this.player._applySize();
     this.cam.x = 0;
-    this.fireballs = []; this.bossShots = []; this.powerups = [];
+    this.fireballs = []; this.bossShots = []; this.powerups = []; this._castleBossComplete = false;
     this._debris = [];
   }
 
@@ -727,6 +776,9 @@ export class Game {
     for (const e  of lvl.enemies)    e.draw(r, this.cam);
     for (const pl of lvl.plants || []) pl.draw(r, this.cam);
     if (lvl.boss && !lvl.boss.dead)  lvl.boss.draw(r, this.cam);
+    if (lvl.castleBoss && !lvl.castleBoss.dead) lvl.castleBoss.draw(r, this.cam);
+    if (lvl.bossAxe && !lvl.bossAxe.taken) lvl.bossAxe.draw(r, this.cam);
+    for (const bar of (lvl.fireBars || [])) bar.draw(r, this.cam);
     for (const fb of this.fireballs) fb.draw(r, this.cam);
     for (const bs of this.bossShots) bs.draw(r, this.cam);
     // Score popups
@@ -978,7 +1030,7 @@ export class Game {
     this.player.char = this.selectedChar || 'eevee';
     this.player._applySize();
     this.cam.x = 0;
-    this.fireballs = []; this.bossShots = []; this.powerups = [];
+    this.fireballs = []; this.bossShots = []; this.powerups = []; this._castleBossComplete = false;
     this._debris = []; this.scorePopups = [];
     this.area0AutoWalk = (world === 2 && level === 0)
                       || (world === 1 && level === 1 && sub === 0);

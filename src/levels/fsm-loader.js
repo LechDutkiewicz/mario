@@ -14,6 +14,8 @@ import { FlagPole } from '../entities/flagpole.js';
 import { Enemy } from '../entities/enemy.js';
 import { Coin } from '../entities/coin.js';
 import { PipePlant } from '../entities/pipeplant.js';
+import { FireBar } from '../entities/firebar.js';
+import { CastleBoss, BossAxe } from '../entities/castleboss.js';
 
 const T  = TILE;      // 32
 const GY = GROUND_Y;  // 540
@@ -42,8 +44,7 @@ function processThing(e, out) {
       break;
 
     case 'Stone':
-    case 'HardBlock':
-    case 'CastleBlock': {
+    case 'HardBlock': {
       // y = top of stone (upward from ground in FSM units)
       // height (optional) = thickness in FSM units; if absent, stone extends to ground
       // width  (optional) = width in FSM units; default = 1 tile (8 FSM units)
@@ -51,6 +52,20 @@ function processThing(e, out) {
       const stoneH    = e.height !== undefined ? e.height * 4 : y * 4;
       const stoneW    = e.width  !== undefined ? ux(e.width)  : T;
       out.platforms.push(new Platform(sx, stoneTopY, stoneW, stoneH, COLORS.brick));
+      break;
+    }
+
+    case 'CastleBlock': {
+      const stoneTopY = GY - y * 4;
+      const stoneH    = e.height !== undefined ? e.height * 4 : y * 4;
+      const stoneW    = e.width  !== undefined ? ux(e.width)  : T;
+      out.platforms.push(new Platform(sx, stoneTopY, stoneW, stoneH, COLORS.brick));
+      if (e.fireballs) {
+        // direction param: FSM uses direction:1 for counter-clockwise; speed:-1 reverses
+        const dir = (e.direction === 1) ? -1 : 1;
+        const spd = (e.speed !== undefined) ? e.speed : 1;
+        out.fireBars.push(new FireBar(sx, stoneTopY, e.fireballs, spd, dir));
+      }
       break;
     }
 
@@ -243,10 +258,15 @@ function processMacro(e, out) {
       if (!out.flagPole) out.flagPole = new FlagPole(ux(x));
       break;
 
-    case 'EndInsideCastle':
-      // Castle level end — place a flagpole as level completion trigger
-      if (!out.flagPole) out.flagPole = new FlagPole(ux(x));
+    case 'EndInsideCastle': {
+      // Castle boss + axe; the axe is 6 tiles right of the macro x
+      const bossX = ux(x) - 128;
+      const axeX  = ux(x) + T * 6;
+      out.castleBoss = new CastleBoss(bossX, GY, bossX - 256, axeX - T * 2);
+      out.bossAxe    = new BossAxe(axeX, GY);
+      out.noFlagPole = true;
       break;
+    }
 
     case 'Tree': {
       const w = ux(e.width || 8);
@@ -307,6 +327,9 @@ export function loadFSMLevel(jsonData, areaIndex = 0) {
     plants:          [],
     movingPlatforms: [],
     flagPole:        null,
+    fireBars:        [],
+    castleBoss:      null,
+    bossAxe:         null,
   };
 
   for (const entry of area.creation) {
@@ -339,6 +362,9 @@ export function loadFSMLevel(jsonData, areaIndex = 0) {
     movingPlatforms: out.movingPlatforms,
     hPipeExits:      out.hPipeExits || [],
     boss:            null,
+    fireBars:        out.fireBars,
+    castleBoss:      out.castleBoss || null,
+    bossAxe:         out.bossAxe || null,
     flagPole:        out.flagPole || null,
     pokeCenterX,
     setting,
