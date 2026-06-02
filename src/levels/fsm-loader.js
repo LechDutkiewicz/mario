@@ -9,7 +9,7 @@
 //   Ground    = GY (= 540)
 // ============================================================
 import { TILE, GROUND_Y, COLORS } from '../constants.js';
-import { Platform, QuestionBlock, PipeBlock, BrickBlock, MovingPlatform } from '../entities/platform.js';
+import { Platform, QuestionBlock, PipeBlock, BrickBlock, MovingPlatform, TreePlatform } from '../entities/platform.js';
 import { FlagPole } from '../entities/flagpole.js';
 import { Enemy } from '../entities/enemy.js';
 import { Coin } from '../entities/coin.js';
@@ -71,8 +71,15 @@ function processThing(e, out) {
     }
 
     case 'Koopa': {
-      const feetY = GY - (y - 8) * 4;
-      out.enemies.push(new Enemy(sx, feetY, 'squirtle', !!e.smart));
+      if (e.jumping && e.floating && e.begin !== undefined && e.end !== undefined) {
+        // Paratroopa — flies vertically between begin and end
+        const flyMinY = uy(e.end);   // end = higher y in FSM → lower screen y (top)
+        const flyMaxY = Math.min(uy(e.begin), GY - 40);
+        out.enemies.push(new Enemy(sx, 0, 'squirtle', false, true, flyMinY, flyMaxY));
+      } else {
+        const feetY = GY - (y - 8) * 4;
+        out.enemies.push(new Enemy(sx, feetY, 'squirtle', !!e.smart));
+      }
       break;
     }
 
@@ -103,10 +110,11 @@ function processThing(e, out) {
         out.movingPlatforms.push(new MovingPlatform(Math.min(bx, ex), uy(y), w, T / 2, 'x', 1.0, range));
       } else if (e.floating && e.begin !== undefined && e.end !== undefined) {
         // Vertical floating platform — oscillates between uy(begin) and uy(end)
-        const by    = uy(e.begin);
+        const by    = Math.min(uy(e.begin), GY - T);  // clip below ground
         const ey    = uy(e.end);
-        const range = Math.abs(ey - by);
-        out.movingPlatforms.push(new MovingPlatform(sx, Math.min(by, ey), w, T / 2, 'y', 1.0, range));
+        const topY  = Math.min(by, ey);
+        const range = Math.abs(by - ey);
+        out.movingPlatforms.push(new MovingPlatform(sx, topY, w, T / 2, 'y', 1.0, range));
       } else {
         out.movingPlatforms.push(new MovingPlatform(sx, uy(y), w, T / 2, 'x', 1.0, ux(48)));
       }
@@ -228,9 +236,8 @@ function processMacro(e, out) {
       break;
 
     case 'Tree': {
-      // Tree platform: y = top height in FSM units from ground, width = platform width
       const w = ux(e.width || 8);
-      out.platforms.push(new Platform(ux(x), GY - y * 4, w, T, '#5a8830'));
+      out.platforms.push(new TreePlatform(ux(x), GY - y * 4, w));
       break;
     }
 

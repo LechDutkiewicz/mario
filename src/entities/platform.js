@@ -133,6 +133,29 @@ export class BrickBlock {
   }
 }
 
+// Tree platform — green canopy with brown trunk extending to ground
+export class TreePlatform {
+  constructor(x, y, w) {
+    this.x = x; this.y = y; this.w = w; this.h = TILE;
+    this.color = '#5a8830';
+    this.dead = false;
+    this.kind = 'platform';
+  }
+
+  draw(r, cam) {
+    const ctx = r.ctx;
+    const sx = Math.floor(this.x - cam.x);
+    const sy = Math.floor(this.y);
+    const trunkW = Math.max(8, Math.floor(this.w * 0.25));
+    const trunkX = sx + Math.floor((this.w - trunkW) / 2);
+    // Brown trunk from bottom of canopy to ground
+    ctx.fillStyle = '#7a4a1e';
+    ctx.fillRect(trunkX, sy + this.h, trunkW, GROUND_Y - sy - this.h);
+    // Green canopy
+    r.platform(sx, sy, this.w, this.h, this.color);
+  }
+}
+
 // Moving platform — travels between two points horizontally or vertically
 export class MovingPlatform {
   // mode: 'oscillate' (default) — bounces back and forth

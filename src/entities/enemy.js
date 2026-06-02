@@ -3,13 +3,17 @@ import { resolveCollisions } from '../physics.js';
 
 // type: 'ekans' (stompable purple snake) | 'koffing' (floating toxic ball, fireball only) | 'squirtle' (shell mechanic)
 export class Enemy {
-  constructor(x, y, type = 'ekans', smart = false) {
+  constructor(x, y, type = 'ekans', smart = false, flying = false, flyMinY = 0, flyMaxY = 0) {
     this.type  = type;
-    this.smart = smart;  // smart enemies turn at ledge edges
+    this.smart = smart;
+    this.flying = flying;
+    this.flyMinY = flyMinY;
+    this.flyMaxY = flyMaxY;
+    this.flyDir = 1;
     this.x = x;
     this.w = 30;
     this.h = type === 'koffing' ? 32 : 26;
-    this.y = y - this.h;
+    this.y = flying ? flyMinY : y - this.h;
     this.vx = type === 'koffing' ? -0.8 : type === 'squirtle' ? -1.3 : -1.1;
     this.vy = 0;
     this.dead = false;
@@ -95,6 +99,15 @@ export class Enemy {
     if (!this.active) {
       if (Math.abs(this.x - player.x) < 520) this.active = true;
       else return;
+    }
+
+    // Flying Paratroopa — oscillates vertically, ignores gravity
+    if (this.flying && !this.inShell) {
+      this.y += 1.2 * this.flyDir;
+      this.x += this.vx;
+      if (this.y >= this.flyMaxY) { this.y = this.flyMaxY; this.flyDir = -1; }
+      if (this.y <= this.flyMinY) { this.y = this.flyMinY; this.flyDir  =  1; }
+      return;
     }
 
     if (this.type === 'koffing') {
@@ -311,6 +324,21 @@ export class Enemy {
         }
       }
       return;
+    }
+
+    // Wings for flying Paratroopa
+    if (this.flying) {
+      const wingFlap = Math.floor(this.animTimer / 8) % 2;
+      ctx.fillStyle = '#e8e8ff';
+      ctx.strokeStyle = '#8888cc'; ctx.lineWidth = 1;
+      // Left wing
+      ctx.beginPath();
+      ctx.ellipse(x - 8 + wingFlap * 3, y + h * 0.35, 10, 6, -0.4, 0, Math.PI * 2);
+      ctx.fill(); ctx.stroke();
+      // Right wing
+      ctx.beginPath();
+      ctx.ellipse(x + w + 8 - wingFlap * 3, y + h * 0.35, 10, 6, 0.4, 0, Math.PI * 2);
+      ctx.fill(); ctx.stroke();
     }
 
     // Walking Squirtle
