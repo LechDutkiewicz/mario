@@ -30,12 +30,14 @@ export class Game {
     this.walkToPCTimer = 0;
     this.pcEnterX = 0;
     this.world = 1;
-    this.world1Level = 0; // which sub-level of world 1 (0-3)
+    this.world1Level = 0;   // which sub-level of world 1 (0-3)
+    this.world1SubArea = 0; // area within 1-2 (0=overworld, 1=underground, 2=exit)
     this.selectedChar = 'eevee';
     this.charSelectIdx = 0;
     this.world2Area = 0;   // current area index within world 2
-    this.areaTransTimer = 0; // fade-out frames between area transitions
+    this.areaTransTimer = 0;
     this._pendingArea = -1;
+    this._pendingWorld1SubArea = -1;
     this.area0AutoWalk = false; // player auto-walks into entrance pipe
     this.scorePopups = [];
     this._cachedBoard = [];
@@ -47,10 +49,10 @@ export class Game {
 
   resetLevel(fullReset, resetPower = fullReset) {
     const savedPower = resetPower ? POWER.SMALL : (this.player ? this.player.power : POWER.SMALL);
-    if (fullReset) { this.world2Area = 0; this.world1Level = 0; }
+    if (fullReset) { this.world2Area = 0; this.world1Level = 0; this.world1SubArea = 0; }
     this.level   = this.world === 3 ? buildWorld3()
                  : this.world === 2 ? buildWorld2(this.world2Area)
-                 : buildWorld1(this.world1Level);
+                 : buildWorld1(this.world1Level, this.world1SubArea);
     this.area0AutoWalk = (this.world === 2 && this.world2Area === 0);
     this.r.currentSetting = this.level.setting || 'overworld';
     this.player  = new Player(80, GROUND_Y - 60);
@@ -139,21 +141,46 @@ export class Game {
     }
   }
 
-  // GET uses JSONP to bypass CORS (Apps Script must support ?callback= parameter)
+  // Persist a score to localStorage so leaderboard works even without JSONP
+  _saveScoreLocally(name, score, char) {
+    try {
+      const key = 'eevee_scores';
+      const stored = JSON.parse(localStorage.getItem(key) || '[]');
+      stored.push({ name, score, char });
+      stored.sort((a, b) => b.score - a.score);
+      localStorage.setItem(key, JSON.stringify(stored.slice(0, 20)));
+    } catch (_) {}
+  }
+
+  _loadLocalScores() {
+    try {
+      return JSON.parse(localStorage.getItem('eevee_scores') || '[]');
+    } catch (_) { return []; }
+  }
+
+  // GET: try JSONP (requires Apps Script redeployment), fall back to localStorage
   _fetchLeaderboardJSONP() {
     return new Promise((resolve) => {
       const cbName = '_gscb' + Date.now();
       const timer  = setTimeout(() => {
         delete window[cbName];
+        // JSONP timed out — fall back to local scores
+        const local = this._loadLocalScores();
+        if (local.length > 0) this._cachedBoard = local;
         this._leaderboardLoading = false;
         resolve([]);
-      }, 8000);
+      }, 5000);
 
       window[cbName] = (data) => {
         clearTimeout(timer);
         delete window[cbName];
-        this._cachedBoard = Array.isArray(data) ? data : [];
+        if (Array.isArray(data) && data.length > 0) {
+          this._cachedBoard = data;
+        } else {
+          this._cachedBoard = this._loadLocalScores();
+        }
         this._leaderboardLoading = false;
+        resolve(this._cachedBoard);
       };
 
       const script = document.createElement('script');
@@ -161,6 +188,7 @@ export class Game {
       script.onerror = () => {
         clearTimeout(timer);
         delete window[cbName];
+        this._cachedBoard = this._loadLocalScores();
         this._leaderboardLoading = false;
         resolve([]);
       };
@@ -174,7 +202,9 @@ export class Game {
     this._leaderboardIsWin = isWin;
     this._leaderboardLoading = true;
     this.state = STATE.LEADERBOARD;
-    // POST first (no-cors), then fetch updated board via JSONP
+    // Save locally immediately so leaderboard always shows even if JSONP fails
+    this._saveScoreLocally(name, this.score, this.selectedChar || 'eevee');
+    // POST to Google Sheets (no-cors), then try to fetch updated board via JSONP
     this._postScore(name, this.score, this.selectedChar || 'eevee')
       .then(() => this._fetchLeaderboardJSONP());
   }
@@ -405,14 +435,14 @@ export class Game {
           if (p.x + p.w > pl.x && p.x < pl.x + pl.w &&
               Math.abs((p.y + p.h) - pl.y) < 8) {
             if (this.world === 2 && pl.leadsToArea !== undefined) {
-              // World 2 area transition
               this._startAreaTransition(pl.leadsToArea);
-            } else if (this.world === 1) {
-              // World 1 underground bonus
-              p.x = 7050;
-              p.y = GROUND_Y - p.h - 5;
-              this.cam.x = 7000;
-              this._showMsg('UNDERGROUND BONUS!', 90);
+            } else if (this.world === 1 && this.world1Level === 1) {
+              // World 1-2: cycle through areas 0 → 1 → 2
+              if (this.world1SubArea === 0) {
+                this._startWorld1AreaTransition(1); // overworld → underground
+              } else if (this.world1SubArea === 1) {
+                this._startWorld1AreaTransition(2); // underground → exit overworld
+              }
             }
             break;
           }
@@ -433,9 +463,14 @@ export class Game {
     // Area transition fade
     if (this.areaTransTimer > 0) {
       this.areaTransTimer--;
-      if (this.areaTransTimer === 0 && this._pendingArea >= 0) {
-        this._doAreaTransition(this._pendingArea);
-        this._pendingArea = -1;
+      if (this.areaTransTimer === 0) {
+        if (this._pendingWorld1SubArea >= 0) {
+          this._doWorld1AreaTransition(this._pendingWorld1SubArea);
+          this._pendingWorld1SubArea = -1;
+        } else if (this._pendingArea >= 0) {
+          this._doAreaTransition(this._pendingArea);
+          this._pendingArea = -1;
+        }
       }
     }
 
@@ -495,6 +530,7 @@ export class Game {
         if (this.world === 1 && this.world1Level < 3) {
           // Advance to next sub-level within world 1
           this.world1Level++;
+          this.world1SubArea = 0;
           this.resetLevel(false);
           this.music.start();
         } else if (this.world === 1 && this.world1Level === 3) {
@@ -541,7 +577,26 @@ export class Game {
 
   _startAreaTransition(toArea) {
     this._pendingArea = toArea;
-    this.areaTransTimer = 40; // 40 frames fade-out
+    this.areaTransTimer = 40;
+  }
+
+  _startWorld1AreaTransition(toSubArea) {
+    this._pendingWorld1SubArea = toSubArea;
+    this.areaTransTimer = 40;
+  }
+
+  _doWorld1AreaTransition(toSubArea) {
+    const savedPower = this.player ? this.player.power : POWER.SMALL;
+    this.world1SubArea = toSubArea;
+    this.level = buildWorld1(this.world1Level, toSubArea);
+    this.r.currentSetting = this.level.setting || 'overworld';
+    this.player = new Player(80, GROUND_Y - 60);
+    this.player.power = savedPower;
+    this.player.char = this.selectedChar || 'eevee';
+    this.player._applySize();
+    this.cam.x = 0;
+    this.fireballs = []; this.bossShots = []; this.powerups = [];
+    this._debris = [];
   }
 
   _doAreaTransition(toArea) {

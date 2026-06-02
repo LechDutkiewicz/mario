@@ -205,22 +205,20 @@ function processMacro(e, out) {
     }
 
     case 'PlatformGenerator': {
-      // Continuous elevator — 4 platforms staggered so one is always visible.
+      // 2 staggered platforms travelling in one direction, wrapping off-screen.
       // direction=1 (default): platforms descend.  direction=-1: platforms ascend.
-      // Each wraps around when it exits the playfield.
       const sx      = ux(x);
       const pW      = T * 3;
-      const pSpeed  = (e.direction === -1) ? -1.5 : 1.5;   // positive = down
-      const topY    = GY - 11 * T;   // ceiling of underground (approx)
-      const bottomY = GY - T;         // one tile above ground
-      const totalH  = bottomY - topY;  // total travel distance
-      const count   = 4;
+      const pSpeed  = (e.direction === -1) ? -1.5 : 1.5;
+      const topY    = -T;          // just above canvas top (wrap destination when going up)
+      const bottomY = 640;         // just below canvas bottom (wrap destination when going down)
+      const totalH  = bottomY - topY;   // full travel range including off-screen buffer
+      const count   = 2;
       for (let i = 0; i < count; i++) {
-        // Stagger starting positions evenly across the travel range
-        const startY = topY + (totalH / count) * i;
-        out.movingPlatforms.push(
-          new MovingPlatform(sx, startY, pW, T / 2, 'y', pSpeed, totalH, 'conveyor')
-        );
+        const p = new MovingPlatform(sx, topY, pW, T / 2, 'y', pSpeed, totalH, 'conveyor');
+        // Stagger starting positions within the visible area so one is always on screen
+        p.y = topY + (totalH / count) * i;
+        out.movingPlatforms.push(p);
       }
       break;
     }

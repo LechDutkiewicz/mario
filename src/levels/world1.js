@@ -10,10 +10,10 @@ import { TILE, GROUND_Y, COLORS } from '../constants.js';
 import { Platform, PipeBlock } from '../entities/platform.js';
 import { FlagPole } from '../entities/flagpole.js';
 
-export function buildWorld1(levelIndex = 0) {
+export function buildWorld1(levelIndex = 0, subArea = 0) {
   switch (levelIndex) {
     case 0:  return _buildLevel1_1();
-    case 1:  return _buildLevel1_2();
+    case 1:  return _buildLevel1_2(subArea);
     case 2:  return _buildLevel1_3();
     case 3:  return _buildLevel1_4();
     default: return _buildLevel1_1();
@@ -26,9 +26,12 @@ function _buildLevel1_1() {
   return lvl;
 }
 
-function _buildLevel1_2() {
-  const lvl = loadFSMLevel(world12Data, 1);
-  lvl.areaIndex = 1;
+// subArea: 0 = overworld entrance, 1 = underground, 2 = overworld exit (flagpole)
+function _buildLevel1_2(subArea = 0) {
+  const fsmArea = [0, 1, 3][subArea] ?? 1;
+  const lvl = loadFSMLevel(world12Data, fsmArea);
+  lvl.areaIndex = fsmArea;
+  lvl.subArea   = subArea;
   return lvl;
 }
 
