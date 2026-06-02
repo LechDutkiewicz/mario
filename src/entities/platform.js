@@ -22,9 +22,10 @@ export class Platform {
 
 // Question block: bump from below to release pokeball or power-up.
 export class QuestionBlock {
-  constructor(x, y, contents = 'pokeball') {
+  constructor(x, y, contents = 'pokeball', hidden = false) {
     this.x = x; this.y = y; this.w = TILE; this.h = TILE;
     this.contents = contents;
+    this.hidden = hidden;  // invisible until hit from below
     this.used = false;
     this.dead = false;
     this.bump = 0;
@@ -33,6 +34,7 @@ export class QuestionBlock {
   }
 
   onBump(game) {
+    if (this.hidden) { this.hidden = false; return; }
     if (this.used) return;
     this.used = true;
     this.bump = 8;
@@ -51,6 +53,7 @@ export class QuestionBlock {
   }
 
   draw(r, cam) {
+    if (this.hidden) return;  // invisible until hit
     const ctx = r.ctx;
     const x = Math.floor(this.x - cam.x);
     const yOff = this.bump > 0 ? -Math.sin((this.bump / 8) * Math.PI) * 8 : 0;

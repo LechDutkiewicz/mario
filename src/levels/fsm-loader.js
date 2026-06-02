@@ -55,8 +55,7 @@ function processThing(e, out) {
     }
 
     case 'Block':
-      // Q-block: y = top in FSM units
-      out.qblocks.push(new QuestionBlock(sx, uy(y), mapContents(e.contents)));
+      out.qblocks.push(new QuestionBlock(sx, uy(y), mapContents(e.contents), !!e.hidden));
       break;
 
     case 'Goomba':
@@ -184,6 +183,7 @@ function processMacro(e, out) {
             x:        x + xi * xwidth,
             y:        y + yi * ywidth,
             contents: e.contents,
+            hidden:   e.hidden,
           }, out);
         }
       }

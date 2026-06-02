@@ -1,6 +1,7 @@
 import {
-  GRAVITY, MAX_FALL_SPEED, PLAYER_SPEED, PLAYER_RUN_SPEED,
-  JUMP_VELOCITY, FRICTION, AIR_FRICTION,
+  GRAVITY, MAX_FALL_SPEED, PLAYER_SPEED,
+  PLAYER_ACCEL, PLAYER_RUN_ACCEL, FRICTION,
+  JUMP_MAX_VY, JUMP_FRAMES_MAX, JUMP_MOD,
   PLAYER_SMALL_W, PLAYER_SMALL_H, PLAYER_BIG_W, PLAYER_BIG_H,
   INVINCIBLE_TIME, POWER, COLORS,
 } from '../constants.js';
@@ -32,6 +33,8 @@ export class Player {
     this.poleSliding = false;
     this.walkToPC = false;
     this.char = 'eevee';
+    this.isJumping = false;
+    this.jumpFrames = 0;
   }
 
   get big() { return this.power !== POWER.SMALL; }
@@ -109,16 +112,14 @@ export class Player {
     if (this.fireCooldown > 0) this.fireCooldown--;
     this.animTimer++;
 
-    const speed = input.run ? PLAYER_RUN_SPEED : PLAYER_SPEED;
-    if (input.left) { this.vx -= 0.8; this.facing = -1; }
-    if (input.right) { this.vx += 0.8; this.facing = 1; }
-    if (this.vx > speed) this.vx = speed;
-    if (this.vx < -speed) this.vx = -speed;
-
-    if (!input.left && !input.right) {
-      this.vx *= this.onGround ? FRICTION : AIR_FRICTION;
-      if (Math.abs(this.vx) < 0.1) this.vx = 0;
-    }
+    // FSM-accurate movement: friction always applied, then accel added
+    this.vx *= FRICTION;
+    if (Math.abs(this.vx) < 0.05) this.vx = 0;
+    const accel = input.run ? PLAYER_RUN_ACCEL : PLAYER_ACCEL;
+    if (input.left)  { this.vx -= accel; this.facing = -1; }
+    if (input.right) { this.vx += accel; this.facing  =  1; }
+    if (this.vx >  PLAYER_SPEED) this.vx =  PLAYER_SPEED;
+    if (this.vx < -PLAYER_SPEED) this.vx = -PLAYER_SPEED;
 
     // Crouch (big only, on ground)
     const wantCrouch = input.down && this.big && this.onGround;
@@ -136,13 +137,25 @@ export class Player {
       if (!blocked) { this.crouching = false; this.y = newY; this.h = PLAYER_BIG_H; }
     }
 
-    // Jump
+    // FSM-accurate jump: continuous upward force applied each frame while holding jump
+    // dy = unitsize / pow(++jumplev, jumpmod - 0.0014 * |xvel|)
     if (input.jumpPressed && this.onGround && !this.crouching) {
-      this.vy = JUMP_VELOCITY;
+      this.isJumping = true;
+      this.jumpFrames = 0;
+      this.vy = 0;
       this.onGround = false;
     }
-    // Variable jump height
-    if (!input.jump && this.vy < -4) this.vy = -4;
+    if (this.isJumping) {
+      if (!input.jump || this.onGround || this.vy >= 0) {
+        this.isJumping = false;
+      } else if (this.jumpFrames < JUMP_FRAMES_MAX) {
+        this.jumpFrames++;
+        const exponent = JUMP_MOD - 0.0014 * Math.abs(this.vx);
+        const dy = 4 / Math.pow(this.jumpFrames, exponent);
+        this.vy -= dy;
+        if (this.vy < JUMP_MAX_VY) this.vy = JUMP_MAX_VY;
+      }
+    }
 
     // Gravity
     this.vy += GRAVITY;
@@ -156,6 +169,7 @@ export class Player {
 
     const res = resolveCollisions(this, solids);
     this.onGround = res.onGround;
+    if (this.onGround) this.isJumping = false;
 
     for (const block of res.hitBelow) {
       if (block.onBump) block.onBump(game);

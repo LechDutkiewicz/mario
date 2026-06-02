@@ -7,14 +7,23 @@ export const GROUND_Y      = 540;
 export const TILE          = 32;
 export const LEVEL_WIDTH   = 6400;
 
-// Physics
-export const GRAVITY          = 0.77;
-export const MAX_FALL_SPEED   = 11;
-export const PLAYER_SPEED     = 2.75;
-export const PLAYER_RUN_SPEED = 5.2;
-export const JUMP_VELOCITY    = -17;
-export const FRICTION         = 0.82;
-export const AIR_FRICTION     = 0.92;
+// Physics — matched to FullScreenMario (unitsize=4)
+// gravity = round(12*4)/100 = 0.48
+// maxspeed = 4 * 1.35 = 5.4, maxyvel = 4 * 1.75 = 7
+// xvel *= 0.98 every frame; accel = 0.098 (walk) / 0.196 (sprint)
+// jump: dy = 4 / pow(++jumplev, 1.056 - 0.0014*|xvel|) applied each frame
+export const GRAVITY          = 0.48;
+export const MAX_FALL_SPEED   = 7;
+export const PLAYER_SPEED     = 5.4;   // max speed cap (same walk/run, accel differs)
+export const PLAYER_RUN_SPEED = 5.4;
+export const PLAYER_ACCEL     = 0.098;
+export const PLAYER_RUN_ACCEL = 0.196;
+export const JUMP_VELOCITY    = -3.52; // kept for compat (first-frame value, not really used)
+export const FRICTION         = 0.98;
+export const AIR_FRICTION     = 0.98;
+export const JUMP_MAX_VY      = -14.7; // maxyvelinv = maxyvel * -2.1
+export const JUMP_FRAMES_MAX  = 32;
+export const JUMP_MOD         = 1.056;
 
 // Player sizes
 export const PLAYER_SMALL_W = 28;
