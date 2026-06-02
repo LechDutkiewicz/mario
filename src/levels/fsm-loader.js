@@ -120,9 +120,23 @@ function processThing(e, out) {
       break;
     }
 
-    // Unsupported / purely visual / decorative
-    case 'PipeHorizontal':
-    case 'PipeVertical':
+    // PipeHorizontal with transport → marks an exit zone player walks into
+    case 'PipeHorizontal': {
+      if (e.transport != null && typeof e.transport === 'number') {
+        // Store as exit trigger (not a solid, just a zone)
+        out.hPipeExits = out.hPipeExits || [];
+        out.hPipeExits.push({ x: ux(x), y: GY - (e.y || 0) * 4, transportId: e.transport });
+      }
+      break;
+    }
+    // PipeVertical — vertical pipe visual drawn as a tall PipeBlock
+    case 'PipeVertical': {
+      if (e.height !== undefined) {
+        const htiles = Math.max(1, Math.round((e.height || 8) / 8));
+        out.platforms.push(new PipeBlock(ux(x), htiles, false));
+      }
+      break;
+    }
     case 'ScrollBlocker':
     case 'ScrollEnabler':
     case 'Vine':
@@ -248,18 +262,18 @@ function processMacro(e, out) {
     }
 
     case 'WarpWorld': {
-      // Secret warp zone — three pipes leading to worlds listed in warps[]
       const worlds = Array.isArray(e.warps) ? e.warps : [4, 3, 2];
       const sx = ux(x);
-      // Ground under warp room
-      out.platforms.push(new Platform(sx - T * 2, GY, ux(worlds.length * 16 + 8), 120, COLORS.brick));
+      const pipeSpacing = T * 3;  // 96px per pipe slot (pipe=64px + 32px gap)
+      out.platforms.push(new Platform(sx - T * 2, GY, pipeSpacing * worlds.length + T * 4, 120, COLORS.brick));
       for (let i = 0; i < worlds.length; i++) {
-        const px = sx + i * ux(16);
+        const px = sx + i * pipeSpacing;
         const pb = new PipeBlock(px, 2, false);
         pb.warpWorld = worlds[i];
         pb.isWarp = true;
         out.platforms.push(pb);
       }
+      out.noFlagPole = true;  // no flag/Pokemon Center in warp zones
       break;
     }
 
@@ -307,8 +321,14 @@ export function loadFSMLevel(jsonData, areaIndex = 0) {
   }
   const levelWidth = maxX + 800;
 
-  if (!out.flagPole) out.flagPole = new FlagPole(maxX - 300);
-  const pokeCenterX = out.flagPole.x + 5 * T;
+  const setting = area.setting === 'Underworld' ? 'underground'
+                : area.setting === 'Castle'     ? 'castle'
+                : 'overworld';
+
+  // Underground areas and warp zones don't get a flag/Pokemon Center
+  const suppressFlag = setting === 'underground' || out.noFlagPole;
+  if (!suppressFlag && !out.flagPole) out.flagPole = new FlagPole(maxX - 300);
+  const pokeCenterX = out.flagPole ? out.flagPole.x + 5 * T : null;
 
   return {
     platforms:       out.platforms,
@@ -317,12 +337,11 @@ export function loadFSMLevel(jsonData, areaIndex = 0) {
     coins:           out.coins,
     plants:          out.plants,
     movingPlatforms: out.movingPlatforms,
+    hPipeExits:      out.hPipeExits || [],
     boss:            null,
-    flagPole:        out.flagPole,
+    flagPole:        out.flagPole || null,
     pokeCenterX,
-    setting:         area.setting === 'Underworld' ? 'underground'
-                   : area.setting === 'Castle'     ? 'castle'
-                   : 'overworld',
+    setting,
     get solids() { return [...this.platforms, ...this.qblocks, ...this.movingPlatforms]; },
     width:           levelWidth,
   };

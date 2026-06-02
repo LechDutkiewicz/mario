@@ -469,6 +469,18 @@ export class Game {
       }
     }
 
+    // Horizontal pipe exits — player walks rightward into the pipe zone
+    if (lvl.hPipeExits && lvl.hPipeExits.length > 0 && this.areaTransTimer === 0 && !p.dead) {
+      for (const hp of lvl.hPipeExits) {
+        if (p.x + p.w >= hp.x && p.x < hp.x + TILE * 2 &&
+            p.y + p.h > hp.y - TILE * 2 && p.y < hp.y + TILE * 2 &&
+            p.vx > 0) {
+          this._handleWorld1PipeEntry({ transportId: hp.transportId });
+          break;
+        }
+      }
+    }
+
     // Area transition fade
     if (this.areaTransTimer > 0) {
       this.areaTransTimer--;
@@ -594,12 +606,15 @@ export class Game {
     // Pipe with transportId: N means "go to FSM area N" (0-indexed, or N=2 → area 1 for 1-1)
     if (pipe.transportId != null) {
       if (this.world1Level === 0) {
-        // 1-1: transport:2 → underground (area 1)
+        // 1-1: transport:2 → underground (area 1); transport:1 → overworld exit near x:5216
         if (pipe.transportId === 2) this._startWorld1AreaTransition(1);
+        else if (pipe.transportId === 1) this._startWorld1AreaTransition(0); // exit underground
       } else if (this.world1Level === 1) {
-        // 1-2: transport:2 → second underground (subArea 2 = FSM area 2 is not handled yet)
-        // For now treat any transport in underground area 1 as exit to overworld area 3
-        if (this.world1SubArea === 1) this._startWorld1AreaTransition(2);
+        // 1-2:
+        //   transport:1 → area 1 underground (auto-walk pipe, handled by area0AutoWalk)
+        //   transport:4 → overworld exit (subArea 2 = FSM area 3)
+        if (pipe.transportId === 4) this._startWorld1AreaTransition(2);
+        else if (this.world1SubArea === 1) this._startWorld1AreaTransition(2);
       }
     } else if (pipe.leadsToArea !== undefined) {
       this._startAreaTransition(pipe.leadsToArea);
@@ -728,6 +743,21 @@ export class Game {
       ctx2.fillText('+' + sp.score, Math.floor(sp.x - this.cam.x), Math.floor(sp.y));
       ctx2.textAlign = 'left';
       ctx2.restore();
+    }
+    // Draw horizontal pipe exit sections
+    for (const hp of (lvl.hPipeExits || [])) {
+      const ctx2 = this.ctx;
+      const hx = Math.floor(hp.x - this.cam.x);
+      const hy = Math.floor(hp.y - TILE);
+      const hw = TILE * 2, hh = TILE * 2;
+      ctx2.fillStyle = '#186018';
+      ctx2.fillRect(hx - hw, hy, hw, hh);
+      ctx2.fillStyle = '#1e7a1e';
+      ctx2.fillRect(hx - hw, hy + 2, 6, hh - 4);
+      ctx2.fillStyle = '#0f4010';
+      ctx2.fillRect(hx - 6, hy + 2, 4, hh - 4);
+      ctx2.strokeStyle = '#0a2e0a'; ctx2.lineWidth = 1.5;
+      ctx2.strokeRect(hx - hw, hy, hw, hh);
     }
     if (lvl.flagPole)                lvl.flagPole.draw(r, this.cam);
     if (lvl.pokeShopX !== undefined)   this._drawPokeShopBuilding(lvl.pokeShopX);
@@ -1258,51 +1288,62 @@ export class Game {
 
   _drawMenu() {
     const ctx = this.ctx;
+    // Dark overlay on sky background
+    ctx.fillStyle = 'rgba(0,0,18,0.72)';
+    ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
     ctx.textAlign = 'center';
 
     // Title
+    ctx.shadowColor = '#ff8800'; ctx.shadowBlur = 18;
     ctx.fillStyle = '#c8864a';
     ctx.font = 'bold 64px monospace';
-    ctx.fillText("EEVEE'S", CANVAS_WIDTH / 2, 160);
-    ctx.fillStyle = '#9b59b6';
-    ctx.fillText('ADVENTURE', CANVAS_WIDTH / 2, 228);
+    ctx.fillText("EEVEE'S", CANVAS_WIDTH / 2, 130);
+    ctx.fillStyle = '#b070e8';
+    ctx.fillText('ADVENTURE', CANVAS_WIDTH / 2, 198);
+    ctx.shadowBlur = 0;
 
     ctx.fillStyle = '#fff';
     ctx.font = 'bold 26px monospace';
-    ctx.fillText('Press ENTER or SPACE to START', CANVAS_WIDTH / 2, 310);
+    ctx.fillText('Press ENTER or SPACE to START', CANVAS_WIDTH / 2, 268);
 
-    ctx.font = '18px monospace';
-    ctx.fillStyle = '#ddd';
-    const lines = [
-      'Arrows: move   Space / Up: jump',
-      'Shift: run     Left Alt: Flamethrower (need TM Fire)',
-      'Down: crouch (big Eevee)     P: pause',
-      '',
-      'Stomp Ekans!  Koffing needs Flamethrower.',
-      'Collect Pokeballs. Find Rare Candy and TM Fire!',
-    ];
-    lines.forEach((l, i) => ctx.fillText(l, CANVAS_WIDTH / 2, 368 + i * 27));
-
-    // Top 3 leaderboard in bottom-right corner
+    // Top scores panel  (bottom portion of screen)
     const board = this._cachedBoard || [];
-    if (board.length > 0) {
-      const top3 = board.slice(0, 3);
-      ctx.font = 'bold 14px monospace';
-      ctx.fillStyle = '#ffd700';
-      ctx.fillText('TOP SCORES', CANVAS_WIDTH / 2 + 240, 370);
-      ctx.font = '13px monospace';
-      const medals = ['🥇', '🥈', '🥉'];
-      top3.forEach((e, i) => {
-        ctx.fillStyle = i === 0 ? '#ffd700' : i === 1 ? '#c0c0c0' : '#cd7f32';
-        const name  = (e.name  || '???').slice(0, 8).padEnd(8);
-        const score = String(e.score || 0).padStart(7, '0');
-        ctx.fillText(`${i + 1}. ${name}  ${score}`, CANVAS_WIDTH / 2 + 208, 390 + i * 20);
-      });
+    const panelY = 310;
+    ctx.fillStyle = 'rgba(0,0,0,0.55)';
+    ctx.fillRect(60, panelY, CANVAS_WIDTH - 120, 240);
+    ctx.strokeStyle = '#ffd23b'; ctx.lineWidth = 2;
+    ctx.strokeRect(60, panelY, CANVAS_WIDTH - 120, 240);
+
+    ctx.fillStyle = '#ffd23b';
+    ctx.font = 'bold 20px monospace';
+    ctx.fillText('TOP SCORES', CANVAS_WIDTH / 2, panelY + 28);
+
+    if (board.length === 0 && !this._leaderboardLoading) {
+      ctx.fillStyle = '#aaa'; ctx.font = '17px monospace';
+      ctx.fillText('No scores yet — play a game first!', CANVAS_WIDTH / 2, panelY + 80);
     } else if (this._leaderboardLoading) {
-      ctx.font = '13px monospace';
-      ctx.fillStyle = '#aaa';
-      ctx.fillText('Loading scores...', CANVAS_WIDTH / 2 + 230, 390);
+      ctx.fillStyle = '#aaa'; ctx.font = '17px monospace';
+      ctx.fillText('Loading scores...', CANVAS_WIDTH / 2, panelY + 80);
+    } else {
+      const top5 = board.slice(0, 5);
+      ctx.font = 'bold 16px monospace';
+      top5.forEach((e, i) => {
+        const rowY = panelY + 56 + i * 36;
+        ctx.fillStyle = i === 0 ? '#ffd23b' : i === 1 ? '#c8c8c8' : '#cd7f32';
+        ctx.textAlign = 'right';
+        ctx.fillText(`${i + 1}.`, CANVAS_WIDTH / 2 - 220, rowY);
+        ctx.fillStyle = '#fff';
+        ctx.textAlign = 'left';
+        ctx.fillText((e.name || '???').slice(0, 10), CANVAS_WIDTH / 2 - 205, rowY);
+        ctx.textAlign = 'right';
+        ctx.fillText(String(e.score || 0).padStart(7, '0'), CANVAS_WIDTH / 2 + 220, rowY);
+        ctx.fillStyle = 'rgba(200,200,200,0.5)';
+        ctx.font = '12px monospace';
+        ctx.textAlign = 'left';
+        ctx.fillText(e.date || '', CANVAS_WIDTH / 2 + 228, rowY);
+        ctx.font = 'bold 16px monospace';
+      });
     }
-    ctx.textAlign = 'left';
+    ctx.textAlign = 'left'; ctx.shadowBlur = 0;
   }
 }
