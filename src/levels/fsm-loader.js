@@ -266,10 +266,17 @@ function processMacro(e, out) {
       break;
 
     case 'EndInsideCastle': {
-      // Castle boss + axe; the axe is 6 tiles right of the macro x
-      const bossX = ux(x) - 128;
-      const axeX  = ux(x) + T * 6;
-      out.castleBoss = new CastleBoss(bossX, GY, bossX - 256, axeX - T * 2);
+      // Bridge over lava + boss + axe
+      // The bridge starts at x (EndInsideCastle position) and extends right
+      const bridgeX = ux(x);
+      const BRIDGE_W = T * 14;               // 14-tile wide bridge
+      const bossStartX = bridgeX + T * 2;   // boss starts 2 tiles in
+      const axeX       = bridgeX + T * 11;  // axe near right end of bridge
+
+      // Bridge platform (thin, at floor level)
+      out.platforms.push(new Platform(bridgeX, GY, BRIDGE_W, T * 4, COLORS.brick));
+
+      out.castleBoss = new CastleBoss(bossStartX, GY, bridgeX + T, bridgeX + T * 10);
       out.bossAxe    = new BossAxe(axeX, GY);
       out.noFlagPole = true;
       break;

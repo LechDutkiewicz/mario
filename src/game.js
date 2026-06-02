@@ -160,48 +160,22 @@ export class Game {
     } catch (_) { return []; }
   }
 
-  // GET: try JSONP (requires Apps Script redeployment), fall back to localStorage
-  _fetchLeaderboardJSONP() {
+  // GET: fetch from Google Sheets (CORS), merge with localStorage, show best
+  async _fetchLeaderboardJSONP() {
     const local = this._loadLocalScores();
-    console.log('[Leaderboard] localStorage scores:', JSON.stringify(local));
-    return new Promise((resolve) => {
-      const cbName = '_gscb' + Date.now();
-      console.log('[Leaderboard] Fetching JSONP:', `${Game.SHEETS_URL}?action=get&callback=${cbName}`);
-
-      const timer  = setTimeout(() => {
-        delete window[cbName];
-        console.log('[Leaderboard] JSONP timed out, using localStorage');
-        if (local.length > 0) this._cachedBoard = local;
-        this._leaderboardLoading = false;
-        resolve([]);
-      }, 5000);
-
-      window[cbName] = (data) => {
-        clearTimeout(timer);
-        delete window[cbName];
-        console.log('[Leaderboard] JSONP response:', JSON.stringify(data));
-        if (Array.isArray(data) && data.length > 0) {
-          this._cachedBoard = data;
-        } else {
-          console.log('[Leaderboard] Empty/invalid JSONP data, using localStorage');
-          this._cachedBoard = local;
-        }
-        this._leaderboardLoading = false;
-        resolve(this._cachedBoard);
-      };
-
-      const script = document.createElement('script');
-      script.src = `${Game.SHEETS_URL}?action=get&callback=${cbName}`;
-      script.onerror = (e) => {
-        clearTimeout(timer);
-        delete window[cbName];
-        console.warn('[Leaderboard] JSONP script error:', e);
-        this._cachedBoard = local;
-        this._leaderboardLoading = false;
-        resolve([]);
-      };
-      document.head.appendChild(script);
-    });
+    try {
+      const res  = await fetch(`${Game.SHEETS_URL}?action=get`);
+      const data = await res.json();
+      if (Array.isArray(data) && data.length > 0) {
+        // Merge sheet data with local data, keeping the best score per name
+        const merged = [...data, ...local];
+        merged.sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
+        this._cachedBoard = merged.slice(0, 20);
+      }
+    } catch (_) {
+      // Network error or CORS block — local scores already set in constructor
+    }
+    this._leaderboardLoading = false;
   }
 
   _enterNameAndSave(isWin) {
@@ -486,7 +460,9 @@ export class Game {
         }
       }
       if (pl.isVisible() && !pl.dead && !p.dead && aabb(p, pl)) {
-        this._hurtPlayer();
+        // Don't hurt if player is standing on top of the pipe (original SMB edge behavior)
+        const standingOnPipe = (p.y + p.h) <= pl.pipeTopY + 4;
+        if (!standingOnPipe) this._hurtPlayer();
       }
     }
     if (lvl.plants) lvl.plants = lvl.plants.filter(pl => !pl.dead);
