@@ -521,288 +521,265 @@ export class Player {
   }
 
   _drawCharmander(ctx, w, h) {
-    const pw    = this.power;
-    const anim  = this.animTimer;
+    const pw     = this.power;
+    const anim   = this.animTimer;
     const moving = Math.abs(this.vx) > 0.3;
-    // Walk cycle: legs alternate every 8 frames
-    const legPhase = moving ? Math.sin(anim * 0.35) : 0;
-    // Flame flicker
-    const flick = Math.sin(anim * 0.28) * 1.2;
-    const OL = '#222';
+    const lp     = moving ? Math.sin(anim * 0.35) : 0; // leg phase
+    const flick  = Math.sin(anim * 0.28) * 1.2;
+    const OL     = '#222';
 
-    // Tail flame — layered ellipses, flickers
     const flame = (fx, fy, s) => {
       ctx.fillStyle = '#c83000';
-      ctx.beginPath(); ctx.ellipse(fx, fy, s*4, s*8+flick*s*0.8, 0, 0, Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(fx, fy, s*3.5, s*7+flick*s*0.7, 0, 0, Math.PI*2); ctx.fill();
       ctx.fillStyle = '#ff5500';
-      ctx.beginPath(); ctx.ellipse(fx, fy-s*2.5, s*2.8, s*5.5+flick*s*0.6, 0, 0, Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(fx, fy-s*2.5, s*2.4, s*5+flick*s*0.5, 0, 0, Math.PI*2); ctx.fill();
       ctx.fillStyle = '#ffaa00';
-      ctx.beginPath(); ctx.ellipse(fx, fy-s*4.5, s*1.6, s*3.2+flick*s*0.3, 0, 0, Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(fx, fy-s*4.2, s*1.4, s*3+flick*s*0.3, 0, 0, Math.PI*2); ctx.fill();
       ctx.fillStyle = '#ffee88';
-      ctx.beginPath(); ctx.ellipse(fx, fy-s*6, s*0.8, s*1.8, 0, 0, Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(fx, fy-s*5.5, s*0.7, s*1.6, 0, 0, Math.PI*2); ctx.fill();
     };
 
     if (pw === POWER.SMALL) {
-      // ── CHARMANDER ── orange, round, cute, blue eyes
+      // ── CHARMANDER ── small orange lizard, round and cute
       const C = '#f07030', D = '#c84808', CREAM = '#f8e890', CLAW = '#f0f0c0';
 
-      // Tail sweeps left then up, tipped with flame
-      ctx.strokeStyle = D; ctx.lineWidth = 5.5; ctx.lineCap = 'round';
-      ctx.beginPath(); ctx.moveTo(w*0.28, h*0.74);
-      ctx.bezierCurveTo(w*0.04, h*0.72, w*(-0.04), h*0.56, w*0.02, h*0.40); ctx.stroke();
-      flame(w*0.02, h*0.33, 0.72);
+      // Tail: starts mid-left of body, curves left then hooks UP
+      // This S-curve reads clearly as a tail
+      ctx.strokeStyle = D; ctx.lineWidth = 5; ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(w*0.28, h*0.70);
+      ctx.bezierCurveTo(w*0.02, h*0.74, w*(-0.06), h*0.58, w*0.04, h*0.42);
+      ctx.stroke();
+      flame(w*0.04, h*0.35, 0.68);
 
-      // Two stubby legs — alternate with walk cycle
-      const la = legPhase *  0.04;
-      const lb = legPhase * -0.04;
+      // Legs
       ctx.fillStyle = C; ctx.strokeStyle = OL; ctx.lineWidth = 1.5;
-      // back leg
-      ctx.beginPath(); ctx.ellipse(w*(0.38+la), h*0.865, w*0.095, h*0.085, la, 0, Math.PI*2);
+      ctx.beginPath(); ctx.ellipse(w*(0.40+lp*0.04), h*0.87, w*0.095, h*0.082, lp*0.15, 0, Math.PI*2);
       ctx.fill(); ctx.stroke();
-      // front leg
-      ctx.beginPath(); ctx.ellipse(w*(0.58+lb), h*0.865, w*0.095, h*0.085, lb, 0, Math.PI*2);
-      ctx.fill(); ctx.stroke();
-      // claws
-      ctx.fillStyle = CLAW;
-      for (let i=-1;i<=1;i++) { ctx.beginPath(); ctx.ellipse(w*(0.38+la)+i*4, h*0.935, 2.5, 3.5, 0, 0, Math.PI*2); ctx.fill(); }
-      for (let i=-1;i<=1;i++) { ctx.beginPath(); ctx.ellipse(w*(0.58+lb)+i*4, h*0.935, 2.5, 3.5, 0, 0, Math.PI*2); ctx.fill(); }
-
-      // Body — plump round oval
-      ctx.fillStyle = C; ctx.strokeStyle = OL; ctx.lineWidth = 1.8;
-      ctx.beginPath(); ctx.ellipse(w*0.50, h*0.62, w*0.34, h*0.25, 0, 0, Math.PI*2);
-      ctx.fill(); ctx.stroke();
-      // Cream belly
-      ctx.fillStyle = CREAM;
-      ctx.beginPath(); ctx.ellipse(w*0.60, h*0.64, w*0.18, h*0.19, 0.15, 0, Math.PI*2); ctx.fill();
-
-      // Tiny right arm
-      ctx.fillStyle = C; ctx.strokeStyle = OL; ctx.lineWidth = 1;
-      ctx.beginPath(); ctx.ellipse(w*0.80, h*0.60, w*0.09, h*0.06, 0.6, 0, Math.PI*2);
-      ctx.fill(); ctx.stroke();
-
-      // Head — round, sits slightly right of body
-      ctx.fillStyle = C; ctx.strokeStyle = OL; ctx.lineWidth = 1.8;
-      ctx.beginPath(); ctx.ellipse(w*0.68, h*0.31, w*0.28, h*0.27, 0, 0, Math.PI*2);
-      ctx.fill(); ctx.stroke();
-
-      // Eye — large, friendly, blue iris
-      ctx.fillStyle = '#fff';
-      ctx.beginPath(); ctx.ellipse(w*0.79, h*0.27, 5.5, 6.0, 0, 0, Math.PI*2); ctx.fill();
-      ctx.fillStyle = '#3070e8';
-      ctx.beginPath(); ctx.ellipse(w*0.80, h*0.28, 3.2, 3.8, 0, 0, Math.PI*2); ctx.fill();
-      ctx.fillStyle = '#000';
-      ctx.beginPath(); ctx.ellipse(w*0.80, h*0.285, 1.8, 2.2, 0, 0, Math.PI*2); ctx.fill();
-      ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(w*0.785, h*0.265, 1.4, 0, Math.PI*2); ctx.fill();
-
-      // Smile
-      ctx.strokeStyle = D; ctx.lineWidth = 1.2;
-      ctx.beginPath(); ctx.arc(w*0.80, h*0.375, w*0.07, 0.1, Math.PI-0.1); ctx.stroke();
-      // Nostril
-      ctx.fillStyle = D; ctx.beginPath(); ctx.ellipse(w*0.91, h*0.34, 1.8, 1.4, 0, 0, Math.PI*2); ctx.fill();
-
-    } else if (pw === POWER.BIG) {
-      // ── CHARMELEON ── taller, slimmer, dark red, one curved horn, red angry eye
-      const C = '#c82808', D = '#8c1a04', CREAM = '#f8d870', CLAW = '#f0f0b0';
-
-      // Tail — longer, held lower, curves left
-      ctx.strokeStyle = D; ctx.lineWidth = 6; ctx.lineCap = 'round';
-      ctx.beginPath(); ctx.moveTo(w*0.22, h*0.76);
-      ctx.bezierCurveTo(w*(-0.04), h*0.72, w*(-0.08), h*0.54, w*(-0.02), h*0.38); ctx.stroke();
-      flame(w*(-0.02), h*0.30, 0.88);
-
-      // Hind leg (back, left)
-      const la = legPhase *  0.05;
-      const lb = legPhase * -0.05;
-      ctx.fillStyle = C; ctx.strokeStyle = OL; ctx.lineWidth = 1.5;
-      ctx.beginPath();
-      ctx.moveTo(w*(0.22+la), h*0.72); ctx.lineTo(w*(0.16+la), h*0.96);
-      ctx.lineTo(w*(0.32+la), h*0.96); ctx.lineTo(w*(0.36+la), h*0.72); ctx.closePath();
-      ctx.fill(); ctx.stroke();
-      // Front leg
-      ctx.beginPath();
-      ctx.moveTo(w*(0.54+lb), h*0.72); ctx.lineTo(w*(0.50+lb), h*0.96);
-      ctx.lineTo(w*(0.66+lb), h*0.96); ctx.lineTo(w*(0.68+lb), h*0.72); ctx.closePath();
-      ctx.fill(); ctx.stroke();
-      // claws
-      ctx.fillStyle = CLAW;
-      for (let i=-1;i<=1;i++) { ctx.beginPath(); ctx.ellipse(w*(0.24+la)+i*5, h*0.97, 2.8, 4, 0, 0, Math.PI*2); ctx.fill(); }
-      for (let i=-1;i<=1;i++) { ctx.beginPath(); ctx.ellipse(w*(0.58+lb)+i*5, h*0.97, 2.8, 4, 0, 0, Math.PI*2); ctx.fill(); }
-
-      // Body — taller oval, upright
-      ctx.fillStyle = C; ctx.strokeStyle = OL; ctx.lineWidth = 1.8;
-      ctx.beginPath(); ctx.ellipse(w*0.44, h*0.58, w*0.30, h*0.28, -0.08, 0, Math.PI*2);
-      ctx.fill(); ctx.stroke();
-      // Cream belly
-      ctx.fillStyle = CREAM;
-      ctx.beginPath(); ctx.ellipse(w*0.56, h*0.60, w*0.16, h*0.21, 0.1, 0, Math.PI*2); ctx.fill();
-
-      // Arm with claws
-      ctx.fillStyle = C; ctx.strokeStyle = OL; ctx.lineWidth = 1.2;
-      ctx.beginPath(); ctx.ellipse(w*0.74, h*0.56, w*0.11, h*0.07, 0.5, 0, Math.PI*2);
+      ctx.beginPath(); ctx.ellipse(w*(0.60-lp*0.04), h*0.87, w*0.095, h*0.082, -lp*0.15, 0, Math.PI*2);
       ctx.fill(); ctx.stroke();
       ctx.fillStyle = CLAW;
-      ctx.beginPath(); ctx.ellipse(w*0.83, h*0.60, 3, 4.5, 0.3, 0, Math.PI*2); ctx.fill();
-      ctx.beginPath(); ctx.ellipse(w*0.87, h*0.58, 3, 4.5, -0.3, 0, Math.PI*2); ctx.fill();
-
-      // Neck — slim
-      ctx.fillStyle = C; ctx.strokeStyle = OL; ctx.lineWidth = 1.5;
-      ctx.beginPath(); ctx.ellipse(w*0.60, h*0.38, w*0.13, h*0.11, -0.2, 0, Math.PI*2);
-      ctx.fill(); ctx.stroke();
-
-      // Head — longer, more angular
-      ctx.beginPath();
-      ctx.moveTo(w*0.44, h*0.34); ctx.lineTo(w*0.74, h*0.29);
-      ctx.bezierCurveTo(w*0.90, h*0.25, w*0.94, h*0.16, w*0.88, h*0.12);
-      ctx.bezierCurveTo(w*0.76, h*0.04, w*0.52, h*0.06, w*0.44, h*0.17);
-      ctx.closePath(); ctx.fill(); ctx.stroke();
-
-      // Snout
-      ctx.fillStyle = D;
-      ctx.beginPath();
-      ctx.moveTo(w*0.70, h*0.22); ctx.lineTo(w*0.94, h*0.21);
-      ctx.bezierCurveTo(w*1.0, h*0.24, w*0.98, h*0.32, w*0.92, h*0.32);
-      ctx.lineTo(w*0.70, h*0.30); ctx.closePath(); ctx.fill();
-
-      // Curved horn on back of head
-      ctx.fillStyle = '#b8a840'; ctx.strokeStyle = OL; ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.moveTo(w*0.60, h*0.10);
-      ctx.bezierCurveTo(w*0.48, h*(-0.02), w*0.38, h*0.0, w*0.42, h*(-0.05));
-      ctx.bezierCurveTo(w*0.50, h*(-0.04), w*0.60, h*0.04, w*0.66, h*0.13);
-      ctx.closePath(); ctx.fill(); ctx.stroke();
-
-      // Angry eye — narrow, tilted, red iris
-      ctx.fillStyle = '#c0d8f0';
-      ctx.beginPath(); ctx.ellipse(w*0.80, h*0.20, 4.5, 5.5, -0.4, 0, Math.PI*2); ctx.fill();
-      ctx.fillStyle = '#cc0000';
-      ctx.beginPath(); ctx.ellipse(w*0.80, h*0.21, 2.5, 3.2, 0, 0, Math.PI*2); ctx.fill();
-      ctx.fillStyle = '#000';
-      ctx.beginPath(); ctx.ellipse(w*0.80, h*0.215, 1.2, 1.6, 0, 0, Math.PI*2); ctx.fill();
-      ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(w*0.786, h*0.198, 1.2, 0, Math.PI*2); ctx.fill();
-      // Angry brow
-      ctx.strokeStyle = D; ctx.lineWidth = 1.8; ctx.lineCap = 'round';
-      ctx.beginPath(); ctx.moveTo(w*0.75, h*0.14); ctx.lineTo(w*0.84, h*0.12); ctx.stroke();
-
-      // Nostril
-      ctx.fillStyle = D; ctx.beginPath(); ctx.ellipse(w*0.91, h*0.27, 2, 1.5, 0, 0, Math.PI*2); ctx.fill();
-
-    } else {
-      // ── CHARIZARD ── large, orange, teal wings, cream belly, two backward horns
-      const C = '#f06020', D = '#c03010', CREAM = '#f8e060', WING = '#2a8060', WING2 = '#3cb87a', CLAW = '#e8e8a0';
-
-      // === WINGS (behind body) ===
-      // Left wing — large, sweeps up-left
-      ctx.fillStyle = WING;
-      ctx.beginPath();
-      ctx.moveTo(w*0.38, h*0.30);
-      ctx.bezierCurveTo(w*0.18, h*(-0.15), w*(-0.22), h*(-0.12), w*(-0.26), h*0.28);
-      ctx.bezierCurveTo(w*(-0.18), h*0.52, w*0.10, h*0.58, w*0.34, h*0.50);
-      ctx.closePath(); ctx.fill(); ctx.strokeStyle=OL; ctx.lineWidth=1.5; ctx.stroke();
-      // Left wing inner membrane
-      ctx.fillStyle = WING2;
-      ctx.beginPath();
-      ctx.moveTo(w*0.34, h*0.36);
-      ctx.bezierCurveTo(w*0.16, h*(-0.04), w*(-0.10), h*0.04, w*(-0.10), h*0.32);
-      ctx.bezierCurveTo(w*(-0.04), h*0.48, w*0.14, h*0.52, w*0.30, h*0.46);
-      ctx.closePath(); ctx.fill();
-      // Wing spikes (3 finger tips)
-      ctx.fillStyle = D;
-      for (const [fx,fy] of [[w*(-0.24),h*0.04],[w*(-0.10),h*(-0.14)],[w*0.10,h*(-0.16)]]) {
-        ctx.beginPath(); ctx.moveTo(fx-5,fy+10); ctx.lineTo(fx,fy-9); ctx.lineTo(fx+5,fy+10); ctx.closePath(); ctx.fill();
-      }
-      // Wing ribs
-      ctx.strokeStyle='#1a6040'; ctx.lineWidth=1;
-      ctx.beginPath(); ctx.moveTo(w*0.36,h*0.40); ctx.bezierCurveTo(w*0.04,h*0.16,w*(-0.14),h*0.26,w*(-0.12),h*0.40); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(w*0.34,h*0.46); ctx.bezierCurveTo(w*0.10,h*0.30,w*(-0.04),h*0.36,w*(-0.04),h*0.44); ctx.stroke();
-
-      // Right wing — smaller, visible on right side
-      ctx.fillStyle = WING;
-      ctx.beginPath();
-      ctx.moveTo(w*0.62, h*0.30);
-      ctx.bezierCurveTo(w*0.86, h*(-0.10), w*1.10, h*0.04, w*1.04, h*0.38);
-      ctx.bezierCurveTo(w*0.96, h*0.52, w*0.78, h*0.50, w*0.62, h*0.46);
-      ctx.closePath(); ctx.fill(); ctx.strokeStyle=OL; ctx.lineWidth=1.2; ctx.stroke();
-      ctx.fillStyle = WING2;
-      ctx.beginPath();
-      ctx.moveTo(w*0.64,h*0.36); ctx.bezierCurveTo(w*0.84,h*(-0.02),w*1.0,h*0.10,w*0.96,h*0.38);
-      ctx.bezierCurveTo(w*0.90,h*0.48,w*0.76,h*0.46,w*0.66,h*0.43); ctx.closePath(); ctx.fill();
-
-      // Tail — curves left, slimmer
-      ctx.strokeStyle = C; ctx.lineWidth = 8; ctx.lineCap = 'round';
-      ctx.beginPath(); ctx.moveTo(w*0.30, h*0.84);
-      ctx.bezierCurveTo(w*0.04, h*0.82, w*(-0.06), h*0.68, w*(-0.04), h*0.52); ctx.stroke();
-      ctx.strokeStyle = D; ctx.lineWidth = 5;
-      ctx.beginPath(); ctx.moveTo(w*0.28, h*0.84);
-      ctx.bezierCurveTo(w*0.05, h*0.81, w*(-0.04), h*0.67, w*(-0.02), h*0.53); ctx.stroke();
-      flame(w*(-0.02), h*0.44, 1.0);
-
-      // Legs — thicker, more powerful
-      const la = legPhase *  0.04;
-      const lb = legPhase * -0.04;
-      ctx.fillStyle = C; ctx.strokeStyle = OL; ctx.lineWidth = 1.8;
-      ctx.beginPath();
-      ctx.moveTo(w*(0.26+la),h*0.76); ctx.lineTo(w*(0.18+la),h*0.96);
-      ctx.lineTo(w*(0.40+la),h*0.96); ctx.lineTo(w*(0.44+la),h*0.76); ctx.closePath();
-      ctx.fill(); ctx.stroke();
-      ctx.beginPath();
-      ctx.moveTo(w*(0.54+lb),h*0.76); ctx.lineTo(w*(0.48+lb),h*0.96);
-      ctx.lineTo(w*(0.70+lb),h*0.96); ctx.lineTo(w*(0.72+lb),h*0.76); ctx.closePath();
-      ctx.fill(); ctx.stroke();
-      ctx.fillStyle = CLAW;
-      for (let i=-1;i<=1;i++) { ctx.beginPath(); ctx.ellipse(w*(0.29+la)+i*6,h*0.97,3,4.5,0,0,Math.PI*2); ctx.fill(); }
-      for (let i=-1;i<=1;i++) { ctx.beginPath(); ctx.ellipse(w*(0.59+lb)+i*6,h*0.97,3,4.5,0,0,Math.PI*2); ctx.fill(); }
+      for (let i=-1;i<=1;i++) { ctx.beginPath(); ctx.ellipse(w*(0.40+lp*0.04)+i*4, h*0.935, 2.2, 3.2, 0, 0, Math.PI*2); ctx.fill(); }
+      for (let i=-1;i<=1;i++) { ctx.beginPath(); ctx.ellipse(w*(0.60-lp*0.04)+i*4, h*0.935, 2.2, 3.2, 0, 0, Math.PI*2); ctx.fill(); }
 
       // Body
       ctx.fillStyle = C; ctx.strokeStyle = OL; ctx.lineWidth = 1.8;
-      ctx.beginPath(); ctx.ellipse(w*0.50, h*0.60, w*0.30, h*0.25, 0, 0, Math.PI*2);
+      ctx.beginPath(); ctx.ellipse(w*0.52, h*0.63, w*0.33, h*0.24, 0, 0, Math.PI*2);
       ctx.fill(); ctx.stroke();
-      // Large cream belly
       ctx.fillStyle = CREAM;
-      ctx.beginPath(); ctx.ellipse(w*0.52, h*0.62, w*0.22, h*0.20, 0, 0, Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(w*0.62, h*0.65, w*0.17, h*0.18, 0.15, 0, Math.PI*2); ctx.fill();
 
-      // Short T-rex arms
+      // Arm stub
+      ctx.fillStyle = C; ctx.strokeStyle = OL; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.ellipse(w*0.82, h*0.60, w*0.09, h*0.06, 0.5, 0, Math.PI*2);
+      ctx.fill(); ctx.stroke();
+
+      // Head
+      ctx.fillStyle = C; ctx.strokeStyle = OL; ctx.lineWidth = 1.8;
+      ctx.beginPath(); ctx.ellipse(w*0.70, h*0.32, w*0.27, h*0.26, 0, 0, Math.PI*2);
+      ctx.fill(); ctx.stroke();
+
+      // Eye
+      ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.ellipse(w*0.80, h*0.27, 5.2, 5.8, 0, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = '#3070e8'; ctx.beginPath(); ctx.ellipse(w*0.81, h*0.28, 3.0, 3.6, 0, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = '#000'; ctx.beginPath(); ctx.ellipse(w*0.81, h*0.285, 1.6, 2.0, 0, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(w*0.795, h*0.265, 1.3, 0, Math.PI*2); ctx.fill();
+
+      ctx.strokeStyle = D; ctx.lineWidth = 1.2;
+      ctx.beginPath(); ctx.arc(w*0.81, h*0.38, w*0.065, 0.1, Math.PI-0.1); ctx.stroke();
+      ctx.fillStyle = D; ctx.beginPath(); ctx.ellipse(w*0.92, h*0.345, 1.6, 1.2, 0, 0, Math.PI*2); ctx.fill();
+
+    } else if (pw === POWER.BIG) {
+      // ── CHARMELEON ── taller, dark red, single horn, red eyes
+      const C = '#c82808', D = '#8c1a04', CREAM = '#f8d870', CLAW = '#f0f0b0';
+
+      // Tail: emerges from lower-back, swings LEFT then curves UP
+      // Key: tail tip ends HIGH and LEFT so flame is clearly up in the air
+      ctx.strokeStyle = D; ctx.lineWidth = 5; ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(w*0.24, h*0.78);
+      ctx.bezierCurveTo(w*(-0.02), h*0.82, w*(-0.12), h*0.64, w*(-0.06), h*0.44);
+      ctx.stroke();
+      // Flame goes UP from tail tip — clearly separated from body
+      flame(w*(-0.06), h*0.36, 0.82);
+
+      // Legs
+      const la = lp * 0.05, lb = -lp * 0.05;
       ctx.fillStyle = C; ctx.strokeStyle = OL; ctx.lineWidth = 1.5;
-      ctx.beginPath(); ctx.moveTo(w*0.70,h*0.52); ctx.lineTo(w*0.88,h*0.56); ctx.lineTo(w*0.84,h*0.66); ctx.lineTo(w*0.68,h*0.62); ctx.closePath();
+      // Back leg
+      ctx.beginPath(); ctx.roundRect(w*(0.22+la)-8, h*0.76, 16, h*0.22, 5);
+      ctx.fill(); ctx.stroke();
+      // Front leg
+      ctx.beginPath(); ctx.roundRect(w*(0.56+lb)-8, h*0.76, 16, h*0.22, 5);
+      ctx.fill(); ctx.stroke();
+      // Claws
+      ctx.fillStyle = CLAW;
+      for (let i=-1;i<=1;i++) { ctx.beginPath(); ctx.ellipse(w*(0.22+la)+i*5, h*0.975, 2.5, 3.8, 0, 0, Math.PI*2); ctx.fill(); }
+      for (let i=-1;i<=1;i++) { ctx.beginPath(); ctx.ellipse(w*(0.56+lb)+i*5, h*0.975, 2.5, 3.8, 0, 0, Math.PI*2); ctx.fill(); }
+
+      // Body — upright oval
+      ctx.fillStyle = C; ctx.strokeStyle = OL; ctx.lineWidth = 1.8;
+      ctx.beginPath(); ctx.ellipse(w*0.46, h*0.58, w*0.28, h*0.26, -0.05, 0, Math.PI*2);
+      ctx.fill(); ctx.stroke();
+      ctx.fillStyle = CREAM;
+      ctx.beginPath(); ctx.ellipse(w*0.57, h*0.60, w*0.15, h*0.20, 0.1, 0, Math.PI*2); ctx.fill();
+
+      // Arm
+      ctx.fillStyle = C; ctx.strokeStyle = OL; ctx.lineWidth = 1.2;
+      ctx.beginPath(); ctx.ellipse(w*0.75, h*0.55, w*0.10, h*0.07, 0.5, 0, Math.PI*2);
       ctx.fill(); ctx.stroke();
       ctx.fillStyle = CLAW;
-      ctx.beginPath(); ctx.ellipse(w*0.90,h*0.60,3,5,0.3,0,Math.PI*2); ctx.fill();
-      ctx.beginPath(); ctx.ellipse(w*0.94,h*0.58,3,5,-0.2,0,Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(w*0.84, h*0.59, 2.8, 4.2, 0.3, 0, Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(w*0.88, h*0.57, 2.8, 4.2, -0.2, 0, Math.PI*2); ctx.fill();
 
-      // Neck
-      ctx.fillStyle = C; ctx.strokeStyle = OL; ctx.lineWidth = 1.8;
-      ctx.beginPath(); ctx.ellipse(w*0.58, h*0.40, w*0.15, h*0.13, -0.15, 0, Math.PI*2);
+      // Neck — connects body to head
+      ctx.fillStyle = C; ctx.strokeStyle = OL; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.ellipse(w*0.61, h*0.37, w*0.12, h*0.10, -0.2, 0, Math.PI*2);
       ctx.fill(); ctx.stroke();
 
-      // Head — broad, flat-topped dragon head
+      // Head — simple rounded rectangle shape, clearly lizard-like
+      ctx.fillStyle = C; ctx.strokeStyle = OL; ctx.lineWidth = 1.8;
       ctx.beginPath();
-      ctx.moveTo(w*0.42, h*0.35); ctx.lineTo(w*0.74, h*0.30);
-      ctx.bezierCurveTo(w*0.86, h*0.26, w*0.90, h*0.14, w*0.84, h*0.08);
-      ctx.bezierCurveTo(w*0.74, h*0.02, w*0.52, h*0.04, w*0.42, h*0.18);
+      ctx.moveTo(w*0.48, h*0.15); ctx.lineTo(w*0.80, h*0.15);
+      ctx.bezierCurveTo(w*0.92, h*0.15, w*0.96, h*0.22, w*0.96, h*0.28);
+      ctx.lineTo(w*0.96, h*0.34); ctx.lineTo(w*0.48, h*0.36);
+      ctx.bezierCurveTo(w*0.42, h*0.36, w*0.40, h*0.30, w*0.40, h*0.26);
+      ctx.bezierCurveTo(w*0.40, h*0.20, w*0.44, h*0.15, w*0.48, h*0.15);
       ctx.closePath(); ctx.fill(); ctx.stroke();
 
-      // Snout (darker)
+      // Lower jaw slightly darker
       ctx.fillStyle = D;
       ctx.beginPath();
-      ctx.moveTo(w*0.68,h*0.20); ctx.lineTo(w*0.94,h*0.22);
-      ctx.bezierCurveTo(w*1.0,h*0.26,w*0.98,h*0.34,w*0.90,h*0.34);
-      ctx.lineTo(w*0.68,h*0.32); ctx.closePath(); ctx.fill();
-      ctx.fillStyle='#1a0808'; ctx.beginPath(); ctx.ellipse(w*0.91,h*0.26,2,1.5,0,0,Math.PI*2); ctx.fill();
+      ctx.moveTo(w*0.50, h*0.30); ctx.lineTo(w*0.96, h*0.30); ctx.lineTo(w*0.96, h*0.36);
+      ctx.lineTo(w*0.50, h*0.36); ctx.closePath(); ctx.fill();
 
-      // Two backward horns
+      // Horn — single, on top of head, points backward (left-up)
+      ctx.fillStyle = '#b8a840'; ctx.strokeStyle = OL; ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(w*0.68, h*0.15);
+      ctx.lineTo(w*0.52, h*0.02);
+      ctx.lineTo(w*0.72, h*0.17);
+      ctx.closePath(); ctx.fill(); ctx.stroke();
+
+      // Eye — simple oval, red iris, angry slant
+      ctx.fillStyle = '#d0e4f8'; ctx.beginPath(); ctx.ellipse(w*0.82, h*0.22, 4.5, 5.2, -0.3, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = '#cc0000'; ctx.beginPath(); ctx.ellipse(w*0.82, h*0.225, 2.5, 3.2, 0, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = '#000'; ctx.beginPath(); ctx.ellipse(w*0.82, h*0.228, 1.2, 1.7, 0, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(w*0.806, h*0.208, 1.2, 0, Math.PI*2); ctx.fill();
+      // Brow
+      ctx.strokeStyle = D; ctx.lineWidth = 1.8; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(w*0.76, h*0.155); ctx.lineTo(w*0.87, h*0.145); ctx.stroke();
+
+    } else {
+      // ── CHARIZARD ── orange dragon, large bat-style teal wings
+      const C = '#f06020', D = '#c03010', CREAM = '#f8e060', W1 = '#2a7858', W2 = '#3aaa78', CLAW = '#e8e898';
+
+      // === LEFT WING — behind body, sweeps up and to the left ===
+      // Wing shape has 2 finger lobes built into the outline (no separate triangles)
+      ctx.fillStyle = W1; ctx.strokeStyle = OL; ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(w*0.36, h*0.34);              // wing root (left shoulder)
+      ctx.bezierCurveTo(w*0.20, h*0.16, w*0.00, h*(-0.05), w*(-0.10), h*(-0.02)); // sweep to outer lobe
+      ctx.bezierCurveTo(w*(-0.18), h*0.04, w*(-0.14), h*0.12, w*(-0.08), h*0.14); // outer lobe bump
+      ctx.bezierCurveTo(w*(-0.18), h*0.16, w*(-0.22), h*0.22, w*(-0.20), h*0.30); // dip to second lobe
+      ctx.bezierCurveTo(w*(-0.14), h*0.42, w*(-0.06), h*0.48, w*0.10, h*0.50);    // second lobe base
+      ctx.bezierCurveTo(w*0.20, h*0.52, w*0.30, h*0.50, w*0.34, h*0.46);          // back to body bottom
+      ctx.closePath(); ctx.fill(); ctx.stroke();
+      // Inner membrane lighter colour
+      ctx.fillStyle = W2;
+      ctx.beginPath();
+      ctx.moveTo(w*0.33, h*0.40);
+      ctx.bezierCurveTo(w*0.14, h*0.24, w*(-0.04), h*0.12, w*(-0.02), h*0.28);
+      ctx.bezierCurveTo(w*0.02, h*0.42, w*0.16, h*0.48, w*0.30, h*0.46);
+      ctx.closePath(); ctx.fill();
+      // Two wing ribs
+      ctx.strokeStyle = '#1a5038'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(w*0.34,h*0.42); ctx.bezierCurveTo(w*0.10,h*0.24,w*(-0.08),h*0.28,w*(-0.06),h*0.40); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(w*0.34,h*0.36); ctx.bezierCurveTo(w*0.16,h*0.10,w*0.00,h*0.06,w*0.02,h*0.18); ctx.stroke();
+
+      // === RIGHT WING — visible on right, smaller ===
+      ctx.fillStyle = W1; ctx.strokeStyle = OL; ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      ctx.moveTo(w*0.64, h*0.34);
+      ctx.bezierCurveTo(w*0.80, h*0.14, w*1.02, h*0.08, w*1.06, h*0.18);
+      ctx.bezierCurveTo(w*1.10, h*0.28, w*1.02, h*0.38, w*0.96, h*0.40);
+      ctx.bezierCurveTo(w*0.88, h*0.50, w*0.76, h*0.50, w*0.66, h*0.46);
+      ctx.closePath(); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = W2;
+      ctx.beginPath();
+      ctx.moveTo(w*0.66,h*0.40); ctx.bezierCurveTo(w*0.80,h*0.26,w*0.98,h*0.22,w*0.96,h*0.38);
+      ctx.bezierCurveTo(w*0.88,h*0.46,w*0.76,h*0.46,w*0.68,h*0.44); ctx.closePath(); ctx.fill();
+
+      // === TAIL — goes DOWN-RIGHT from body, curves slightly right, flame at far-right tip ===
+      // This keeps it clearly separate from the body and reads as a tail not a phallus
+      ctx.strokeStyle = D; ctx.lineWidth = 9; ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(w*0.44, h*0.82);
+      ctx.bezierCurveTo(w*0.20, h*0.90, w*0.06, h*0.84, w*0.02, h*0.70);
+      ctx.stroke();
+      ctx.strokeStyle = C; ctx.lineWidth = 6;
+      ctx.beginPath();
+      ctx.moveTo(w*0.42, h*0.82);
+      ctx.bezierCurveTo(w*0.20, h*0.89, w*0.07, h*0.83, w*0.03, h*0.71);
+      ctx.stroke();
+      // Flame at tail tip (sits below-left, pointing UP from tail end)
+      flame(w*0.02, h*0.62, 0.95);
+
+      // === LEGS ===
+      const la = lp * 0.04, lb = -lp * 0.04;
+      ctx.fillStyle = C; ctx.strokeStyle = OL; ctx.lineWidth = 1.8;
+      ctx.beginPath(); ctx.roundRect(w*(0.32+la)-9, h*0.76, 18, h*0.22, 5);
+      ctx.fill(); ctx.stroke();
+      ctx.beginPath(); ctx.roundRect(w*(0.58+lb)-9, h*0.76, 18, h*0.22, 5);
+      ctx.fill(); ctx.stroke();
+      ctx.fillStyle = CLAW;
+      for (let i=-1;i<=1;i++) { ctx.beginPath(); ctx.ellipse(w*(0.32+la)+i*6,h*0.975,3,4.5,0,0,Math.PI*2); ctx.fill(); }
+      for (let i=-1;i<=1;i++) { ctx.beginPath(); ctx.ellipse(w*(0.58+lb)+i*6,h*0.975,3,4.5,0,0,Math.PI*2); ctx.fill(); }
+
+      // === BODY ===
+      ctx.fillStyle = C; ctx.strokeStyle = OL; ctx.lineWidth = 1.8;
+      ctx.beginPath(); ctx.ellipse(w*0.50, h*0.58, w*0.29, h*0.24, 0, 0, Math.PI*2);
+      ctx.fill(); ctx.stroke();
+      ctx.fillStyle = CREAM;
+      ctx.beginPath(); ctx.ellipse(w*0.52, h*0.60, w*0.20, h*0.18, 0, 0, Math.PI*2); ctx.fill();
+
+      // Arm (T-rex stub)
+      ctx.fillStyle = C; ctx.strokeStyle = OL; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.ellipse(w*0.76, h*0.55, w*0.10, h*0.07, 0.5, 0, Math.PI*2);
+      ctx.fill(); ctx.stroke();
+      ctx.fillStyle = CLAW;
+      ctx.beginPath(); ctx.ellipse(w*0.85,h*0.59,2.8,4.5,0.3,0,Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(w*0.89,h*0.57,2.8,4.5,-0.2,0,Math.PI*2); ctx.fill();
+
+      // === NECK + HEAD ===
+      ctx.fillStyle = C; ctx.strokeStyle = OL; ctx.lineWidth = 1.8;
+      ctx.beginPath(); ctx.ellipse(w*0.60, h*0.40, w*0.13, h*0.11, -0.1, 0, Math.PI*2);
+      ctx.fill(); ctx.stroke();
+
+      // Head — rounded rectangle, clearly a dragon head
+      ctx.beginPath();
+      ctx.moveTo(w*0.46, h*0.14); ctx.lineTo(w*0.76, h*0.14);
+      ctx.bezierCurveTo(w*0.88, h*0.14, w*0.94, h*0.20, w*0.94, h*0.26);
+      ctx.lineTo(w*0.94, h*0.34); ctx.lineTo(w*0.46, h*0.36);
+      ctx.bezierCurveTo(w*0.40, h*0.36, w*0.38, h*0.30, w*0.38, h*0.26);
+      ctx.bezierCurveTo(w*0.38, h*0.18, w*0.42, h*0.14, w*0.46, h*0.14);
+      ctx.closePath(); ctx.fill(); ctx.stroke();
+
+      // Snout area (slightly darker)
+      ctx.fillStyle = D;
+      ctx.beginPath(); ctx.roundRect(w*0.68, h*0.26, w*0.26, h*0.12, 4); ctx.fill();
+      ctx.fillStyle = '#1a0808'; ctx.beginPath(); ctx.ellipse(w*0.90,h*0.28,2,1.5,0,0,Math.PI*2); ctx.fill();
+
+      // Two short horns pointing BACK-UP (left)
       ctx.fillStyle = '#b8a030'; ctx.strokeStyle = OL; ctx.lineWidth = 1;
-      ctx.beginPath(); ctx.moveTo(w*0.62,h*0.10); ctx.lineTo(w*0.42,h*0.04); ctx.lineTo(w*0.60,h*0.20); ctx.closePath();
-      ctx.fill(); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(w*0.54,h*0.06); ctx.lineTo(w*0.32,h*0.01); ctx.lineTo(w*0.52,h*0.16); ctx.closePath();
-      ctx.fill(); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(w*0.64,h*0.14); ctx.lineTo(w*0.50,h*0.04); ctx.lineTo(w*0.66,h*0.20); ctx.closePath(); ctx.fill(); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(w*0.54,h*0.14); ctx.lineTo(w*0.38,h*0.06); ctx.lineTo(w*0.56,h*0.20); ctx.closePath(); ctx.fill(); ctx.stroke();
 
-      // Eye — orange, fierce
-      ctx.fillStyle = '#fff';
-      ctx.beginPath(); ctx.ellipse(w*0.70,h*0.17,5.5,6,0,0,Math.PI*2); ctx.fill();
-      ctx.fillStyle = '#e06000';
-      ctx.beginPath(); ctx.ellipse(w*0.70,h*0.18,3.2,3.8,0,0,Math.PI*2); ctx.fill();
-      ctx.fillStyle = '#000';
-      ctx.beginPath(); ctx.ellipse(w*0.70,h*0.185,1.8,2.2,0,0,Math.PI*2); ctx.fill();
-      ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(w*0.686,h*0.163,1.4,0,Math.PI*2); ctx.fill();
+      // Eye
+      ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.ellipse(w*0.72,h*0.22,5,5.5,-0.1,0,Math.PI*2); ctx.fill();
+      ctx.fillStyle = '#e06000'; ctx.beginPath(); ctx.ellipse(w*0.72,h*0.225,3.0,3.5,0,0,Math.PI*2); ctx.fill();
+      ctx.fillStyle = '#000'; ctx.beginPath(); ctx.ellipse(w*0.72,h*0.228,1.6,2.0,0,0,Math.PI*2); ctx.fill();
+      ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(w*0.706,h*0.208,1.3,0,Math.PI*2); ctx.fill();
     }
   }
 
