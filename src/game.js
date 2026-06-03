@@ -384,27 +384,27 @@ export class Game {
       if (!p.dead && aabb(p, e)) {
         const stomping = p.vy > 0 && (p.y + p.h) - e.y < 22;
         if (stomping && e.stompable && !stompedThisFrame) {
-          const wasInShell = e.inShell;
-          e.squash(); // squirtle: enter shell or stop sliding; others die
-          p.vy = -8;
           stompedThisFrame = true;
-          if (!wasInShell) {
-            // First stomp: enter shell and immediately kick it away from player
-            if (e.type === 'squirtle') {
-              const kickDir = (p.x + p.w / 2 < e.x + e.w / 2) ? 1 : -1;
-              e.kickShell(kickDir);
-            }
+          p.vy = -8;
+          if (e.type === 'squirtle' && e.inShell && !e.shellSliding) {
+            // Stomp stationary shell from above → kick it
+            const kickDir = (p.x + p.w / 2 < e.x + e.w / 2) ? 1 : -1;
+            e.kickShell(kickDir);
+          } else if (e.type === 'squirtle' && e.shellSliding) {
+            // Stomp sliding shell → stop it, no points
+            e.squash();
+          } else {
+            // Normal stomp: enter shell (squirtle) or flatten (others)
+            e.squash();
             this.score += SCORE_STOMP;
             this._spawnScorePopup(e.x + e.w / 2, e.y, SCORE_STOMP);
           }
-          // Stomping an already-sliding shell: stop it (squash handles it), no extra points
         } else if (!stomping) {
           if (e.type === 'squirtle' && e.inShell && !e.shellSliding) {
-            // Kick sitting shell
+            // Side-kick stationary shell
             const kickDir = (p.x + p.w / 2 < e.x + e.w / 2) ? 1 : -1;
             e.kickShell(kickDir);
           } else if (!stompedThisFrame) {
-            // sliding shell or normal enemy — hurt player
             if (!e.inShell || e.shellSliding) this._hurtPlayer();
           }
         }
@@ -537,8 +537,9 @@ export class Game {
         if (pl.enterable && !pl.isExit) {
           if (p.x + p.w > pl.x && p.x < pl.x + pl.w &&
               Math.abs((p.y + p.h) - pl.y) < 8) {
-            // Vertical pipe: slide player downward into pipe before transitioning
+            // Vertical pipe: center player in pipe, then slide downward
             p.vx = 0;
+            p.x = pl.x + (pl.w - p.w) / 2; // center in pipe
             const callback = () => {
               if (this.world === 2 && pl.leadsToArea !== undefined) {
                 this._startAreaTransition(pl.leadsToArea);
@@ -546,7 +547,7 @@ export class Game {
                 this._handleWorld1PipeEntry(pl);
               }
             };
-            this._pipeEntry = { timer: 28, dx: 0, dy: 2.5, callback };
+            this._pipeEntry = { timer: 28, dx: 0, dy: 2.5, pipe: pl, callback };
             break;
           }
         }
@@ -571,7 +572,7 @@ export class Game {
             p.vx > 0) {
           // Horizontal: slide player rightward into pipe before transitioning
           const tid = hp.transportId;
-          this._pipeEntry = { timer: 22, dx: 2.5, dy: 0, callback: () => this._handleWorld1PipeEntry({ transportId: tid }) };
+          this._pipeEntry = { timer: 22, dx: 2.5, dy: 0, hPipe: hp, callback: () => this._handleWorld1PipeEntry({ transportId: tid }) };
           break;
         }
       }
@@ -929,6 +930,11 @@ export class Game {
     if (lvl.pokeShopX != null)   this._drawPokeShopBuilding(lvl.pokeShopX);
     else if (lvl.pokeCenterX != null) this._drawPokeCenterBuilding(lvl.pokeCenterX);
     this.player.draw(r, this.cam);
+
+    // During pipe entry, redraw the pipe cap on top of the player so they appear to sink in
+    if (this._pipeEntry?.pipe) {
+      this._pipeEntry.pipe.draw(r, this.cam);
+    }
 
     this._drawHUD();
 

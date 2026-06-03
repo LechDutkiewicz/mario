@@ -96,7 +96,8 @@ export class CastleBoss {
       else return;
     }
 
-    this.vy += GRAVITY;
+    // Reduced gravity gives same jump peak height but ~35% longer hang time
+    this.vy += GRAVITY * 0.55;
     if (this.vy > MAX_FALL_SPEED) this.vy = MAX_FALL_SPEED;
     const res = resolveCollisions(this, solids);
     this.onGround = res.onGround;
@@ -108,7 +109,7 @@ export class CastleBoss {
     // Periodic jump
     this.jumpTimer--;
     if (this.jumpTimer <= 0 && this.onGround) {
-      this.vy = -6.5;
+      this.vy = -8;
       this.jumpTimer = 150 + Math.floor(Math.random() * 60);
     }
 

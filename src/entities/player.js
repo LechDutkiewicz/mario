@@ -162,7 +162,7 @@ export class Player {
     if (this.vy > MAX_FALL_SPEED) this.vy = MAX_FALL_SPEED;
 
     // Shoot flamethrower
-    if (!this.crouching && input.firePressed && this.power === POWER.FIRE && this.fireCooldown <= 0) {
+    if (input.firePressed && this.power === POWER.FIRE && this.fireCooldown <= 0) {
       game.spawnFireball(this);
       this.fireCooldown = 20;
     }
