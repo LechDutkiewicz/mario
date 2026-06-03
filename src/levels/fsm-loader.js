@@ -274,9 +274,9 @@ function processMacro(e, out) {
       const FLOOR_W  = T * 12;
       out.platforms.push(new Platform(floorX, FLOOR_Y, FLOOR_W, GY - FLOOR_Y + T, COLORS.brick));
 
-      // Floating oscillating platform in boss area — helps bypass boss from above
+      // Floating oscillating platform in boss area — high enough that boss jump can't reach it
       out.movingPlatforms.push(new MovingPlatform(
-        bridgeX + T * 2, FLOOR_Y - T * 3, T * 4, T / 2, 'x', 1.2, T * 5
+        bridgeX + T * 2, FLOOR_Y - T * 6, T * 4, T / 2, 'x', 1.2, T * 5
       ));
 
       // Bridge platform — visually distinct planks, collapses when Ultra Ball is grabbed

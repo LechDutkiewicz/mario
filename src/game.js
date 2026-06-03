@@ -215,7 +215,7 @@ export class Game {
       return;
     }
     if (this.state === STATE.CHAR_SELECT) {
-      const chars = ['eevee', 'charmander', 'bulbasaur'];
+      const chars = ['eevee', 'charmander', 'bulbasaur', 'piplup'];
       if (input.justPressed('ArrowLeft')) this.charSelectIdx = (this.charSelectIdx + 2) % 3;
       if (input.justPressed('ArrowRight')) this.charSelectIdx = (this.charSelectIdx + 1) % 3;
       if (input.justPressed('Enter') || input.justPressed('Space')) {
@@ -488,8 +488,11 @@ export class Game {
       }
       if (pl.isVisible() && !pl.dead && !p.dead && aabb(p, pl)) {
         // Don't hurt if player is standing on top of the pipe (original SMB edge behavior)
-        const standingOnPipe = (p.y + p.h) <= pl.pipeTopY + 4;
-        if (!standingOnPipe) this._hurtPlayer();
+        // Only immune if standing directly ON the pipe cap top surface
+        const onPipeTop = Math.abs((p.y + p.h) - pl.pipeTopY) <= 3
+          && p.x + p.w > pl.pipeX + 4
+          && p.x < pl.pipeX + TILE * 2 - 4;
+        if (!onPipeTop) this._hurtPlayer();
       }
     }
     if (lvl.plants) lvl.plants = lvl.plants.filter(pl => !pl.dead);
@@ -939,9 +942,10 @@ export class Game {
       { name: 'EEVEE',      evolves: 'UMBREON / FLAREON',       color: '#c8864a' },
       { name: 'CHARMANDER', evolves: 'CHARMELEON / CHARIZARD',  color: '#f07840' },
       { name: 'BULBASAUR',  evolves: 'IVYSAUR / VENUSAUR',      color: '#68a858' },
+      { name: 'PIPLUP',     evolves: 'PRINPLUP / EMPOLEON',     color: '#2860c8' },
     ];
-    const boxW = 200, boxH = 240, spacing = 230;
-    const startX = CANVAS_WIDTH / 2 - spacing;
+    const boxW = 170, boxH = 230, spacing = 190;
+    const startX = CANVAS_WIDTH / 2 - spacing * 1.5;
 
     for (let i = 0; i < chars.length; i++) {
       const c = chars[i];
@@ -1001,11 +1005,13 @@ export class Game {
       eevee:      ['EEVEE', 'UMBREON', 'FLAREON'],
       charmander: ['CHARMANDER', 'CHARMELEON', 'CHARIZARD'],
       bulbasaur:  ['BULBASAUR', 'IVYSAUR', 'VENUSAUR'],
+      piplup:     ['PIPLUP', 'PRINPLUP', 'EMPOLEON'],
     };
     const charColors = {
       eevee:      ['#fff', '#f0c040', '#ff6600'],
       charmander: ['#f07840', '#e05528', '#cc3300'],
       bulbasaur:  ['#88c878', '#5a9850', '#2a9030'],
+      piplup:     ['#60a8e8', '#2860c8', '#0a1840'],
     };
     const char = this.player.char || 'eevee';
     const label = (charNames[char] || charNames.eevee)[pw];

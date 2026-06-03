@@ -7,8 +7,8 @@ import { BossShot } from './projectile.js';
 // Mechanics: walks left/right, jumps every ~3s, shoots one fireball LEFT every ~2s
 export class CastleBoss {
   constructor(x, y, leftBound, rightBound) {
-    this.w = 72;
-    this.h = 80;
+    this.w = 56;
+    this.h = 60;
     this.x = x;
     this.y = y - this.h;
     this.vx = -1.5;
@@ -201,92 +201,95 @@ export class CastleBoss {
     const y = Math.floor(this.y);
     const w = this.w, h = this.h;
 
-    const facing = this.vx <= 0 ? -1 : 1;
-    const ORANGE = '#e8642a';
-    const DARK   = '#9e3010';
-    const CREAM  = '#f0c060';
-    const WING   = '#c04020';
+    // Gengar — round ghost, dark purple, wide grin, red eyes
+    const BODY  = '#6a3898';  // dark purple body
+    const DARK  = '#3a1a60';  // deeper shadow
+    const LIGHT = '#8858b8';  // highlight
 
-    // Wings
-    ctx.fillStyle = WING;
-    if (facing < 0) {
+    const cx = x + w / 2;
+    const cy = y + h * 0.5;
+    const bob = Math.sin(this.anim * 0.08) * 3; // gentle floating bob
+
+    // Shadow under Gengar
+    ctx.fillStyle = 'rgba(0,0,0,0.25)';
+    ctx.beginPath(); ctx.ellipse(cx, y + h + 2, w * 0.4, 5, 0, 0, Math.PI * 2); ctx.fill();
+
+    // Spiky back/ears (behind body)
+    ctx.fillStyle = DARK;
+    // Left ear spike
+    ctx.beginPath();
+    ctx.moveTo(cx - w * 0.32, cy - h * 0.2 + bob);
+    ctx.lineTo(cx - w * 0.48, cy - h * 0.56 + bob);
+    ctx.lineTo(cx - w * 0.12, cy - h * 0.28 + bob);
+    ctx.closePath(); ctx.fill();
+    // Right ear spike
+    ctx.beginPath();
+    ctx.moveTo(cx + w * 0.32, cy - h * 0.2 + bob);
+    ctx.lineTo(cx + w * 0.48, cy - h * 0.56 + bob);
+    ctx.lineTo(cx + w * 0.12, cy - h * 0.28 + bob);
+    ctx.closePath(); ctx.fill();
+    // Back spikes (jagged lower edge)
+    for (let i = -1; i <= 1; i++) {
       ctx.beginPath();
-      ctx.moveTo(x + w * 0.7, y + h * 0.15);
-      ctx.lineTo(x + w + 28, y - 20);
-      ctx.lineTo(x + w + 18, y + h * 0.35);
-      ctx.lineTo(x + w * 0.75, y + h * 0.35);
-      ctx.closePath(); ctx.fill();
-    } else {
-      ctx.beginPath();
-      ctx.moveTo(x + w * 0.3, y + h * 0.15);
-      ctx.lineTo(x - 28, y - 20);
-      ctx.lineTo(x - 18, y + h * 0.35);
-      ctx.lineTo(x + w * 0.25, y + h * 0.35);
+      ctx.moveTo(cx + i * w * 0.3, cy + h * 0.32 + bob);
+      ctx.lineTo(cx + i * w * 0.3 - 6, cy + h * 0.46 + bob);
+      ctx.lineTo(cx + i * w * 0.3 + 6, cy + h * 0.46 + bob);
       ctx.closePath(); ctx.fill();
     }
 
-    // Body
-    ctx.fillStyle = ORANGE;
-    ctx.beginPath();
-    ctx.ellipse(x + w / 2, y + h * 0.62, w * 0.42, h * 0.36, 0, 0, Math.PI * 2);
-    ctx.fill();
+    // Main body — big round sphere
+    ctx.fillStyle = BODY;
+    ctx.beginPath(); ctx.ellipse(cx, cy + bob, w * 0.46, h * 0.42, 0, 0, Math.PI * 2); ctx.fill();
+    // Body highlight
+    ctx.fillStyle = LIGHT;
+    ctx.beginPath(); ctx.ellipse(cx - w * 0.1, cy - h * 0.1 + bob, w * 0.18, h * 0.14, -0.5, 0, Math.PI * 2); ctx.fill();
 
-    // Belly
-    ctx.fillStyle = CREAM;
-    ctx.beginPath();
-    ctx.ellipse(x + w / 2, y + h * 0.66, w * 0.26, h * 0.26, 0, 0, Math.PI * 2);
-    ctx.fill();
+    // Stubby arms
+    const aw = Math.sin(this.anim * 0.12) * 3;
+    ctx.fillStyle = BODY;
+    ctx.beginPath(); ctx.ellipse(cx - w * 0.5, cy + h * 0.05 + bob + aw, w * 0.15, h * 0.1, 0.4, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(cx + w * 0.5, cy + h * 0.05 + bob - aw, w * 0.15, h * 0.1, -0.4, 0, Math.PI * 2); ctx.fill();
+    // Claw nubs
+    ctx.fillStyle = DARK;
+    for (let i = -1; i <= 1; i++) {
+      ctx.beginPath(); ctx.arc(cx - w * 0.62 + i * 4, cy + h * 0.04 + bob + aw, 3, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(cx + w * 0.62 + i * 4, cy + h * 0.04 + bob - aw, 3, 0, Math.PI * 2); ctx.fill();
+    }
 
-    // Tail
-    ctx.strokeStyle = ORANGE; ctx.lineWidth = 10; ctx.lineCap = 'round';
-    ctx.beginPath();
-    ctx.moveTo(x + w * 0.85, y + h * 0.75);
-    ctx.quadraticCurveTo(x + w + 24, y + h * 0.85, x + w + 14, y + h * 0.65);
-    ctx.stroke();
-    ctx.fillStyle = '#ff9900';
-    ctx.beginPath(); ctx.arc(x + w + 14, y + h * 0.63, 8, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = '#ffdd00';
-    ctx.beginPath(); ctx.arc(x + w + 14, y + h * 0.63, 5, 0, Math.PI * 2); ctx.fill();
-    ctx.lineWidth = 1;
-
-    // Head
-    const hx = x + w / 2 + facing * 6;
-    ctx.fillStyle = ORANGE;
-    ctx.beginPath();
-    ctx.ellipse(hx, y + h * 0.22, w * 0.35, h * 0.22, 0, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Snout
-    ctx.fillStyle = CREAM;
-    ctx.beginPath();
-    ctx.ellipse(hx + facing * 14, y + h * 0.26, 14, 10, 0, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Horns
-    ctx.fillStyle = CREAM;
-    ctx.beginPath();
-    ctx.moveTo(hx - 14, y + h * 0.06); ctx.lineTo(hx - 20, y - 14); ctx.lineTo(hx - 8, y + h * 0.06);
-    ctx.closePath(); ctx.fill();
-    ctx.beginPath();
-    ctx.moveTo(hx + 14, y + h * 0.06); ctx.lineTo(hx + 20, y - 14); ctx.lineTo(hx + 8, y + h * 0.06);
-    ctx.closePath(); ctx.fill();
-
-    // Eyes
-    ctx.fillStyle = '#ffdd00';
-    ctx.beginPath(); ctx.ellipse(hx + facing * 8, y + h * 0.18, 7, 7, 0, 0, Math.PI * 2); ctx.fill();
+    // Red eyes — big, slightly angry tilt
+    ctx.fillStyle = '#cc1010';
+    ctx.beginPath(); ctx.ellipse(cx - w * 0.17, cy - h * 0.1 + bob, 8, 9, 0.3, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(cx + w * 0.17, cy - h * 0.1 + bob, 8, 9, -0.3, 0, Math.PI * 2); ctx.fill();
+    // Eye highlights
+    ctx.fillStyle = '#ff4444';
+    ctx.beginPath(); ctx.arc(cx - w * 0.19, cy - h * 0.14 + bob, 3, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(cx + w * 0.15, cy - h * 0.14 + bob, 3, 0, Math.PI * 2); ctx.fill();
+    // Pupils
     ctx.fillStyle = '#1a0808';
-    ctx.beginPath(); ctx.ellipse(hx + facing * 9, y + h * 0.18, 4, 5, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(cx - w * 0.17, cy - h * 0.08 + bob, 4, 5, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(cx + w * 0.17, cy - h * 0.08 + bob, 4, 5, 0, 0, Math.PI * 2); ctx.fill();
 
-    // Nostrils
-    ctx.fillStyle = DARK;
-    ctx.fillRect(hx + facing * 18, y + h * 0.25, 4, 3);
-    ctx.fillRect(hx + facing * 13, y + h * 0.25, 4, 3);
+    // Wide grinning mouth
+    const mouthY = cy + h * 0.12 + bob;
+    ctx.fillStyle = '#1a0828';
+    ctx.beginPath();
+    ctx.arc(cx, mouthY, w * 0.32, 0.1, Math.PI - 0.1);
+    ctx.fill();
+    // Teeth (pointed)
+    ctx.fillStyle = '#f0f0f0';
+    const toothW = (w * 0.6) / 5;
+    for (let i = 0; i < 5; i++) {
+      const tx = cx - w * 0.3 + i * toothW;
+      ctx.beginPath();
+      ctx.moveTo(tx, mouthY);
+      ctx.lineTo(tx + toothW * 0.5, mouthY + 7);
+      ctx.lineTo(tx + toothW, mouthY);
+      ctx.closePath(); ctx.fill();
+    }
 
-    // Legs
-    ctx.fillStyle = DARK;
-    const sw = Math.sin(this.anim * 0.1) * 4;
-    ctx.fillRect(x + w * 0.18, y + h * 0.82 + sw, 16, 18);
-    ctx.fillRect(x + w * 0.54, y + h * 0.82 - sw, 16, 18);
+    // Tongue (pink, curling out of mouth)
+    ctx.fillStyle = '#e04080';
+    ctx.beginPath(); ctx.ellipse(cx + w * 0.08, mouthY + 6, 7, 5, 0.2, 0, Math.PI * 2); ctx.fill();
 
     // Hint above boss
     if (!this.defeated) {

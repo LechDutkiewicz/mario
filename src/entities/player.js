@@ -540,7 +540,7 @@ export class Player {
 
     if (pw === POWER.SMALL) {
       // Charmander — small, round, very cute
-      const ORANGE = '#f07020'; const RED = '#d05010'; const CREAM = '#f8e888';
+      const ORANGE = '#f06818'; const RED = '#d04808'; const CREAM = '#f8e888';
 
       // Tail (left side, curves up)
       ctx.strokeStyle = RED; ctx.lineWidth = 6; ctx.lineCap = 'round';
@@ -575,9 +575,10 @@ export class Player {
       ctx.beginPath(); ctx.ellipse(w*0.72, h*0.54, w*0.08, h*0.05, 0.5, 0, Math.PI*2);
       ctx.fill(); ctx.strokeStyle=OL; ctx.lineWidth=1; ctx.stroke();
 
-      // Eye
+      // Eye — blue iris
       ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.ellipse(w*0.82, h*0.26, 4.5, 5, 0, 0, Math.PI*2); ctx.fill();
-      ctx.fillStyle = '#111'; ctx.beginPath(); ctx.ellipse(w*0.83, h*0.27, 2.5, 3, 0, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = '#3080f0'; ctx.beginPath(); ctx.ellipse(w*0.83, h*0.27, 2.5, 3, 0, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = '#000'; ctx.beginPath(); ctx.ellipse(w*0.83, h*0.275, 1.2, 1.5, 0, 0, Math.PI*2); ctx.fill();
       ctx.fillStyle = '#fff'; ctx.fillRect(w*0.82, h*0.23, 1.5, 1.5);
 
       // Nostril
@@ -585,7 +586,7 @@ export class Player {
 
     } else if (pw === POWER.BIG) {
       // Charmeleon — taller, angular, aggressive
-      const BODY = '#d84020'; const DARK = '#a83010'; const CREAM = '#f8d880'; const CLAW = '#f0f0b0';
+      const BODY = '#cc3018'; const DARK = '#a02810'; const CREAM = '#f8d880'; const CLAW = '#f0f0b0';
 
       // Tail — longer, thinner
       ctx.strokeStyle = DARK; ctx.lineWidth = 7; ctx.lineCap = 'round';
@@ -644,9 +645,10 @@ export class Player {
       ctx.bezierCurveTo(w*0.6, h*(-0.04), w*0.68, h*0.06, w*0.74, h*0.14);
       ctx.closePath(); ctx.fill(); ctx.strokeStyle=OL; ctx.lineWidth=1; ctx.stroke();
 
-      // Eye — narrow, angry
-      ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.ellipse(w*0.84, h*0.23, 4, 4.5, -0.35, 0, Math.PI*2); ctx.fill();
+      // Eye — narrow, angry; blue-white sclera, red iris
+      ctx.fillStyle = '#d0e8ff'; ctx.beginPath(); ctx.ellipse(w*0.84, h*0.23, 4, 4.5, -0.35, 0, Math.PI*2); ctx.fill();
       ctx.fillStyle = '#cc0000'; ctx.beginPath(); ctx.ellipse(w*0.85, h*0.24, 2, 2.5, 0, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = '#000'; ctx.beginPath(); ctx.ellipse(w*0.85, h*0.245, 1, 1.2, 0, 0, Math.PI*2); ctx.fill();
       ctx.fillStyle = '#fff'; ctx.fillRect(w*0.84, h*0.21, 1.5, 1.5);
 
       // Snout/nostril
@@ -654,7 +656,7 @@ export class Player {
 
     } else {
       // Charizard — large, wings, two horns
-      const BODY = '#f05020'; const DARK = '#c03818'; const CREAM = '#f8e090'; const WING = '#3860c8'; const CLAW = '#f0f0b0';
+      const BODY = '#f05020'; const DARK = '#c03818'; const CREAM = '#f8e090'; const WING = '#1a7040'; const CLAW = '#f0f0b0';
 
       // Wings (behind body, fan out left and up)
       ctx.fillStyle = WING;
@@ -665,7 +667,7 @@ export class Player {
       ctx.bezierCurveTo(w*0.08, h*0.62, w*0.18, h*0.56, w*0.24, h*0.48);
       ctx.closePath(); ctx.fill(); ctx.strokeStyle=OL; ctx.lineWidth=1.5; ctx.stroke();
       // Wing ribs
-      ctx.strokeStyle = '#3040a0'; ctx.lineWidth = 1;
+      ctx.strokeStyle = '#155830'; ctx.lineWidth = 1;
       ctx.beginPath(); ctx.moveTo(w*0.22, h*0.42); ctx.bezierCurveTo(w*(-0.12), h*0.2, w*(-0.2), h*0.42, w*(-0.04), h*0.56); ctx.stroke();
       ctx.beginPath(); ctx.moveTo(w*0.18, h*0.46); ctx.bezierCurveTo(w*(-0.2), h*0.3, w*(-0.24), h*0.48, w*(-0.07), h*0.6); ctx.stroke();
       // Right/front wing (partially visible)
@@ -736,8 +738,215 @@ export class Player {
 
       // Eye
       ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.ellipse(w*0.84, h*0.2, 4, 5, -0.2, 0, Math.PI*2); ctx.fill();
-      ctx.fillStyle = '#ff6600'; ctx.beginPath(); ctx.ellipse(w*0.85, h*0.21, 2, 2.5, 0, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = '#ff8800'; ctx.beginPath(); ctx.ellipse(w*0.85, h*0.21, 2, 2.5, 0, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = '#000'; ctx.beginPath(); ctx.ellipse(w*0.85, h*0.215, 1, 1.2, 0, 0, Math.PI*2); ctx.fill();
       ctx.fillStyle = '#fff'; ctx.fillRect(w*0.84, h*0.17, 1.5, 1.5);
+    }
+  }
+
+  _drawPiplup(ctx, w, h) {
+    const pw   = this.power;
+    const step = Math.abs(this.vx) > 0.3 ? Math.floor(this.animTimer / 8) % 2 : 0;
+    const t    = Math.floor(this.animTimer / 5) % 4;
+    const flick = t < 2 ? t : 4 - t;
+    const OL   = '#111';
+
+    if (pw === POWER.SMALL) {
+      // Piplup — small round blue penguin
+      const NAVY = '#1840a0'; const LIGHT = '#80c8f0'; const BEAK = '#f0a020';
+
+      // Body — round navy blue
+      ctx.fillStyle = NAVY;
+      ctx.beginPath(); ctx.ellipse(w*0.5, h*0.62, w*0.34, h*0.3, 0, 0, Math.PI*2);
+      ctx.fill(); ctx.strokeStyle=OL; ctx.lineWidth=1.5; ctx.stroke();
+
+      // Light blue face/belly oval
+      ctx.fillStyle = LIGHT;
+      ctx.beginPath(); ctx.ellipse(w*0.62, h*0.64, w*0.2, h*0.22, 0.1, 0, Math.PI*2); ctx.fill();
+
+      // Head — round, navy
+      ctx.fillStyle = NAVY;
+      ctx.beginPath(); ctx.ellipse(w*0.66, h*0.32, w*0.24, h*0.24, 0, 0, Math.PI*2);
+      ctx.fill(); ctx.strokeStyle=OL; ctx.lineWidth=1.5; ctx.stroke();
+
+      // Light face patch on head
+      ctx.fillStyle = LIGHT;
+      ctx.beginPath(); ctx.ellipse(w*0.72, h*0.34, w*0.14, h*0.16, 0.1, 0, Math.PI*2); ctx.fill();
+
+      // Left flipper wing (stub, navy)
+      ctx.fillStyle = NAVY;
+      ctx.beginPath(); ctx.ellipse(w*(0.26+step*0.03), h*0.6, w*0.08, h*0.14, -0.3, 0, Math.PI*2);
+      ctx.fill(); ctx.strokeStyle=OL; ctx.lineWidth=1; ctx.stroke();
+
+      // Right flipper wing
+      ctx.fillStyle = NAVY;
+      ctx.beginPath(); ctx.ellipse(w*(0.82-step*0.03), h*0.6, w*0.08, h*0.14, 0.3, 0, Math.PI*2);
+      ctx.fill(); ctx.strokeStyle=OL; ctx.lineWidth=1; ctx.stroke();
+
+      // Feet — small yellow-orange ovals
+      ctx.fillStyle = BEAK;
+      ctx.beginPath(); ctx.ellipse(w*(0.42+step*0.04), h*0.89, w*0.1, h*0.07, 0.1, 0, Math.PI*2);
+      ctx.fill(); ctx.strokeStyle=OL; ctx.lineWidth=1; ctx.stroke();
+      ctx.beginPath(); ctx.ellipse(w*(0.62-step*0.04), h*0.89, w*0.1, h*0.07, -0.1, 0, Math.PI*2);
+      ctx.fill(); ctx.strokeStyle=OL; ctx.lineWidth=1; ctx.stroke();
+
+      // Beak — small triangle pointing right
+      ctx.fillStyle = BEAK;
+      ctx.beginPath();
+      ctx.moveTo(w*0.83, h*0.33);
+      ctx.lineTo(w*0.92, h*0.38);
+      ctx.lineTo(w*0.83, h*0.42);
+      ctx.closePath(); ctx.fill(); ctx.strokeStyle=OL; ctx.lineWidth=1; ctx.stroke();
+
+      // Eyes — big white with black pupils
+      ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.ellipse(w*0.76, h*0.29, 5, 5.5, 0, 0, Math.PI*2); ctx.fill();
+      ctx.strokeStyle=OL; ctx.lineWidth=1; ctx.stroke();
+      ctx.fillStyle = '#000'; ctx.beginPath(); ctx.ellipse(w*0.77, h*0.3, 2.5, 2.5, 0, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = '#fff'; ctx.fillRect(w*0.76, h*0.26, 1.5, 1.5);
+
+    } else if (pw === POWER.BIG) {
+      // Prinplup — taller, darker navy, golden V-crest
+      const NAVY = '#102870'; const LIGHT = '#a8d8f0'; const BEAK = '#d89010'; const GOLD = '#f0c020';
+
+      // Body — taller, upright
+      ctx.fillStyle = NAVY;
+      ctx.beginPath(); ctx.ellipse(w*0.5, h*0.6, w*0.32, h*0.32, 0, 0, Math.PI*2);
+      ctx.fill(); ctx.strokeStyle=OL; ctx.lineWidth=1.5; ctx.stroke();
+
+      // Wide white belly with oval patches
+      ctx.fillStyle = '#e8f4ff';
+      ctx.beginPath(); ctx.ellipse(w*0.6, h*0.62, w*0.22, h*0.26, 0.1, 0, Math.PI*2); ctx.fill();
+      // Oval patches on belly
+      ctx.fillStyle = LIGHT;
+      ctx.beginPath(); ctx.ellipse(w*0.6, h*0.52, w*0.1, h*0.08, 0, 0, Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(w*0.58, h*0.63, w*0.09, h*0.07, 0, 0, Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(w*0.62, h*0.73, w*0.08, h*0.06, 0, 0, Math.PI*2); ctx.fill();
+
+      // Flipper arms — wider, at sides
+      ctx.fillStyle = NAVY;
+      ctx.beginPath(); ctx.ellipse(w*(0.22+step*0.03), h*0.58, w*0.1, h*0.18, -0.25, 0, Math.PI*2);
+      ctx.fill(); ctx.strokeStyle=OL; ctx.lineWidth=1.5; ctx.stroke();
+      ctx.beginPath(); ctx.ellipse(w*(0.84-step*0.03), h*0.58, w*0.1, h*0.18, 0.25, 0, Math.PI*2);
+      ctx.fill(); ctx.strokeStyle=OL; ctx.lineWidth=1.5; ctx.stroke();
+
+      // Legs
+      ctx.fillStyle = BEAK;
+      ctx.beginPath(); ctx.ellipse(w*(0.4+step*0.04), h*0.89, w*0.1, h*0.08, 0.1, 0, Math.PI*2);
+      ctx.fill(); ctx.strokeStyle=OL; ctx.lineWidth=1; ctx.stroke();
+      ctx.beginPath(); ctx.ellipse(w*(0.62-step*0.04), h*0.89, w*0.1, h*0.08, -0.1, 0, Math.PI*2);
+      ctx.fill(); ctx.strokeStyle=OL; ctx.lineWidth=1; ctx.stroke();
+
+      // Head — taller
+      ctx.fillStyle = NAVY;
+      ctx.beginPath(); ctx.ellipse(w*0.66, h*0.3, w*0.26, h*0.22, 0, 0, Math.PI*2);
+      ctx.fill(); ctx.strokeStyle=OL; ctx.lineWidth=1.5; ctx.stroke();
+
+      // Light face patch
+      ctx.fillStyle = LIGHT;
+      ctx.beginPath(); ctx.ellipse(w*0.72, h*0.32, w*0.15, h*0.16, 0.1, 0, Math.PI*2); ctx.fill();
+
+      // Golden V-shaped crest — 2 gold spikes pointing up
+      ctx.fillStyle = GOLD;
+      ctx.beginPath(); ctx.moveTo(w*0.56, h*0.12); ctx.lineTo(w*0.52, h*(-0.04)); ctx.lineTo(w*0.62, h*0.1); ctx.closePath();
+      ctx.fill(); ctx.strokeStyle=OL; ctx.lineWidth=1; ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(w*0.66, h*0.1); ctx.lineTo(w*0.62, h*(-0.06)); ctx.lineTo(w*0.72, h*0.08); ctx.closePath();
+      ctx.fill(); ctx.strokeStyle=OL; ctx.lineWidth=1; ctx.stroke();
+
+      // Beak
+      ctx.fillStyle = BEAK;
+      ctx.beginPath();
+      ctx.moveTo(w*0.85, h*0.3);
+      ctx.lineTo(w*0.95, h*0.34);
+      ctx.lineTo(w*0.85, h*0.38);
+      ctx.closePath(); ctx.fill(); ctx.strokeStyle=OL; ctx.lineWidth=1; ctx.stroke();
+
+      // Eye
+      ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.ellipse(w*0.78, h*0.27, 5, 5.5, 0, 0, Math.PI*2); ctx.fill();
+      ctx.strokeStyle=OL; ctx.lineWidth=1; ctx.stroke();
+      ctx.fillStyle = '#000'; ctx.beginPath(); ctx.ellipse(w*0.79, h*0.275, 2.5, 2.5, 0, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = '#fff'; ctx.fillRect(w*0.78, h*0.24, 1.5, 1.5);
+
+    } else {
+      // Empoleon — large, imposing, trident crown, steel armor wings
+      const NAVY = '#0a1840'; const STEEL = '#2050a8'; const BEAK = '#c87800'; const GOLD = '#f0c020';
+
+      // Steel armor wing plates — left
+      ctx.fillStyle = STEEL;
+      ctx.beginPath(); ctx.ellipse(w*(0.18+step*0.03), h*0.54, w*0.12, h*0.26, -0.2, 0, Math.PI*2);
+      ctx.fill(); ctx.strokeStyle=OL; ctx.lineWidth=1.5; ctx.stroke();
+      // Steel armor wing plates — right
+      ctx.beginPath(); ctx.ellipse(w*(0.88-step*0.03), h*0.54, w*0.12, h*0.26, 0.2, 0, Math.PI*2);
+      ctx.fill(); ctx.strokeStyle=OL; ctx.lineWidth=1.5; ctx.stroke();
+      // Wing highlights
+      ctx.strokeStyle = '#4070d0'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(w*0.16, h*0.42); ctx.lineTo(w*0.14, h*0.7); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(w*0.86, h*0.42); ctx.lineTo(w*0.88, h*0.7); ctx.stroke();
+
+      // Body — large, dark navy
+      ctx.fillStyle = NAVY;
+      ctx.beginPath(); ctx.ellipse(w*0.52, h*0.58, w*0.36, h*0.34, 0, 0, Math.PI*2);
+      ctx.fill(); ctx.strokeStyle=OL; ctx.lineWidth=2; ctx.stroke();
+
+      // White oval belly with blue markings
+      ctx.fillStyle = '#e0eeff';
+      ctx.beginPath(); ctx.ellipse(w*0.62, h*0.6, w*0.24, h*0.28, 0.1, 0, Math.PI*2); ctx.fill();
+      // Blue markings on belly
+      ctx.strokeStyle = STEEL; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.ellipse(w*0.62, h*0.52, w*0.12, h*0.06, 0, 0, Math.PI*2); ctx.stroke();
+      ctx.beginPath(); ctx.ellipse(w*0.62, h*0.62, w*0.1, h*0.05, 0, 0, Math.PI*2); ctx.stroke();
+      ctx.beginPath(); ctx.ellipse(w*0.62, h*0.72, w*0.08, h*0.04, 0, 0, Math.PI*2); ctx.stroke();
+
+      // Strong legs
+      ctx.fillStyle = NAVY;
+      ctx.beginPath(); ctx.ellipse(w*(0.38+step*0.04), h*0.87, w*0.12, h*0.11, 0.1, 0, Math.PI*2);
+      ctx.fill(); ctx.strokeStyle=OL; ctx.lineWidth=1.5; ctx.stroke();
+      ctx.beginPath(); ctx.ellipse(w*(0.64-step*0.04), h*0.87, w*0.12, h*0.11, -0.1, 0, Math.PI*2);
+      ctx.fill(); ctx.strokeStyle=OL; ctx.lineWidth=1.5; ctx.stroke();
+      ctx.fillStyle = BEAK;
+      ctx.beginPath(); ctx.ellipse(w*(0.36+step*0.04), h*0.93, w*0.12, h*0.06, 0, 0, Math.PI*2);
+      ctx.fill(); ctx.strokeStyle=OL; ctx.lineWidth=1; ctx.stroke();
+      ctx.beginPath(); ctx.ellipse(w*(0.66-step*0.04), h*0.93, w*0.12, h*0.06, 0, 0, Math.PI*2);
+      ctx.fill(); ctx.strokeStyle=OL; ctx.lineWidth=1; ctx.stroke();
+
+      // Head
+      ctx.fillStyle = NAVY;
+      ctx.beginPath(); ctx.ellipse(w*0.66, h*0.28, w*0.28, h*0.22, 0, 0, Math.PI*2);
+      ctx.fill(); ctx.strokeStyle=OL; ctx.lineWidth=2; ctx.stroke();
+
+      // Light face patch
+      ctx.fillStyle = '#c0d8f8';
+      ctx.beginPath(); ctx.ellipse(w*0.74, h*0.3, w*0.16, h*0.18, 0.1, 0, Math.PI*2); ctx.fill();
+
+      // Golden trident crown — 3 upward spikes
+      ctx.fillStyle = GOLD;
+      // Center spike (tallest)
+      ctx.beginPath(); ctx.moveTo(w*0.62, h*0.1); ctx.lineTo(w*0.58, h*(-0.1)); ctx.lineTo(w*0.66, h*0.08); ctx.closePath();
+      ctx.fill(); ctx.strokeStyle=OL; ctx.lineWidth=1; ctx.stroke();
+      // Left spike
+      ctx.beginPath(); ctx.moveTo(w*0.52, h*0.12); ctx.lineTo(w*0.46, h*(-0.04)); ctx.lineTo(w*0.58, h*0.1); ctx.closePath();
+      ctx.fill(); ctx.strokeStyle=OL; ctx.lineWidth=1; ctx.stroke();
+      // Right spike
+      ctx.beginPath(); ctx.moveTo(w*0.72, h*0.1); ctx.lineTo(w*0.68, h*(-0.04)); ctx.lineTo(w*0.78, h*0.12); ctx.closePath();
+      ctx.fill(); ctx.strokeStyle=OL; ctx.lineWidth=1; ctx.stroke();
+      // Trident base bar
+      ctx.fillStyle = GOLD;
+      ctx.fillRect(w*0.48, h*0.09, w*0.28, h*0.04);
+      ctx.strokeStyle=OL; ctx.lineWidth=1; ctx.strokeRect(w*0.48, h*0.09, w*0.28, h*0.04);
+
+      // Beak — strong, orange
+      ctx.fillStyle = BEAK;
+      ctx.beginPath();
+      ctx.moveTo(w*0.88, h*0.28);
+      ctx.lineTo(w*0.98, h*0.33);
+      ctx.lineTo(w*0.88, h*0.38);
+      ctx.closePath(); ctx.fill(); ctx.strokeStyle=OL; ctx.lineWidth=1; ctx.stroke();
+
+      // Eye
+      ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.ellipse(w*0.8, h*0.25, 5.5, 6, 0, 0, Math.PI*2); ctx.fill();
+      ctx.strokeStyle=OL; ctx.lineWidth=1; ctx.stroke();
+      ctx.fillStyle = '#1840a0'; ctx.beginPath(); ctx.ellipse(w*0.81, h*0.255, 3, 3.5, 0, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = '#000'; ctx.beginPath(); ctx.ellipse(w*0.81, h*0.258, 1.5, 1.8, 0, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = '#fff'; ctx.fillRect(w*0.8, h*0.22, 1.5, 1.5);
     }
   }
 
@@ -978,6 +1187,11 @@ export class Player {
     // Dispatch to character family
     if (this.char === 'charmander') {
       this._drawCharmander(ctx, w, h);
+      ctx.restore();
+      return;
+    }
+    if (this.char === 'piplup') {
+      this._drawPiplup(ctx, w, h);
       ctx.restore();
       return;
     }

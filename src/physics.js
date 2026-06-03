@@ -21,6 +21,7 @@ export function resolveCollisions(ent, solids) {
   ent.x += ent.vx;
   for (const s of solids) {
     if (s.dead) continue;
+    if (s.hidden) continue;  // hidden blocks are non-solid until revealed
     if (aabb(ent, s)) {
       if (ent.vx > 0) {
         ent.x = s.x - ent.w;
@@ -36,6 +37,7 @@ export function resolveCollisions(ent, solids) {
   ent.y += ent.vy;
   for (const s of solids) {
     if (s.dead) continue;
+    if (s.hidden) continue;  // hidden blocks are non-solid until revealed
     if (aabb(ent, s)) {
       if (ent.vy > 0) {
         ent.y = s.y - ent.h;
