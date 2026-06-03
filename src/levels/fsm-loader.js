@@ -312,11 +312,16 @@ function processMacro(e, out) {
     }
 
     // Decorative / purely visual / unsupported
+    case 'CastleSmall': {
+      if (!out.castleSmalls) out.castleSmalls = [];
+      out.castleSmalls.push({ x: ux(x), y: GY });
+      break;
+    }
+
     case 'Pattern':
     case 'PipeCorner':
     case 'CastleWall':
     case 'Water':
-    case 'CastleSmall':
     case 'ScrollBlocker':
     case 'ScrollEnabler':
     case 'BackFence':
@@ -341,6 +346,7 @@ export function loadFSMLevel(jsonData, areaIndex = 0) {
     plants:          [],
     movingPlatforms: [],
     flagPole:        null,
+    castleSmalls:    [],
     fireBars:        [],
     castleBoss:      null,
     bossAxe:         null,
@@ -376,6 +382,7 @@ export function loadFSMLevel(jsonData, areaIndex = 0) {
     movingPlatforms: out.movingPlatforms,
     hPipeExits:      out.hPipeExits || [],
     boss:            null,
+    castleSmalls:    out.castleSmalls || [],
     fireBars:        out.fireBars,
     castleBoss:      out.castleBoss || null,
     bossAxe:         out.bossAxe || null,

@@ -167,10 +167,14 @@ export class Game {
       const res  = await fetch(`${Game.SHEETS_URL}?action=get`);
       const data = await res.json();
       if (Array.isArray(data) && data.length > 0) {
-        // Merge sheet data with local data, keeping the best score per name
         const merged = [...data, ...local];
         merged.sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
-        this._cachedBoard = merged.slice(0, 20);
+        const seen = new Set();
+        this._cachedBoard = merged.filter(e => {
+          const key = `${e.name}|${e.score}`;
+          if (seen.has(key)) return false;
+          seen.add(key); return true;
+        }).slice(0, 20);
       }
     } catch (_) {
       // Network error or CORS block — local scores already set in constructor
@@ -731,6 +735,10 @@ export class Game {
       ctx2.fillStyle = '#1a7a28';
       ctx2.fillRect(hpx - 4, hpy - 4, 8, hph + 8); // joint between H and V pipe
     }
+    // Draw castle small buildings (appear behind platforms)
+    for (const cs of (lvl.castleSmalls || [])) {
+      this._drawCastleSmall(r.ctx, Math.floor(cs.x - this.cam.x), cs.y);
+    }
     for (const pl of lvl.platforms)  pl.draw(r, this.cam);
     if (lvl.movingPlatforms) for (const mp of lvl.movingPlatforms) mp.draw(r, this.cam);
     for (const q  of lvl.qblocks)    q.draw(r, this.cam);
@@ -1280,6 +1288,70 @@ export class Game {
     ctx.textAlign = 'left';
   }
 
+  _drawCastleSmall(ctx, sx, groundY) {
+    // Castle building: 4 tiles wide, ~5 tiles tall, brick walls with battlements and arch
+    const T = TILE;
+    const W = T * 4;   // 128px wide
+    const H = T * 5;   // 160px tall
+    const top = groundY - H;
+
+    // Main body
+    ctx.fillStyle = '#a09070';
+    ctx.fillRect(sx, top, W, H);
+    // Highlight / shadow
+    ctx.fillStyle = '#b8a880';
+    ctx.fillRect(sx, top, 6, H);
+    ctx.fillStyle = '#706050';
+    ctx.fillRect(sx + W - 6, top, 6, H);
+
+    // Brick lines
+    ctx.strokeStyle = '#7a6040'; ctx.lineWidth = 1;
+    for (let row = 0; row < 5; row++) {
+      const ry = top + row * T;
+      ctx.beginPath(); ctx.moveTo(sx, ry); ctx.lineTo(sx + W, ry); ctx.stroke();
+      const offset = (row % 2 === 0) ? 0 : T / 2;
+      for (let col = 0; col < 5; col++) {
+        const bx = sx + offset + col * T;
+        if (bx > sx && bx < sx + W) {
+          ctx.beginPath(); ctx.moveTo(bx, ry); ctx.lineTo(bx, ry + T); ctx.stroke();
+        }
+      }
+    }
+
+    // Battlements (3 merlons on top)
+    ctx.fillStyle = '#a09070';
+    const mW = T * 0.6, mH = T * 0.7, gap = (W - 3 * mW) / 4;
+    for (let i = 0; i < 3; i++) {
+      ctx.fillRect(sx + gap + i * (mW + gap), top - mH, mW, mH);
+      ctx.strokeStyle = '#7a6040'; ctx.lineWidth = 1;
+      ctx.strokeRect(sx + gap + i * (mW + gap), top - mH, mW, mH);
+    }
+
+    // Arch doorway at bottom center
+    const archW = T, archH = T * 1.4;
+    const archX = sx + (W - archW) / 2;
+    ctx.fillStyle = '#1a1010';
+    ctx.beginPath();
+    ctx.rect(archX, groundY - archH, archW, archH * 0.5);
+    ctx.arc(archX + archW / 2, groundY - archH + archH * 0.5, archW / 2, Math.PI, 0, true);
+    ctx.fill();
+
+    // Window
+    ctx.fillStyle = '#1a1010';
+    ctx.beginPath();
+    const winX = sx + (W - T * 0.7) / 2, winY = top + T;
+    ctx.rect(winX, winY, T * 0.7, T * 0.5);
+    ctx.arc(winX + T * 0.35, winY, T * 0.35, Math.PI, 0, true);
+    ctx.fill();
+  }
+
+  _fmtDate(dateStr) {
+    const months = ['sty','lut','mar','kwi','maj','cze','lip','sie','wrz','paź','lis','gru'];
+    const d = new Date(dateStr);
+    if (isNaN(d)) return dateStr || '';
+    return `${String(d.getDate()).padStart(2,'0')} ${months[d.getMonth()]} ${d.getFullYear()}`;
+  }
+
   _drawLeaderboard() {
     const ctx = this.ctx;
     ctx.fillStyle = 'rgba(10,5,40,0.95)';
@@ -1318,7 +1390,7 @@ export class Game {
       ctx.fillStyle = 'rgba(255,255,255,0.5)';
       ctx.font = '13px monospace';
       ctx.textAlign = 'left';
-      ctx.fillText(e.date || '', CANVAS_WIDTH / 2 + 170, y);
+      ctx.fillText(this._fmtDate(e.date), CANVAS_WIDTH / 2 + 170, y);
       ctx.font = 'bold 18px monospace';
     }
     ctx.globalAlpha = 1;
@@ -1389,7 +1461,7 @@ export class Game {
         ctx.fillStyle = 'rgba(200,200,200,0.5)';
         ctx.font = '12px monospace';
         ctx.textAlign = 'left';
-        ctx.fillText(e.date || '', CANVAS_WIDTH / 2 + 228, rowY);
+        ctx.fillText(this._fmtDate(e.date), CANVAS_WIDTH / 2 + 228, rowY);
         ctx.font = 'bold 16px monospace';
       });
     }

@@ -39,9 +39,10 @@ function _buildLevel1_2(subArea = 0) {
   lvl.subArea   = subArea;
   if (subArea === 0) {
     // Tiny auto-walk entrance — no flag, no Pokemon Center, no pipe exit visuals
-    lvl.flagPole    = null;
-    lvl.pokeCenterX = null;
-    lvl.hPipeExits  = [];
+    lvl.flagPole      = null;
+    lvl.pokeCenterX   = null;
+    lvl.hPipeExits    = [];
+    lvl.entrancePipeX = 96 * 4; // 384px — vertical pipe player exits from underground
   }
   return lvl;
 }
