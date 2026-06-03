@@ -266,15 +266,17 @@ function processMacro(e, out) {
       break;
 
     case 'EndInsideCastle': {
-      // Bridge over lava + boss + axe
-      // The bridge starts at x (EndInsideCastle position) and extends right
-      const bridgeX = ux(x);
-      const BRIDGE_W = T * 14;               // 14-tile wide bridge
-      const bossStartX = bridgeX + T * 2;   // boss starts 2 tiles in
-      const axeX       = bridgeX + T * 11;  // axe near right end of bridge
+      const bridgeX  = ux(x);
+      const BRIDGE_W = T * 14;
+      const bossStartX = bridgeX + T * 2;
+      const axeX       = bridgeX + T * 11;
 
-      // Bridge platform (thin, at floor level)
-      out.platforms.push(new Platform(bridgeX, GY, BRIDGE_W, T * 4, COLORS.brick));
+      // Bridge platform (thin, at floor level) — stored so boss can collapse it
+      const bridge = new Platform(bridgeX, GY, BRIDGE_W, T * 4, COLORS.brick);
+      bridge.isBossBridge = true;
+      out.platforms.push(bridge);
+      out.bossBridgeX = bridgeX;
+      out.bossBridgeW = BRIDGE_W;
 
       out.castleBoss = new CastleBoss(bossStartX, GY, bridgeX + T, bridgeX + T * 10);
       out.bossAxe    = new BossAxe(axeX, GY);
@@ -350,6 +352,8 @@ export function loadFSMLevel(jsonData, areaIndex = 0) {
     fireBars:        [],
     castleBoss:      null,
     bossAxe:         null,
+    bossBridgeX:     null,
+    bossBridgeW:     null,
   };
 
   for (const entry of area.creation) {
@@ -386,6 +390,8 @@ export function loadFSMLevel(jsonData, areaIndex = 0) {
     fireBars:        out.fireBars,
     castleBoss:      out.castleBoss || null,
     bossAxe:         out.bossAxe || null,
+    bossBridgeX:     out.bossBridgeX,
+    bossBridgeW:     out.bossBridgeW,
     flagPole:        out.flagPole || null,
     pokeCenterX,
     setting,

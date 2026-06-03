@@ -64,7 +64,7 @@ export class Game {
     this.fireballs  = [];
     this.bossShots  = [];
     this.powerups   = [];
-    this._castleBossComplete = false;
+    this._castleBossComplete = false; this._bridgeRemoved = false;
     if (fullReset) {
       this.score          = 0;
       this.lives          = 3;
@@ -221,6 +221,13 @@ export class Game {
       if (input.justPressed('Enter') || input.justPressed('Space')) {
         this.selectedChar = chars[this.charSelectIdx];
         this.start();
+      }
+      return;
+    }
+    if (this.state === STATE.ENDING) {
+      this._endingTimer = (this._endingTimer || 0) + 1;
+      if (this._endingTimer > 60 && (input.justPressed('Enter') || input.justPressed('Space'))) {
+        this._enterNameAndSave(true);
       }
       return;
     }
@@ -409,38 +416,36 @@ export class Game {
     const castleBoss = lvl.castleBoss;
     if (castleBoss && !castleBoss.dead) {
       castleBoss.update(solids, p, this);
-      for (const fb of this.fireballs) {
-        if (!fb.dead && aabb(fb, castleBoss) && !castleBoss.defeated) {
-          fb.dead = true;
-          if (castleBoss.takeHit()) {
-            this.score += SCORE_BOSS;
-            this._spawnScorePopup(castleBoss.x + castleBoss.w / 2, castleBoss.y, SCORE_BOSS);
-          }
-        }
+      castleBoss.updateBridge();
+      // Remove bridge platform from solids when collapsing
+      if (castleBoss.bridgeCollapsing && !this._bridgeRemoved) {
+        this._bridgeRemoved = true;
+        lvl.platforms = lvl.platforms.filter(pl => !pl.isBossBridge);
       }
+      // Boss hurts player on contact but is NOT stompable
       if (!p.dead && !castleBoss.defeated && aabb(p, castleBoss)) {
         this._hurtPlayer();
       }
+      // Boss dead → show ending
+      if (castleBoss.dead && !this._castleBossComplete) {
+        this._castleBossComplete = true;
+        this.score += SCORE_BOSS * 2;
+        this._endingTimer = 0;
+        this.state = STATE.ENDING;
+      }
     }
-    // Boss axe
+    // Boss axe — touching it defeats boss and collapses bridge
     const bossAxe = lvl.bossAxe;
     if (bossAxe && !bossAxe.taken) {
       bossAxe.update();
       if (!p.dead && aabb(p, bossAxe)) {
         bossAxe.taken = true;
         if (castleBoss && !castleBoss.defeated) {
-          castleBoss.defeatByAxe();
+          castleBoss.defeatByAxe(lvl.bossBridgeX, lvl.bossBridgeW);
           this.score += SCORE_BOSS * 2;
           this._spawnScorePopup(castleBoss.x + castleBoss.w / 2, castleBoss.y, SCORE_BOSS * 2);
         }
-        this._castleBossComplete = true;
-        this.walkToPCTimer = 180;
       }
-    }
-    if (castleBoss && castleBoss.dead && !this._castleBossComplete) {
-      // Defeated with fireballs — also trigger level complete
-      this._castleBossComplete = true;
-      this.walkToPCTimer = 180;
     }
 
     // Fire bars
@@ -676,7 +681,7 @@ export class Game {
     this.player.char = this.selectedChar || 'eevee';
     this.player._applySize();
     this.cam.x = Math.max(0, spawnX - 200);
-    this.fireballs = []; this.bossShots = []; this.powerups = []; this._castleBossComplete = false;
+    this.fireballs = []; this.bossShots = []; this.powerups = []; this._castleBossComplete = false; this._bridgeRemoved = false;
     this._debris = [];
   }
 
@@ -691,7 +696,7 @@ export class Game {
     this.player.char = this.selectedChar || 'eevee';
     this.player._applySize();
     this.cam.x = 0;
-    this.fireballs = []; this.bossShots = []; this.powerups = []; this._castleBossComplete = false;
+    this.fireballs = []; this.bossShots = []; this.powerups = []; this._castleBossComplete = false; this._bridgeRemoved = false;
     this._debris = [];
   }
 
@@ -718,6 +723,7 @@ export class Game {
     if (this.state === STATE.MENU) { this._drawMenu(); return; }
     if (this.state === STATE.CHAR_SELECT) { this._drawCharSelect(); return; }
     if (this.state === STATE.LEADERBOARD) { this._drawLeaderboard(); return; }
+    if (this.state === STATE.ENDING) { this._drawEnding(); return; }
 
     const lvl = this.level;
     // Draw horizontal pipe piece connecting to entrance pipe in area 0
@@ -759,7 +765,7 @@ export class Game {
     for (const e  of lvl.enemies)    e.draw(r, this.cam);
     for (const pl of lvl.plants || []) pl.draw(r, this.cam);
     if (lvl.boss && !lvl.boss.dead)  lvl.boss.draw(r, this.cam);
-    if (lvl.castleBoss && !lvl.castleBoss.dead) lvl.castleBoss.draw(r, this.cam);
+    if (lvl.castleBoss) lvl.castleBoss.draw(r, this.cam);
     if (lvl.bossAxe && !lvl.bossAxe.taken) lvl.bossAxe.draw(r, this.cam);
     for (const bar of (lvl.fireBars || [])) bar.draw(r, this.cam);
     for (const fb of this.fireballs) fb.draw(r, this.cam);
@@ -1035,7 +1041,7 @@ export class Game {
     this.player.char = this.selectedChar || 'eevee';
     this.player._applySize();
     this.cam.x = 0;
-    this.fireballs = []; this.bossShots = []; this.powerups = []; this._castleBossComplete = false;
+    this.fireballs = []; this.bossShots = []; this.powerups = []; this._castleBossComplete = false; this._bridgeRemoved = false;
     this._debris = []; this.scorePopups = [];
     this.area0AutoWalk = (world === 2 && level === 0)
                       || (world === 1 && level === 1 && sub === 0);
@@ -1289,60 +1295,239 @@ export class Game {
   }
 
   _drawCastleSmall(ctx, sx, groundY) {
-    // Castle building: 4 tiles wide, ~5 tiles tall, brick walls with battlements and arch
+    // Pokémon Shop — pixel-art style blue octagonal building with Pokéball logo and SHOP sign
     const T = TILE;
-    const W = T * 4;   // 128px wide
-    const H = T * 5;   // 160px tall
+    const W = T * 4;   // 128px
+    const H = T * 4;   // 128px
     const top = groundY - H;
+    const cut = 14;    // corner bevel size
 
-    // Main body
-    ctx.fillStyle = '#a09070';
-    ctx.fillRect(sx, top, W, H);
-    // Highlight / shadow
-    ctx.fillStyle = '#b8a880';
-    ctx.fillRect(sx, top, 6, H);
-    ctx.fillStyle = '#706050';
-    ctx.fillRect(sx + W - 6, top, 6, H);
+    // Roof (dark navy octagon top strip)
+    ctx.fillStyle = '#2a3a6a';
+    ctx.beginPath();
+    ctx.moveTo(sx + cut, top);
+    ctx.lineTo(sx + W - cut, top);
+    ctx.lineTo(sx + W, top + cut);
+    ctx.lineTo(sx + W, top + T * 1.1);
+    ctx.lineTo(sx, top + T * 1.1);
+    ctx.lineTo(sx, top + cut);
+    ctx.closePath(); ctx.fill();
 
-    // Brick lines
-    ctx.strokeStyle = '#7a6040'; ctx.lineWidth = 1;
-    for (let row = 0; row < 5; row++) {
-      const ry = top + row * T;
-      ctx.beginPath(); ctx.moveTo(sx, ry); ctx.lineTo(sx + W, ry); ctx.stroke();
-      const offset = (row % 2 === 0) ? 0 : T / 2;
-      for (let col = 0; col < 5; col++) {
-        const bx = sx + offset + col * T;
-        if (bx > sx && bx < sx + W) {
-          ctx.beginPath(); ctx.moveTo(bx, ry); ctx.lineTo(bx, ry + T); ctx.stroke();
-        }
-      }
+    // Roof highlight stripe (light blue horizontal lines)
+    ctx.fillStyle = '#4a6aaa';
+    for (let i = 0; i < 5; i++) {
+      ctx.fillRect(sx + cut, top + 4 + i * 7, W - cut * 2, 3);
     }
 
-    // Battlements (3 merlons on top)
-    ctx.fillStyle = '#a09070';
-    const mW = T * 0.6, mH = T * 0.7, gap = (W - 3 * mW) / 4;
-    for (let i = 0; i < 3; i++) {
-      ctx.fillRect(sx + gap + i * (mW + gap), top - mH, mW, mH);
-      ctx.strokeStyle = '#7a6040'; ctx.lineWidth = 1;
-      ctx.strokeRect(sx + gap + i * (mW + gap), top - mH, mW, mH);
+    // Roof bottom dark band
+    ctx.fillStyle = '#1a2550';
+    ctx.fillRect(sx, top + T * 1.1 - 6, W, 6);
+
+    // Main body (white/cream)
+    ctx.fillStyle = '#e8eaf0';
+    ctx.fillRect(sx, top + T * 1.1, W, H - T * 1.1);
+
+    // Body side panels (light grey vertical stripes)
+    ctx.fillStyle = '#d0d4e0';
+    ctx.fillRect(sx, top + T * 1.1, 18, H - T * 1.1);
+    ctx.fillRect(sx + W - 18, top + T * 1.1, 18, H - T * 1.1);
+
+    // Pokéball logo in center of roof
+    const pbx = sx + W / 2, pby = top + T * 0.5;
+    const pbr = 20;
+    ctx.fillStyle = '#cc2020'; // top half
+    ctx.beginPath(); ctx.arc(pbx, pby, pbr, Math.PI, 0); ctx.fill();
+    ctx.fillStyle = '#ffffff'; // bottom half
+    ctx.beginPath(); ctx.arc(pbx, pby, pbr, 0, Math.PI); ctx.fill();
+    ctx.strokeStyle = '#1a1a1a'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(pbx, pby, pbr, 0, Math.PI * 2); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(pbx - pbr, pby); ctx.lineTo(pbx + pbr, pby); ctx.stroke();
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath(); ctx.arc(pbx, pby, 7, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = '#1a1a1a'; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.arc(pbx, pby, 7, 0, Math.PI * 2); ctx.stroke();
+
+    // Door (glass sliding — blue rectangle)
+    const doorW = T, doorH = T * 1.3;
+    const doorX = sx + (W - doorW) / 2;
+    const doorY = groundY - doorH;
+    ctx.fillStyle = '#7ab0e0';
+    ctx.fillRect(doorX, doorY, doorW, doorH);
+    ctx.fillStyle = 'rgba(255,255,255,0.5)';
+    ctx.fillRect(doorX + 4, doorY + 4, doorW / 2 - 6, doorH - 8);
+    ctx.strokeStyle = '#3a70b0'; ctx.lineWidth = 1.5;
+    ctx.strokeRect(doorX, doorY, doorW, doorH);
+    ctx.beginPath(); ctx.moveTo(doorX + doorW / 2, doorY); ctx.lineTo(doorX + doorW / 2, doorY + doorH); ctx.stroke();
+
+    // SHOP sign
+    const signX = sx + W - 58, signY = groundY - doorH - 22;
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(signX, signY, 52, 18);
+    ctx.strokeStyle = '#c00000'; ctx.lineWidth = 1;
+    ctx.strokeRect(signX, signY, 52, 18);
+    ctx.fillStyle = '#cc0000';
+    ctx.font = 'bold 12px monospace';
+    ctx.textAlign = 'left';
+    ctx.fillText('SHOP', signX + 6, signY + 13);
+    ctx.textAlign = 'left';
+
+    // Building outline
+    ctx.strokeStyle = '#3a4a7a'; ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(sx + cut, top); ctx.lineTo(sx + W - cut, top);
+    ctx.lineTo(sx + W, top + cut); ctx.lineTo(sx + W, groundY);
+    ctx.lineTo(sx, groundY); ctx.lineTo(sx, top + cut);
+    ctx.closePath(); ctx.stroke();
+  }
+
+  _drawEnding() {
+    const ctx = this.ctx;
+    const t = this._endingTimer || 0;
+
+    // Background — castle interior fading to warm orange/gold
+    ctx.fillStyle = '#1a0a0a';
+    ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+    // Castle silhouette at bottom
+    ctx.fillStyle = '#2a1a10';
+    ctx.fillRect(0, CANVAS_HEIGHT - 80, CANVAS_WIDTH, 80);
+
+    // Stars twinkling
+    const stars = [[80,40],[160,90],[240,30],[400,70],[520,50],[640,80],[760,35],[880,60],
+                   [300,110],[700,100],[150,140],[600,130]];
+    for (const [sx, sy] of stars) {
+      const alpha = 0.4 + Math.abs(Math.sin((t + sx) * 0.04)) * 0.6;
+      ctx.globalAlpha = alpha;
+      ctx.fillStyle = '#fffaaa';
+      ctx.fillRect(sx, sy, 2, 2);
+    }
+    ctx.globalAlpha = 1;
+
+    // Title — slides in from top
+    const titleY = Math.min(90, t * 2);
+    ctx.fillStyle = '#ffd23b';
+    ctx.font = 'bold 44px monospace';
+    ctx.strokeStyle = '#000'; ctx.lineWidth = 5;
+    ctx.textAlign = 'center';
+    ctx.strokeText('YOU WIN!', CANVAS_WIDTH / 2, titleY);
+    ctx.fillText('YOU WIN!', CANVAS_WIDTH / 2, titleY);
+
+    // Pikachu — drawn procedurally, appears after title
+    if (t > 30) {
+      const px = CANVAS_WIDTH / 2;
+      const py = CANVAS_HEIGHT / 2 + 10 + Math.sin(t * 0.05) * 6; // gentle bounce
+      this._drawPikachu(ctx, px, py, 1.4);
     }
 
-    // Arch doorway at bottom center
-    const archW = T, archH = T * 1.4;
-    const archX = sx + (W - archW) / 2;
-    ctx.fillStyle = '#1a1010';
+    // "World 1 Complete!" subtitle
+    if (t > 50) {
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 26px monospace';
+      ctx.strokeStyle = '#000'; ctx.lineWidth = 3;
+      ctx.strokeText('World 1 Complete!', CANVAS_WIDTH / 2, 140);
+      ctx.fillText('World 1 Complete!', CANVAS_WIDTH / 2, 140);
+    }
+
+    // Score
+    if (t > 70) {
+      ctx.fillStyle = '#ffd23b';
+      ctx.font = '22px monospace';
+      ctx.strokeStyle = '#000'; ctx.lineWidth = 2;
+      ctx.strokeText(`Score: ${String(this.score).padStart(7, '0')}`, CANVAS_WIDTH / 2, CANVAS_HEIGHT - 120);
+      ctx.fillText(`Score: ${String(this.score).padStart(7, '0')}`, CANVAS_WIDTH / 2, CANVAS_HEIGHT - 120);
+    }
+
+    // Press ENTER prompt
+    if (t > 100) {
+      ctx.globalAlpha = 0.5 + Math.abs(Math.sin(t * 0.04)) * 0.5;
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 20px monospace';
+      ctx.strokeStyle = '#000'; ctx.lineWidth = 2;
+      ctx.strokeText('Press ENTER to save score', CANVAS_WIDTH / 2, CANVAS_HEIGHT - 80);
+      ctx.fillText('Press ENTER to save score', CANVAS_WIDTH / 2, CANVAS_HEIGHT - 80);
+      ctx.globalAlpha = 1;
+    }
+    ctx.textAlign = 'left';
+  }
+
+  _drawPikachu(ctx, cx, cy, scale = 1) {
+    const s = scale;
+    // Body (yellow)
+    ctx.fillStyle = '#f0d020';
     ctx.beginPath();
-    ctx.rect(archX, groundY - archH, archW, archH * 0.5);
-    ctx.arc(archX + archW / 2, groundY - archH + archH * 0.5, archW / 2, Math.PI, 0, true);
+    ctx.ellipse(cx, cy + 20 * s, 45 * s, 38 * s, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    // Window
-    ctx.fillStyle = '#1a1010';
+    // Ears (pointed, black tips)
+    for (const side of [-1, 1]) {
+      ctx.fillStyle = '#f0d020';
+      ctx.beginPath();
+      ctx.moveTo(cx + side * 22 * s, cy - 50 * s);
+      ctx.lineTo(cx + side * 35 * s, cy - 90 * s);
+      ctx.lineTo(cx + side * 12 * s, cy - 52 * s);
+      ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#1a1a1a';
+      ctx.beginPath();
+      ctx.moveTo(cx + side * 26 * s, cy - 62 * s);
+      ctx.lineTo(cx + side * 33 * s, cy - 86 * s);
+      ctx.lineTo(cx + side * 16 * s, cy - 64 * s);
+      ctx.closePath(); ctx.fill();
+    }
+
+    // Head
+    ctx.fillStyle = '#f0d020';
     ctx.beginPath();
-    const winX = sx + (W - T * 0.7) / 2, winY = top + T;
-    ctx.rect(winX, winY, T * 0.7, T * 0.5);
-    ctx.arc(winX + T * 0.35, winY, T * 0.35, Math.PI, 0, true);
+    ctx.ellipse(cx, cy - 24 * s, 40 * s, 36 * s, 0, 0, Math.PI * 2);
     ctx.fill();
+
+    // Cheek blush (red circles)
+    ctx.fillStyle = '#e04040';
+    ctx.beginPath(); ctx.ellipse(cx - 28 * s, cy - 14 * s, 11 * s, 8 * s, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(cx + 28 * s, cy - 14 * s, 11 * s, 8 * s, 0, 0, Math.PI * 2); ctx.fill();
+
+    // Eyes (happy/squinting — curved lines)
+    ctx.strokeStyle = '#1a1a1a'; ctx.lineWidth = 3 * s; ctx.lineCap = 'round';
+    for (const side of [-1, 1]) {
+      ctx.beginPath();
+      ctx.arc(cx + side * 14 * s, cy - 30 * s, 8 * s, Math.PI * 1.1, Math.PI * 1.9);
+      ctx.stroke();
+    }
+
+    // Nose
+    ctx.fillStyle = '#1a1a1a';
+    ctx.beginPath(); ctx.ellipse(cx, cy - 22 * s, 4 * s, 3 * s, 0, 0, Math.PI * 2); ctx.fill();
+
+    // Smile
+    ctx.strokeStyle = '#1a1a1a'; ctx.lineWidth = 2.5 * s;
+    ctx.beginPath();
+    ctx.arc(cx, cy - 10 * s, 12 * s, 0.1, Math.PI - 0.1);
+    ctx.stroke();
+
+    // Arms raised (waving)
+    ctx.strokeStyle = '#f0d020'; ctx.lineWidth = 12 * s; ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(cx - 40 * s, cy + 5 * s);
+    ctx.lineTo(cx - 60 * s, cy - 25 * s);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(cx + 40 * s, cy + 5 * s);
+    ctx.lineTo(cx + 60 * s, cy - 25 * s);
+    ctx.stroke();
+
+    // Tail (zigzag lightning bolt — yellow/brown)
+    ctx.strokeStyle = '#c8a010'; ctx.lineWidth = 8 * s; ctx.lineJoin = 'miter';
+    ctx.beginPath();
+    ctx.moveTo(cx + 42 * s, cy + 28 * s);
+    ctx.lineTo(cx + 60 * s, cy + 10 * s);
+    ctx.lineTo(cx + 50 * s, cy + 30 * s);
+    ctx.lineTo(cx + 72 * s, cy + 8 * s);
+    ctx.stroke();
+
+    // Feet
+    ctx.fillStyle = '#c8a010';
+    ctx.beginPath(); ctx.ellipse(cx - 22 * s, cy + 55 * s, 18 * s, 10 * s, -0.2, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(cx + 22 * s, cy + 55 * s, 18 * s, 10 * s, 0.2, 0, Math.PI * 2); ctx.fill();
+    ctx.lineWidth = 1;
   }
 
   _fmtDate(dateStr) {

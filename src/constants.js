@@ -44,6 +44,7 @@ export const STATE = Object.freeze({
   LEADERBOARD:  'LEADERBOARD',
   LEVEL_SELECT: 'LEVEL_SELECT',
   NAME_ENTRY:  'NAME_ENTRY',
+  ENDING:      'ENDING',
 });
 
 // Player power states

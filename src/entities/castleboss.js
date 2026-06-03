@@ -1,62 +1,66 @@
-import { GRAVITY, MAX_FALL_SPEED } from '../constants.js';
+import { GRAVITY, MAX_FALL_SPEED, GROUND_Y, TILE } from '../constants.js';
 import { resolveCollisions } from '../physics.js';
 import { BossShot } from './projectile.js';
 
-// Castle boss — Charizard (fire-breathing dragon = Bowser equivalent)
-// Defeated by: touching the axe at the far end, OR 5 fireball hits
+// Castle boss — Charizard (Bowser equivalent)
+// Defeated ONLY by touching the axe — fireballs/stomp do nothing
+// Mechanics: walks left/right, jumps every ~3s, shoots one fireball LEFT every ~2s
 export class CastleBoss {
   constructor(x, y, leftBound, rightBound) {
     this.w = 72;
     this.h = 80;
     this.x = x;
     this.y = y - this.h;
-    this.vx = -1.2;
+    this.vx = -1.5;
     this.vy = 0;
     this.leftBound = leftBound;
     this.rightBound = rightBound;
-    this.hp = 5;
     this.dead = false;
     this.defeated = false;
-    this.hitFlash = 0;
-    this.shootTimer = 90;
     this.anim = 0;
     this.active = false;
-    this.deathTimer = 120;
+    this.shootTimer = 100;
+    this.jumpTimer  = 160;
+    this.onGround   = false;
+    // Bridge collapse state
+    this.bridgeCollapsing = false;
+    this.bridgeSegments   = null; // filled on defeat
+    this.deathTimer = 180;
   }
 
   get stompable() { return false; }
 
-  takeHit() {
-    if (this.hitFlash > 0 || this.defeated) return false;
-    this.hp--;
-    this.hitFlash = 60;
-    if (this.hp <= 0) this._beginDefeat();
-    return this.defeated;
-  }
-
-  defeatByAxe() {
+  defeatByAxe(bridgeX, bridgeW) {
     if (this.defeated) return;
-    this.hp = 0;
-    this._beginDefeat();
-  }
-
-  _beginDefeat() {
     this.defeated = true;
-    this.deathTimer = 120;
     this.vx = 0;
-    this.vy = -4;
+    this.vy = 0;
+    this.bridgeCollapsing = true;
+    // Create falling bridge segment list
+    const segCount = Math.ceil(bridgeW / TILE);
+    this.bridgeSegments = Array.from({ length: segCount }, (_, i) => ({
+      x: bridgeX + i * TILE,
+      y: GROUND_Y,
+      vy: 0,
+      delay: i * 4,  // staggered collapse left→right
+      gone: false,
+    }));
   }
 
   update(solids, player, game) {
     if (this.dead) return;
     this.anim++;
-    if (this.hitFlash > 0) this.hitFlash--;
 
     if (this.defeated) {
+      // Wait for bridge to open, then fall
       this.deathTimer--;
-      this.vy += GRAVITY;
-      this.y += this.vy;
-      if (this.deathTimer <= 0) this.dead = true;
+      const allGone = !this.bridgeSegments ||
+        this.bridgeSegments.every(s => s.gone);
+      if (allGone || this.deathTimer < 120) {
+        this.vy += GRAVITY * 1.5;
+        this.y  += this.vy;
+        if (this.y > GROUND_Y + 300) this.dead = true;
+      }
       return;
     }
 
@@ -67,31 +71,63 @@ export class CastleBoss {
 
     this.vy += GRAVITY;
     if (this.vy > MAX_FALL_SPEED) this.vy = MAX_FALL_SPEED;
-    resolveCollisions(this, solids);
+    const res = resolveCollisions(this, solids);
+    this.onGround = res.onGround;
 
+    // Bounce off bridge bounds
     if (this.x <= this.leftBound)  { this.x = this.leftBound;            this.vx =  Math.abs(this.vx); }
     if (this.x + this.w >= this.rightBound) { this.x = this.rightBound - this.w; this.vx = -Math.abs(this.vx); }
 
+    // Periodic jump
+    this.jumpTimer--;
+    if (this.jumpTimer <= 0 && this.onGround) {
+      this.vy = -8;
+      this.jumpTimer = 150 + Math.floor(Math.random() * 60);
+    }
+
+    // Shoot ONE fireball to the left every ~2 seconds
     this.shootTimer--;
     if (this.shootTimer <= 0) {
-      this.shootTimer = 90 + Math.floor(Math.random() * 30);
-      const dir = player.x < this.x ? -1 : 1;
-      const sx = this.x + this.w / 2;
+      this.shootTimer = 110 + Math.floor(Math.random() * 40);
+      const sx = this.x;
       const sy = this.y + this.h * 0.55;
-      game.bossShots.push(new BossShot(sx, sy, dir * 4.5, 0));
-      game.bossShots.push(new BossShot(sx, sy, dir * 3.5, -1.5));
+      game.bossShots.push(new BossShot(sx, sy, -4.5, 0));
+    }
+  }
+
+  updateBridge() {
+    if (!this.bridgeSegments) return;
+    for (const s of this.bridgeSegments) {
+      if (s.gone) continue;
+      if (s.delay > 0) { s.delay--; continue; }
+      s.vy += GRAVITY * 0.6;
+      s.y  += s.vy;
+      if (s.y > GROUND_Y + 400) s.gone = true;
     }
   }
 
   draw(r, cam) {
     const ctx = r.ctx;
+
+    // Draw falling bridge segments (below the boss)
+    if (this.bridgeSegments) {
+      ctx.fillStyle = '#8b7355';
+      for (const s of this.bridgeSegments) {
+        if (s.gone) continue;
+        const bx = Math.floor(s.x - cam.x);
+        ctx.fillRect(bx, Math.floor(s.y), TILE, TILE / 4);
+        ctx.strokeStyle = '#5a4830'; ctx.lineWidth = 1;
+        ctx.strokeRect(bx, Math.floor(s.y), TILE, TILE / 4);
+      }
+    }
+
+    if (this.dead) return;
+
     const x = Math.floor(this.x - cam.x);
     const y = Math.floor(this.y);
     const w = this.w, h = this.h;
 
-    if (this.hitFlash > 0 && Math.floor(this.hitFlash / 4) % 2) ctx.globalAlpha = 0.4;
-
-    const facing = this.vx < 0 ? -1 : 1;
+    const facing = this.vx <= 0 ? -1 : 1;
     const ORANGE = '#e8642a';
     const DARK   = '#9e3010';
     const CREAM  = '#f0c060';
@@ -133,15 +169,10 @@ export class CastleBoss {
     ctx.moveTo(x + w * 0.85, y + h * 0.75);
     ctx.quadraticCurveTo(x + w + 24, y + h * 0.85, x + w + 14, y + h * 0.65);
     ctx.stroke();
-    // Tail flame
     ctx.fillStyle = '#ff9900';
-    ctx.beginPath();
-    ctx.arc(x + w + 14, y + h * 0.63, 8, 0, Math.PI * 2);
-    ctx.fill();
+    ctx.beginPath(); ctx.arc(x + w + 14, y + h * 0.63, 8, 0, Math.PI * 2); ctx.fill();
     ctx.fillStyle = '#ffdd00';
-    ctx.beginPath();
-    ctx.arc(x + w + 14, y + h * 0.63, 5, 0, Math.PI * 2);
-    ctx.fill();
+    ctx.beginPath(); ctx.arc(x + w + 14, y + h * 0.63, 5, 0, Math.PI * 2); ctx.fill();
     ctx.lineWidth = 1;
 
     // Head
@@ -160,25 +191,17 @@ export class CastleBoss {
     // Horns
     ctx.fillStyle = CREAM;
     ctx.beginPath();
-    ctx.moveTo(hx - 14, y + h * 0.06);
-    ctx.lineTo(hx - 20, y - 14);
-    ctx.lineTo(hx - 8, y + h * 0.06);
+    ctx.moveTo(hx - 14, y + h * 0.06); ctx.lineTo(hx - 20, y - 14); ctx.lineTo(hx - 8, y + h * 0.06);
     ctx.closePath(); ctx.fill();
     ctx.beginPath();
-    ctx.moveTo(hx + 14, y + h * 0.06);
-    ctx.lineTo(hx + 20, y - 14);
-    ctx.lineTo(hx + 8, y + h * 0.06);
+    ctx.moveTo(hx + 14, y + h * 0.06); ctx.lineTo(hx + 20, y - 14); ctx.lineTo(hx + 8, y + h * 0.06);
     ctx.closePath(); ctx.fill();
 
     // Eyes
     ctx.fillStyle = '#ffdd00';
-    ctx.beginPath();
-    ctx.ellipse(hx + facing * 8, y + h * 0.18, 7, 7, 0, 0, Math.PI * 2);
-    ctx.fill();
+    ctx.beginPath(); ctx.ellipse(hx + facing * 8, y + h * 0.18, 7, 7, 0, 0, Math.PI * 2); ctx.fill();
     ctx.fillStyle = '#1a0808';
-    ctx.beginPath();
-    ctx.ellipse(hx + facing * 9, y + h * 0.18, 4, 5, 0, 0, Math.PI * 2);
-    ctx.fill();
+    ctx.beginPath(); ctx.ellipse(hx + facing * 9, y + h * 0.18, 4, 5, 0, 0, Math.PI * 2); ctx.fill();
 
     // Nostrils
     ctx.fillStyle = DARK;
@@ -191,29 +214,24 @@ export class CastleBoss {
     ctx.fillRect(x + w * 0.18, y + h * 0.82 + sw, 16, 18);
     ctx.fillRect(x + w * 0.54, y + h * 0.82 - sw, 16, 18);
 
-    // HP pips above head
-    ctx.globalAlpha = 1;
-    for (let i = 0; i < 5; i++) {
-      ctx.fillStyle = i < this.hp ? '#e03030' : '#444';
-      ctx.beginPath();
-      ctx.arc(x + w / 2 - 40 + i * 20, y - 16, 7, 0, Math.PI * 2);
-      ctx.fill();
-      if (i < this.hp) {
-        ctx.strokeStyle = '#ff8888'; ctx.lineWidth = 1.5;
-        ctx.stroke(); ctx.lineWidth = 1;
-      }
+    // "Defeat with axe" hint — chain between boss and axe position
+    if (!this.defeated) {
+      ctx.fillStyle = 'rgba(255,255,255,0.85)';
+      ctx.font = 'bold 11px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText('GRAB THE AXE!', x + w / 2, y - 10);
+      ctx.textAlign = 'left';
     }
-    ctx.globalAlpha = 1;
   }
 }
 
-// The axe at the far end of the castle bridge — touch it to defeat the boss
+// The axe at the far end of the castle bridge — touching it defeats boss
 export class BossAxe {
   constructor(x, y) {
     this.x = x;
-    this.y = y - 32;
+    this.y = y - 36;
     this.w = 24;
-    this.h = 32;
+    this.h = 36;
     this.taken = false;
     this.anim = 0;
   }
@@ -224,36 +242,33 @@ export class BossAxe {
     if (this.taken) return;
     const ctx = r.ctx;
     const x = Math.floor(this.x - cam.x) + 12;
-    const y = Math.floor(this.y) + Math.sin(this.anim * 0.08) * 4;
+    const bob = Math.sin(this.anim * 0.08) * 4;
+    const y = Math.floor(this.y) + bob;
 
     // Handle
-    ctx.strokeStyle = '#8b4513';
-    ctx.lineWidth = 4;
-    ctx.beginPath();
-    ctx.moveTo(x, y + 30);
-    ctx.lineTo(x, y + 6);
-    ctx.stroke();
+    ctx.strokeStyle = '#8b4513'; ctx.lineWidth = 4;
+    ctx.beginPath(); ctx.moveTo(x, y + 34); ctx.lineTo(x, y + 8); ctx.stroke();
     ctx.lineWidth = 1;
 
     // Axe blade
     ctx.fillStyle = '#ffd700';
     ctx.beginPath();
-    ctx.moveTo(x, y + 6);
-    ctx.lineTo(x - 10, y - 6);
-    ctx.lineTo(x - 10, y + 10);
+    ctx.moveTo(x, y + 8); ctx.lineTo(x - 12, y - 6); ctx.lineTo(x - 12, y + 12);
     ctx.closePath(); ctx.fill();
     ctx.beginPath();
-    ctx.moveTo(x, y + 6);
-    ctx.lineTo(x + 10, y - 6);
-    ctx.lineTo(x + 10, y + 10);
+    ctx.moveTo(x, y + 8); ctx.lineTo(x + 12, y - 6); ctx.lineTo(x + 12, y + 12);
     ctx.closePath(); ctx.fill();
 
     // Shine
     ctx.fillStyle = '#fffaaa';
     ctx.beginPath();
-    ctx.moveTo(x, y + 4);
-    ctx.lineTo(x - 4, y - 2);
-    ctx.lineTo(x - 4, y + 6);
+    ctx.moveTo(x, y + 6); ctx.lineTo(x - 5, y - 2); ctx.lineTo(x - 5, y + 8);
     ctx.closePath(); ctx.fill();
+
+    // Glow pulse
+    ctx.globalAlpha = 0.3 + Math.abs(Math.sin(this.anim * 0.05)) * 0.3;
+    ctx.fillStyle = '#ffd700';
+    ctx.beginPath(); ctx.arc(x, y + 4, 20, 0, Math.PI * 2); ctx.fill();
+    ctx.globalAlpha = 1;
   }
 }
