@@ -958,13 +958,12 @@ export class Game {
     ctx.fillText('CHOOSE YOUR PARTNER!', CANVAS_WIDTH / 2, 70);
 
     const chars = [
-      { name: 'EEVEE',      evolves: 'UMBREON / FLAREON',       color: '#c8864a' },
-      { name: 'CHARMANDER', evolves: 'CHARMELEON / CHARIZARD',  color: '#f07840' },
-      { name: 'BULBASAUR',  evolves: 'IVYSAUR / VENUSAUR',      color: '#68a858' },
-      { name: 'PIPLUP',     evolves: 'PRINPLUP / EMPOLEON',     color: '#2860c8' },
+      { name: 'EEVEE',     evolves: 'UMBREON / FLAREON',   color: '#c8864a' },
+      { name: 'BULBASAUR', evolves: 'IVYSAUR / VENUSAUR',  color: '#68a858' },
+      { name: 'PIPLUP',    evolves: 'PRINPLUP / EMPOLEON', color: '#2860c8' },
     ];
     const boxW = 170, boxH = 230, spacing = 190;
-    const startX = CANVAS_WIDTH / 2 - spacing * 1.5;
+    const startX = CANVAS_WIDTH / 2 - spacing * 1;
 
     for (let i = 0; i < chars.length; i++) {
       const c = chars[i];
