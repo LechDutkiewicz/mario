@@ -64,7 +64,7 @@ export class Game {
     this.fireballs  = [];
     this.bossShots  = [];
     this.powerups   = [];
-    this._castleBossComplete = false; this._bridgeRemoved = false;
+    this._castleBossComplete = false; this._bridgeRemoved = false; this._catchCamLock = false; this._lavaAnim = 0;
     if (fullReset) {
       this.score          = 0;
       this.lives          = 3;
@@ -303,9 +303,11 @@ export class Game {
       };
     }
 
-    p.update(activeInput, solids, this);
+    // Lock player controls during catch camera pan
+    const effectiveInput = this._catchCamLock ? {} : activeInput;
+    p.update(effectiveInput, solids, this);
 
-    this.cam.follow(p, lvl.width);
+    if (!this._catchCamLock) this.cam.follow(p, lvl.width);
 
     for (const q of lvl.qblocks) q.update();
 
@@ -412,14 +414,21 @@ export class Game {
     }
     if (boss && boss.dead) { this.state = STATE.WIN; return; }
 
+    // Camera pan to boss during catch animation (locks player control)
+    if (this._catchCamLock) {
+      this.cam.x += (this._catchCamTarget - this.cam.x) * 0.06;
+      if (Math.abs(this.cam.x - this._catchCamTarget) < 1) this.cam.x = this._catchCamTarget;
+    }
+
     // Castle boss (Charizard — world 1-4)
     const castleBoss = lvl.castleBoss;
     if (castleBoss && !castleBoss.dead) {
       castleBoss.update(solids, p, this);
       castleBoss.updateBridge();
-      // Remove bridge platform from solids when collapsing
+      // Release camera lock and remove bridge from solids when collapse starts
       if (castleBoss.bridgeCollapsing && !this._bridgeRemoved) {
         this._bridgeRemoved = true;
+        this._catchCamLock = false;
         lvl.platforms = lvl.platforms.filter(pl => !pl.isBossBridge);
       }
       // Boss hurts player on contact but is NOT stompable
@@ -447,7 +456,10 @@ export class Game {
         if (castleBoss && !castleBoss.defeated) {
           const ballCX = bossAxe.x + bossAxe.w / 2;
           const ballCY = bossAxe.y + bossAxe.h / 2;
-          castleBoss.startCatch(ballCX, ballCY, lvl.bossBridgeX, lvl.bossBridgeW);
+          castleBoss.startCatch(ballCX, ballCY, lvl.bossBridgeX, lvl.bossBridgeW, lvl.bossBridgeY);
+          // Lock player and pan camera to boss for the catch animation
+          this._catchCamTarget = castleBoss.x - CANVAS_WIDTH * 0.5;
+          this._catchCamLock = true;
           this.score += SCORE_BOSS * 2;
           this._spawnScorePopup(castleBoss.x + castleBoss.w / 2, castleBoss.y, SCORE_BOSS * 2);
         }
@@ -625,6 +637,7 @@ export class Game {
     // Update score popups
     for (const sp of this.scorePopups) { sp.y += sp.vy; sp.life--; }
     this.scorePopups = this.scorePopups.filter(sp => sp.life > 0);
+    this._lavaAnim = (this._lavaAnim || 0) + 1;
 
     if (p.dead && p.deathTimer <= 0) this._loseLife();
   }
@@ -686,7 +699,7 @@ export class Game {
     this.player.char = this.selectedChar || 'eevee';
     this.player._applySize();
     this.cam.x = Math.max(0, spawnX - 200);
-    this.fireballs = []; this.bossShots = []; this.powerups = []; this._castleBossComplete = false; this._bridgeRemoved = false;
+    this.fireballs = []; this.bossShots = []; this.powerups = []; this._castleBossComplete = false; this._bridgeRemoved = false; this._catchCamLock = false;
     this._debris = [];
   }
 
@@ -701,7 +714,7 @@ export class Game {
     this.player.char = this.selectedChar || 'eevee';
     this.player._applySize();
     this.cam.x = 0;
-    this.fireballs = []; this.bossShots = []; this.powerups = []; this._castleBossComplete = false; this._bridgeRemoved = false;
+    this.fireballs = []; this.bossShots = []; this.powerups = []; this._castleBossComplete = false; this._bridgeRemoved = false; this._catchCamLock = false;
     this._debris = [];
   }
 
@@ -770,12 +783,49 @@ export class Game {
     for (const e  of lvl.enemies)    e.draw(r, this.cam);
     for (const pl of lvl.plants || []) pl.draw(r, this.cam);
     if (lvl.boss && !lvl.boss.dead)  lvl.boss.draw(r, this.cam);
+    // Lava under the bridge area
+    if (lvl.bossBridgeX != null) {
+      const ctx2 = this.ctx;
+      const lx = Math.floor(lvl.bossBridgeX - this.cam.x);
+      const lw = lvl.bossBridgeW;
+      const lavaTop = (lvl.bossBridgeY ?? GROUND_Y) + TILE;
+      // Lava fill
+      ctx2.fillStyle = '#cc2200';
+      ctx2.fillRect(lx, lavaTop, lw, CANVAS_HEIGHT - lavaTop);
+      // Lava surface wave
+      ctx2.fillStyle = '#ff4400';
+      for (let i = 0; i < Math.ceil(lw / TILE); i++) {
+        const wx = lx + i * TILE;
+        const wave = Math.sin((wx + this._lavaAnim * 2) * 0.04) * 4;
+        ctx2.beginPath();
+        ctx2.moveTo(wx, lavaTop + wave);
+        ctx2.lineTo(wx + TILE / 2, lavaTop - 6 + wave);
+        ctx2.lineTo(wx + TILE, lavaTop + wave);
+        ctx2.fill();
+      }
+      // Draw bridge planks (isBossBridge platform)
+      for (const pl of lvl.platforms) {
+        if (!pl.isBossBridge) continue;
+        const bx = Math.floor(pl.x - this.cam.x);
+        const ctx3 = this.ctx;
+        for (let i = 0; i < Math.ceil(pl.w / TILE); i++) {
+          const px = bx + i * TILE;
+          ctx3.fillStyle = '#8b6914';
+          ctx3.fillRect(px + 1, Math.floor(pl.y), TILE - 2, TILE / 3);
+          ctx3.fillStyle = '#a07820';
+          ctx3.fillRect(px + 3, Math.floor(pl.y) + 2, TILE - 6, 4);
+          ctx3.strokeStyle = '#5a4010'; ctx3.lineWidth = 1;
+          ctx3.strokeRect(px + 1, Math.floor(pl.y), TILE - 2, TILE / 3);
+        }
+      }
+    }
     if (lvl.castleBoss) lvl.castleBoss.draw(r, this.cam);
     if (lvl.bossAxe && !lvl.bossAxe.taken) lvl.bossAxe.draw(r, this.cam);
-    // Pikachu waiting at end of castle
+    // Pikachu waiting at end of castle (same scale as player ~40px tall)
     if (lvl.pikachuX != null) {
       const pikX = Math.floor(lvl.pikachuX - this.cam.x);
-      this._drawPikachu(this.ctx, pikX, GROUND_Y - 4, 0.7);
+      const pikY = (lvl.bossBridgeY ?? GROUND_Y) - 4;
+      this._drawPikachu(this.ctx, pikX, pikY, 0.45);
     }
     for (const bar of (lvl.fireBars || [])) bar.draw(r, this.cam);
     for (const fb of this.fireballs) fb.draw(r, this.cam);
@@ -1051,7 +1101,7 @@ export class Game {
     this.player.char = this.selectedChar || 'eevee';
     this.player._applySize();
     this.cam.x = 0;
-    this.fireballs = []; this.bossShots = []; this.powerups = []; this._castleBossComplete = false; this._bridgeRemoved = false;
+    this.fireballs = []; this.bossShots = []; this.powerups = []; this._castleBossComplete = false; this._bridgeRemoved = false; this._catchCamLock = false;
     this._debris = []; this.scorePopups = [];
     this.area0AutoWalk = (world === 2 && level === 0)
                       || (world === 1 && level === 1 && sub === 0);

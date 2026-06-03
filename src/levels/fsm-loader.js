@@ -265,35 +265,37 @@ function processMacro(e, out) {
       break;
 
     case 'EndInsideCastle': {
+      // Castle floor height — Stone x:984, y:24, height:24 → top at GY-96 = 444
+      const FLOOR_Y  = GY - 24 * 4;  // 444 — matches the castle wall/floor height
       const bridgeX  = ux(x);
-      // Bridge: 10 tiles wide (boss walks here, over lava)
       const BRIDGE_W = T * 10;
-      // Stone floor to the right of bridge (solid path to Ultra Ball)
+      // Stone floor to the right of bridge — wide enough for Ultra Ball + Pikachu
       const floorX   = bridgeX + BRIDGE_W;
-      const FLOOR_W  = T * 8;
-      out.platforms.push(new Platform(floorX, GY, FLOOR_W, T * 4, COLORS.brick));
+      const FLOOR_W  = T * 12;
+      out.platforms.push(new Platform(floorX, FLOOR_Y, FLOOR_W, GY - FLOOR_Y + T, COLORS.brick));
 
-      // Floating platform in boss area — helps bypass boss from above
+      // Floating oscillating platform in boss area — helps bypass boss from above
       out.movingPlatforms.push(new MovingPlatform(
-        bridgeX + T * 3, GY - T * 4.5, T * 4, T / 2, 'x', 1.2, T * 5
+        bridgeX + T * 2, FLOOR_Y - T * 3, T * 4, T / 2, 'x', 1.2, T * 5
       ));
 
-      // Bridge platform — collapses when Ultra Ball is grabbed
-      const bridge = new Platform(bridgeX, GY, BRIDGE_W, T * 4, COLORS.brick);
+      // Bridge platform — visually distinct planks, collapses when Ultra Ball is grabbed
+      const bridge = new Platform(bridgeX, FLOOR_Y, BRIDGE_W, T, COLORS.brick);
       bridge.isBossBridge = true;
       out.platforms.push(bridge);
       out.bossBridgeX = bridgeX;
       out.bossBridgeW = BRIDGE_W;
+      out.bossBridgeY = FLOOR_Y;
 
-      // Boss starts on the bridge, paces its full width
-      const bossStartX = bridgeX + T;
-      out.castleBoss = new CastleBoss(bossStartX, GY, bridgeX, bridgeX + BRIDGE_W - T * 2);
+      // Boss patrols the bridge — starts toward the right end
+      const bossStartX = bridgeX + BRIDGE_W * 0.55;
+      out.castleBoss = new CastleBoss(bossStartX, FLOOR_Y, bridgeX, bridgeX + BRIDGE_W - T * 2);
 
-      // Ultra Ball sits on the stone floor to the right (far from bridge)
-      const ballX = floorX + T * 5;
-      out.bossAxe = new BossAxe(ballX, GY);
+      // Ultra Ball on the stone floor (6 tiles in from bridge end)
+      const ballX = floorX + T * 4;
+      out.bossAxe = new BossAxe(ballX, FLOOR_Y);
 
-      // Pikachu appears further right, player auto-walks to it
+      // Pikachu waits at far end of right floor
       out.pikachuX = floorX + FLOOR_W - T * 2;
 
       out.noFlagPole = true;
@@ -370,6 +372,7 @@ export function loadFSMLevel(jsonData, areaIndex = 0) {
     bossAxe:         null,
     bossBridgeX:     null,
     bossBridgeW:     null,
+    bossBridgeY:     null,
     pikachuX:        null,
   };
 
@@ -409,6 +412,7 @@ export function loadFSMLevel(jsonData, areaIndex = 0) {
     bossAxe:         out.bossAxe || null,
     bossBridgeX:     out.bossBridgeX,
     bossBridgeW:     out.bossBridgeW,
+    bossBridgeY:     out.bossBridgeY,
     pikachuX:        out.pikachuX || null,
     flagPole:        out.flagPole || null,
     pokeCenterX,

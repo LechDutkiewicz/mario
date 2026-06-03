@@ -31,7 +31,7 @@ export class CastleBoss {
   get stompable() { return false; }
 
   // Called when player touches the Ultra Ball — starts catch sequence
-  startCatch(ballX, ballY, bridgeX, bridgeW) {
+  startCatch(ballX, ballY, bridgeX, bridgeW, bridgeY) {
     if (this.defeated) return;
     this.defeated  = true;
     this.catching  = true;    // phase 1: ball flies toward boss
@@ -41,9 +41,9 @@ export class CastleBoss {
     this.catchTargetX = this.x + this.w / 2;
     this.catchTargetY = this.y + this.h / 2;
     this.vx = 0; this.vy = 0;
-    // Store bridge info for collapse after catch completes
     this._bridgeX = bridgeX;
     this._bridgeW = bridgeW;
+    this._bridgeY = bridgeY;
   }
 
   defeatByAxe(bridgeX, bridgeW) { this.startCatch(0, 0, bridgeX, bridgeW); }
@@ -54,7 +54,7 @@ export class CastleBoss {
     const segCount = Math.ceil(this._bridgeW / TILE);
     this.bridgeSegments = Array.from({ length: segCount }, (_, i) => ({
       x: this._bridgeX + i * TILE,
-      y: GROUND_Y,
+      y: this._bridgeY ?? GROUND_Y,
       vy: 0,
       delay: i * 4,
       gone: false,
@@ -140,15 +140,19 @@ export class CastleBoss {
   draw(r, cam) {
     const ctx = r.ctx;
 
-    // Draw falling bridge segments (below the boss)
+    // Draw falling/standing bridge segments as wooden planks
     if (this.bridgeSegments) {
-      ctx.fillStyle = '#8b7355';
       for (const s of this.bridgeSegments) {
         if (s.gone) continue;
         const bx = Math.floor(s.x - cam.x);
-        ctx.fillRect(bx, Math.floor(s.y), TILE, TILE / 4);
-        ctx.strokeStyle = '#5a4830'; ctx.lineWidth = 1;
-        ctx.strokeRect(bx, Math.floor(s.y), TILE, TILE / 4);
+        const by = Math.floor(s.y);
+        const pw = TILE, ph = 10;
+        ctx.fillStyle = '#8b6914';
+        ctx.fillRect(bx, by, pw, ph);
+        ctx.fillStyle = '#a07820';
+        ctx.fillRect(bx + 2, by + 1, pw - 4, 3);
+        ctx.strokeStyle = '#5a4010'; ctx.lineWidth = 1;
+        ctx.strokeRect(bx, by, pw, ph);
       }
     }
 
