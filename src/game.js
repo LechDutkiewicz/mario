@@ -216,8 +216,8 @@ export class Game {
     }
     if (this.state === STATE.CHAR_SELECT) {
       const chars = ['eevee', 'charmander', 'bulbasaur', 'piplup'];
-      if (input.justPressed('ArrowLeft')) this.charSelectIdx = (this.charSelectIdx + 2) % 3;
-      if (input.justPressed('ArrowRight')) this.charSelectIdx = (this.charSelectIdx + 1) % 3;
+      if (input.justPressed('ArrowLeft')) this.charSelectIdx = (this.charSelectIdx + chars.length - 1) % chars.length;
+      if (input.justPressed('ArrowRight')) this.charSelectIdx = (this.charSelectIdx + 1) % chars.length;
       if (input.justPressed('Enter') || input.justPressed('Space')) {
         this.selectedChar = chars[this.charSelectIdx];
         this.start();
@@ -303,11 +303,9 @@ export class Game {
       };
     }
 
-    // Lock player controls during catch camera pan
-    const effectiveInput = this._catchCamLock ? {} : activeInput;
-    p.update(effectiveInput, solids, this);
+    p.update(activeInput, solids, this);
 
-    if (!this._catchCamLock) this.cam.follow(p, lvl.width);
+    this.cam.follow(p, lvl.width);
 
     for (const q of lvl.qblocks) q.update();
 
@@ -414,17 +412,21 @@ export class Game {
     }
     if (boss && boss.dead) { this.state = STATE.WIN; return; }
 
-    // Camera pan to boss during catch animation (locks player control)
-    if (this._catchCamLock) {
-      this.cam.x += (this._catchCamTarget - this.cam.x) * 0.06;
-      if (Math.abs(this.cam.x - this._catchCamTarget) < 1) this.cam.x = this._catchCamTarget;
-    }
-
-    // Castle boss (Charizard — world 1-4)
+    // Castle boss (Gengar — world 1-4)
     const castleBoss = lvl.castleBoss;
     if (castleBoss && !castleBoss.dead) {
       castleBoss.update(solids, p, this);
       castleBoss.updateBridge();
+      // 5 fireballs defeat the boss (same as original SMB1 Bowser)
+      for (const fb of this.fireballs) {
+        if (!fb.dead && aabb(fb, castleBoss) && !castleBoss.defeated) {
+          fb.dead = true;
+          if (castleBoss.takeHit()) {
+            this.score += SCORE_BOSS;
+            this._spawnScorePopup(castleBoss.x + castleBoss.w / 2, castleBoss.y, SCORE_BOSS);
+          }
+        }
+      }
       // Release camera lock and remove bridge from solids when collapse starts
       if (castleBoss.bridgeCollapsing && !this._bridgeRemoved) {
         this._bridgeRemoved = true;
@@ -447,19 +449,14 @@ export class Game {
         this.walkToPC = true;
       }
     }
-    // Ultra Ball — touching it starts catch sequence
+    // Axe — touching it collapses the bridge and drops the boss into lava
     const bossAxe = lvl.bossAxe;
     if (bossAxe && !bossAxe.taken) {
       bossAxe.update();
       if (!p.dead && aabb(p, bossAxe)) {
         bossAxe.taken = true;
         if (castleBoss && !castleBoss.defeated) {
-          const ballCX = bossAxe.x + bossAxe.w / 2;
-          const ballCY = bossAxe.y + bossAxe.h / 2;
-          castleBoss.startCatch(ballCX, ballCY, lvl.bossBridgeX, lvl.bossBridgeW, lvl.bossBridgeY);
-          // Lock player and pan camera to boss for the catch animation
-          this._catchCamTarget = castleBoss.x - CANVAS_WIDTH * 0.5;
-          this._catchCamLock = true;
+          castleBoss.defeatByAxe(lvl.bossBridgeX, lvl.bossBridgeW, lvl.bossBridgeY);
           this.score += SCORE_BOSS * 2;
           this._spawnScorePopup(castleBoss.x + castleBoss.w / 2, castleBoss.y, SCORE_BOSS * 2);
         }

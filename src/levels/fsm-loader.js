@@ -290,6 +290,7 @@ function processMacro(e, out) {
       // Boss patrols the bridge — starts toward the right end
       const bossStartX = bridgeX + BRIDGE_W * 0.55;
       out.castleBoss = new CastleBoss(bossStartX, FLOOR_Y, bridgeX, bridgeX + BRIDGE_W - T * 2);
+      out.castleBoss.setBridgeCoords(bridgeX, BRIDGE_W, FLOOR_Y);
 
       // Ultra Ball on the stone floor (6 tiles in from bridge end)
       const ballX = floorX + T * 4;
