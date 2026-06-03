@@ -7,6 +7,15 @@ import {
 } from '../constants.js';
 import { resolveCollisions, aabb } from '../physics.js';
 
+// Sprite sheets for Charmander line — loaded once, shared across all instances
+const _charSprites = {};
+function _loadCharSprite(key, path) {
+  if (_charSprites[key]) return;
+  const img = new Image();
+  img.src = path;
+  _charSprites[key] = img;
+}
+
 export class Player {
   constructor(x, y) {
     this.startX = x;
@@ -520,13 +529,50 @@ export class Player {
   }
 
   _drawCharmander(ctx, w, h) {
+    const pw = this.power;
+    const moving = Math.abs(this.vx) > 0.3;
+
+    // Pick sprite sheet key based on power level
+    const key = pw === POWER.SMALL ? 'charmander' : pw === POWER.BIG ? 'charmeleon' : 'charizard';
+    _loadCharSprite(key, `src/assets/${key}%20walk%20cycle.png`);
+    const img = _charSprites[key];
+    if (!img || !img.complete || img.naturalWidth === 0) {
+      // Image not loaded yet — fall back to a simple orange rectangle placeholder
+      ctx.fillStyle = pw === POWER.FIRE ? '#f06020' : pw === POWER.BIG ? '#cc3018' : '#f06818';
+      ctx.fillRect(0, 0, w, h);
+      return;
+    }
+
+    const FRAME_W = img.naturalWidth / 3;   // 48px
+    const FRAME_H = img.naturalHeight;       // 48px
+
+    // Frame selection: 0=idle/step-a, 1=step-b, 2=step-c
+    // While walking alternate 0→1→2→1; while still use frame 0
+    let frame = 0;
+    if (moving) {
+      const cycle = Math.floor(this.animTimer / 8) % 4; // 0,1,2,3
+      frame = cycle === 0 ? 0 : cycle === 1 ? 1 : cycle === 2 ? 2 : 1;
+    }
+
+    // Scale sprite to fit player hitbox, preserving aspect ratio
+    const scale = Math.min(w / FRAME_W, h / FRAME_H);
+    const dw = FRAME_W * scale;
+    const dh = FRAME_H * scale;
+    const dx = (w - dw) / 2;
+    const dy = h - dh; // anchor to feet
+
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(img, frame * FRAME_W, 0, FRAME_W, FRAME_H, dx, dy, dw, dh);
+  }
+
+  _drawCharmanderOld(ctx, w, h) {
+    // (legacy procedural code kept for reference — not used)
     const pw   = this.power;
     const step = Math.abs(this.vx) > 0.3 ? Math.floor(this.animTimer / 8) % 2 : 0;
     const t    = Math.floor(this.animTimer / 5) % 4;
     const flick = t < 2 ? t : 4 - t;
     const OL   = '#111';
 
-    // Layered flame helper — draws at (fx, fy), scale s
     const flame = (fx, fy, s) => {
       ctx.fillStyle = '#c83000';
       ctx.beginPath(); ctx.ellipse(fx, fy, s*5, s*9+flick*s, 0, 0, Math.PI*2); ctx.fill();
