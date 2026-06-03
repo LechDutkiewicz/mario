@@ -39,6 +39,7 @@ export class Game {
     this._pendingArea = -1;
     this._pendingWorld1SubArea = -1;
     this.area0AutoWalk = false; // player auto-walks into entrance pipe
+    this._pipeEntry = null;    // { timer, dx, dy, callback } — pipe entry animation
     this.scorePopups = [];
     this._cachedBoard = this._loadLocalScores(); // show immediately from localStorage
     this._leaderboardLoading = false;
@@ -64,7 +65,7 @@ export class Game {
     this.fireballs  = [];
     this.bossShots  = [];
     this.powerups   = [];
-    this._castleBossComplete = false; this._bridgeRemoved = false; this._catchCamLock = false; this._lavaAnim = 0;
+    this._castleBossComplete = false; this._bridgeRemoved = false; this._catchCamLock = false; this._pipeEntry = null; this._lavaAnim = 0;
     if (fullReset) {
       this.score          = 0;
       this.lives          = 3;
@@ -311,7 +312,12 @@ export class Game {
       };
     }
 
-    p.update(activeInput, solids, this);
+    const pipeBlockedInput = this._pipeEntry ? {
+      left: false, right: false, down: false, run: false,
+      jump: false, jumpPressed: false, firePressed: false,
+      justPressed: () => false,
+    } : null;
+    p.update(pipeBlockedInput || activeInput, solids, this);
 
     this.cam.follow(p, lvl.width);
 
@@ -361,8 +367,8 @@ export class Game {
         }
       }
 
-      // Fireballs don't affect shells
-      if (!e.inShell) {
+      // Fireballs don't affect shells or already-dying enemies
+      if (!e.inShell && !e.dying) {
         for (const fb of this.fireballs) {
           if (!fb.dead && aabb(fb, e)) {
             fb.dead = true;
@@ -378,11 +384,20 @@ export class Game {
       if (!p.dead && aabb(p, e)) {
         const stomping = p.vy > 0 && (p.y + p.h) - e.y < 22;
         if (stomping && e.stompable && !stompedThisFrame) {
-          e.squash(); // squirtle enters/stops shell; others die
+          const wasInShell = e.inShell;
+          e.squash(); // squirtle: enter shell or stop sliding; others die
           p.vy = -8;
           stompedThisFrame = true;
-          this.score += SCORE_STOMP;
-          this._spawnScorePopup(e.x + e.w / 2, e.y, SCORE_STOMP);
+          if (!wasInShell) {
+            // First stomp: enter shell and immediately kick it away from player
+            if (e.type === 'squirtle') {
+              const kickDir = (p.x + p.w / 2 < e.x + e.w / 2) ? 1 : -1;
+              e.kickShell(kickDir);
+            }
+            this.score += SCORE_STOMP;
+            this._spawnScorePopup(e.x + e.w / 2, e.y, SCORE_STOMP);
+          }
+          // Stomping an already-sliding shell: stop it (squash handles it), no extra points
         } else if (!stomping) {
           if (e.type === 'squirtle' && e.inShell && !e.shellSliding) {
             // Kick sitting shell
@@ -501,17 +516,37 @@ export class Game {
     }
     if (lvl.plants) lvl.plants = lvl.plants.filter(pl => !pl.dead);
 
+    // Pipe entry animation tick (vertical or horizontal)
+    if (this._pipeEntry) {
+      const pe = this._pipeEntry;
+      p.vx = pe.dx;
+      p.vy = 0;
+      p.x += pe.dx;
+      p.y += pe.dy;
+      pe.timer--;
+      if (pe.timer <= 0) {
+        pe.callback();
+        this._pipeEntry = null;
+      }
+      // Skip normal physics/input this frame
+    }
+
     // Pipe entry / exit — player presses DOWN on enterable pipe
-    if (input.down && p.onGround && this.areaTransTimer === 0) {
+    if (!this._pipeEntry && input.down && p.onGround && this.areaTransTimer === 0) {
       for (const pl of lvl.platforms) {
         if (pl.enterable && !pl.isExit) {
           if (p.x + p.w > pl.x && p.x < pl.x + pl.w &&
               Math.abs((p.y + p.h) - pl.y) < 8) {
-            if (this.world === 2 && pl.leadsToArea !== undefined) {
-              this._startAreaTransition(pl.leadsToArea);
-            } else if (this.world === 1) {
-              this._handleWorld1PipeEntry(pl);
-            }
+            // Vertical pipe: slide player downward into pipe before transitioning
+            p.vx = 0;
+            const callback = () => {
+              if (this.world === 2 && pl.leadsToArea !== undefined) {
+                this._startAreaTransition(pl.leadsToArea);
+              } else if (this.world === 1) {
+                this._handleWorld1PipeEntry(pl);
+              }
+            };
+            this._pipeEntry = { timer: 28, dx: 0, dy: 2.5, callback };
             break;
           }
         }
@@ -529,12 +564,14 @@ export class Game {
     }
 
     // Horizontal pipe exits — player walks rightward into the pipe zone
-    if (lvl.hPipeExits && lvl.hPipeExits.length > 0 && this.areaTransTimer === 0 && !p.dead) {
+    if (!this._pipeEntry && lvl.hPipeExits && lvl.hPipeExits.length > 0 && this.areaTransTimer === 0 && !p.dead) {
       for (const hp of lvl.hPipeExits) {
         if (p.x + p.w >= hp.x && p.x < hp.x + TILE * 2 &&
             p.y + p.h > hp.y - TILE * 2 && p.y < hp.y + TILE * 2 &&
             p.vx > 0) {
-          this._handleWorld1PipeEntry({ transportId: hp.transportId });
+          // Horizontal: slide player rightward into pipe before transitioning
+          const tid = hp.transportId;
+          this._pipeEntry = { timer: 22, dx: 2.5, dy: 0, callback: () => this._handleWorld1PipeEntry({ transportId: tid }) };
           break;
         }
       }
@@ -706,7 +743,7 @@ export class Game {
     this.player.char = this.selectedChar || 'eevee';
     this.player._applySize();
     this.cam.x = Math.max(0, spawnX - 200);
-    this.fireballs = []; this.bossShots = []; this.powerups = []; this._castleBossComplete = false; this._bridgeRemoved = false; this._catchCamLock = false;
+    this.fireballs = []; this.bossShots = []; this.powerups = []; this._castleBossComplete = false; this._bridgeRemoved = false; this._catchCamLock = false; this._pipeEntry = null;
     this._debris = [];
   }
 
@@ -721,7 +758,7 @@ export class Game {
     this.player.char = this.selectedChar || 'eevee';
     this.player._applySize();
     this.cam.x = 0;
-    this.fireballs = []; this.bossShots = []; this.powerups = []; this._castleBossComplete = false; this._bridgeRemoved = false; this._catchCamLock = false;
+    this.fireballs = []; this.bossShots = []; this.powerups = []; this._castleBossComplete = false; this._bridgeRemoved = false; this._catchCamLock = false; this._pipeEntry = null;
     this._debris = [];
   }
 
@@ -832,7 +869,7 @@ export class Game {
     if (lvl.pikachuX != null) {
       const pikX = Math.floor(lvl.pikachuX - this.cam.x);
       const pikY = (lvl.bossBridgeY ?? GROUND_Y) - 4;
-      this._drawPikachu(this.ctx, pikX, pikY, 0.45);
+      this._drawPikachu(this.ctx, pikX, pikY, 0.3);
     }
     for (const bar of (lvl.fireBars || [])) bar.draw(r, this.cam);
     for (const fb of this.fireballs) fb.draw(r, this.cam);
@@ -1111,7 +1148,7 @@ export class Game {
     this.player.char = this.selectedChar || 'eevee';
     this.player._applySize();
     this.cam.x = 0;
-    this.fireballs = []; this.bossShots = []; this.powerups = []; this._castleBossComplete = false; this._bridgeRemoved = false; this._catchCamLock = false;
+    this.fireballs = []; this.bossShots = []; this.powerups = []; this._castleBossComplete = false; this._bridgeRemoved = false; this._catchCamLock = false; this._pipeEntry = null;
     this._debris = []; this.scorePopups = [];
     this.area0AutoWalk = (world === 2 && level === 0)
                       || (world === 1 && level === 1 && sub === 0);

@@ -11,7 +11,7 @@ export class CastleBoss {
     this.h = 60;
     this.x = x;
     this.y = y - this.h;
-    this.vx = -1.5;
+    this.vx = -1.0;
     this.vy = 0;
     this.leftBound = leftBound;
     this.rightBound = rightBound;
@@ -108,7 +108,7 @@ export class CastleBoss {
     // Periodic jump
     this.jumpTimer--;
     if (this.jumpTimer <= 0 && this.onGround) {
-      this.vy = -8;
+      this.vy = -6.5;
       this.jumpTimer = 150 + Math.floor(Math.random() * 60);
     }
 
