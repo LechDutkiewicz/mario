@@ -223,7 +223,7 @@ export class Game {
       return;
     }
     if (this.state === STATE.CHAR_SELECT) {
-      const chars = ['eevee', 'charmander', 'bulbasaur', 'piplup'];
+      const chars = ['eevee', 'bulbasaur', 'piplup'];
       if (input.justPressed('ArrowLeft')) this.charSelectIdx = (this.charSelectIdx + chars.length - 1) % chars.length;
       if (input.justPressed('ArrowRight')) this.charSelectIdx = (this.charSelectIdx + 1) % chars.length;
       if (input.justPressed('Enter') || input.justPressed('Space')) {
@@ -892,39 +892,7 @@ export class Game {
     }
     // Draw horizontal pipe exit sections — opening (cap) on LEFT, body extends RIGHT to vertical pipe
     for (const hp of (lvl.hPipeExits || [])) {
-      const ctx2 = this.ctx;
-      const BODY_H = TILE * 2;          // pipe body height (2 tiles)
-      const CAP_H  = BODY_H + 10;      // cap (rim) slightly taller
-      const CAP_W  = TILE;             // cap width (1 tile)
-      const BODY_W = TILE * 2;         // body extends 2 tiles right to vertical pipe
-
-      const openX  = Math.floor(hp.x - this.cam.x);  // left edge = player entry point
-      const bodyTop = Math.floor(hp.y);               // hp.y = top of pipe body in screen coords
-      const capTop  = bodyTop - Math.floor((CAP_H - BODY_H) / 2);
-
-      // Body (extends right from cap)
-      ctx2.fillStyle = '#186018';
-      ctx2.fillRect(openX + CAP_W, bodyTop, BODY_W, BODY_H);
-      ctx2.fillStyle = '#1e7a1e';
-      ctx2.fillRect(openX + CAP_W, bodyTop + 3, BODY_W, 6);
-      ctx2.fillStyle = '#0f4010';
-      ctx2.fillRect(openX + CAP_W, bodyTop + BODY_H - 7, BODY_W, 5);
-      // Body right edge (closed — meets vertical pipe)
-      ctx2.fillStyle = '#0f4010';
-      ctx2.fillRect(openX + CAP_W + BODY_W - 5, bodyTop, 5, BODY_H);
-
-      // Cap (the wider rim on the LEFT — the opening the player enters)
-      ctx2.fillStyle = '#2a9e2a';
-      ctx2.fillRect(openX, capTop, CAP_W, CAP_H);
-      ctx2.fillStyle = '#3ab83a';
-      ctx2.fillRect(openX, capTop + 3, CAP_W, 6);
-      ctx2.fillStyle = '#186018';
-      ctx2.fillRect(openX, capTop + CAP_H - 7, CAP_W, 5);
-
-      ctx2.strokeStyle = '#0a2e0a'; ctx2.lineWidth = 1.5;
-      ctx2.strokeRect(openX, capTop, CAP_W, CAP_H);
-      ctx2.strokeRect(openX + CAP_W, bodyTop, BODY_W, BODY_H);
-      ctx2.lineWidth = 1;
+      this._drawHPipeCap(hp);
     }
     if (lvl.flagPole)                lvl.flagPole.draw(r, this.cam);
     if (lvl.pokeShopX != null)   this._drawPokeShopBuilding(lvl.pokeShopX);
@@ -934,6 +902,10 @@ export class Game {
     // During pipe entry, redraw the pipe cap on top of the player so they appear to sink in
     if (this._pipeEntry?.pipe) {
       this._pipeEntry.pipe.draw(r, this.cam);
+    }
+    // During horizontal pipe entry, redraw cap over the player so player disappears inside
+    if (this._pipeEntry?.hPipe) {
+      this._drawHPipeCap(this._pipeEntry.hPipe);
     }
 
     this._drawHUD();
@@ -1260,6 +1232,46 @@ export class Game {
     ctx.fillStyle = '#b0e0ff';
     ctx.fillText('Press ENTER to play again', CANVAS_WIDTH / 2, 420);
     ctx.textAlign = 'left';
+  }
+
+  _drawHPipeCap(hp) {
+    const ctx2 = this.ctx;
+    const BODY_H = TILE * 2;
+    const CAP_H  = BODY_H + 10;
+    const CAP_W  = TILE;
+    const BODY_W = TILE * 2;
+    const HOLE_W = 10;  // dark tunnel opening on the left face
+
+    const openX   = Math.floor(hp.x - this.cam.x);
+    const bodyTop = Math.floor(hp.y);
+    const capTop  = bodyTop - Math.floor((CAP_H - BODY_H) / 2);
+
+    // Body (extends right from cap)
+    ctx2.fillStyle = '#186018';
+    ctx2.fillRect(openX + CAP_W, bodyTop, BODY_W, BODY_H);
+    ctx2.fillStyle = '#1e7a1e';
+    ctx2.fillRect(openX + CAP_W, bodyTop + 3, BODY_W, 6);
+    ctx2.fillStyle = '#0f4010';
+    ctx2.fillRect(openX + CAP_W, bodyTop + BODY_H - 7, BODY_W, 5);
+    ctx2.fillStyle = '#0f4010';
+    ctx2.fillRect(openX + CAP_W + BODY_W - 5, bodyTop, 5, BODY_H);
+
+    // Cap rim
+    ctx2.fillStyle = '#2a9e2a';
+    ctx2.fillRect(openX, capTop, CAP_W, CAP_H);
+    ctx2.fillStyle = '#3ab83a';
+    ctx2.fillRect(openX, capTop + 3, CAP_W, 6);
+    ctx2.fillStyle = '#186018';
+    ctx2.fillRect(openX, capTop + CAP_H - 7, CAP_W, 5);
+
+    // Dark tunnel opening on the right face of the cap (where player enters)
+    ctx2.fillStyle = '#071a07';
+    ctx2.fillRect(openX + CAP_W - HOLE_W, bodyTop + 2, HOLE_W, BODY_H - 4);
+
+    ctx2.strokeStyle = '#0a2e0a'; ctx2.lineWidth = 1.5;
+    ctx2.strokeRect(openX, capTop, CAP_W, CAP_H);
+    ctx2.strokeRect(openX + CAP_W, bodyTop, BODY_W, BODY_H);
+    ctx2.lineWidth = 1;
   }
 
   _drawPokeCenterBuilding(worldX) {
