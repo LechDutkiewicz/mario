@@ -427,10 +427,9 @@ export class Game {
           }
         }
       }
-      // Release camera lock and remove bridge from solids when collapse starts
-      if (castleBoss.bridgeCollapsing && !this._bridgeRemoved) {
+      // Remove bridge from solids only when axe was used (not fireball kill)
+      if (castleBoss.bridgeCollapsing && castleBoss.bridgeDestroyed && !this._bridgeRemoved) {
         this._bridgeRemoved = true;
-        this._catchCamLock = false;
         lvl.platforms = lvl.platforms.filter(pl => !pl.isBossBridge);
       }
       // Boss hurts player on contact but is NOT stompable

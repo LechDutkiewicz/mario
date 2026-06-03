@@ -31,21 +31,25 @@ export class CastleBoss {
 
   get stompable() { return false; }
 
-  // Returns true if this hit was the killing blow
+  // Returns true if this hit was the killing blow (fireballs — bridge stays intact)
   takeHit() {
     if (this.defeated) return false;
     this._hp--;
     if (this._hp <= 0) {
-      this.defeatByAxe(this._bridgeX, this._bridgeW, this._bridgeY);
+      this.defeated = true;
+      this.bridgeCollapsing = true; // triggers fall physics; bridgeDestroyed=false → bridge stays
+      this.bridgeDestroyed = false;
+      this.deathTimer = 180;
       return true;
     }
     return false;
   }
 
-  // Called when player touches the axe
+  // Called when player touches the axe — collapses the bridge
   defeatByAxe(bridgeX, bridgeW, bridgeY) {
     if (this.defeated) return;
     this.defeated = true;
+    this.bridgeDestroyed = true; // signal game.js to remove bridge from solids
     this._bridgeX = bridgeX;
     this._bridgeW = bridgeW;
     this._bridgeY = bridgeY;
