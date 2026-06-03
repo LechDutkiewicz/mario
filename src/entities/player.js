@@ -655,92 +655,130 @@ export class Player {
       ctx.fillStyle = DARK; ctx.beginPath(); ctx.ellipse(w*0.94, h*0.3, 2, 1.5, 0, 0, Math.PI*2); ctx.fill();
 
     } else {
-      // Charizard — large, wings, two horns
-      const BODY = '#f05020'; const DARK = '#c03818'; const CREAM = '#f8e090'; const WING = '#1a7040'; const CLAW = '#f0f0b0';
+      // Charizard — upright dragon, large teal wings, slim tail, angular head
+      const BODY = '#f06020'; const DARK = '#c03010'; const CREAM = '#f0d858'; const WING = '#1a7040'; const CLAW = '#e8e8a0'; const WING_INNER = '#2a9058';
 
-      // Wings (behind body, fan out left and up)
+      // === WINGS (drawn first — behind everything) ===
+      // Left wing: large, sweeps up and back, 3 finger spikes
       ctx.fillStyle = WING;
-      // Left/back wing
       ctx.beginPath();
-      ctx.moveTo(w*0.24, h*0.38);
-      ctx.bezierCurveTo(w*(-0.2), h*0.1, w*(-0.3), h*0.4, w*(-0.05), h*0.62);
-      ctx.bezierCurveTo(w*0.08, h*0.62, w*0.18, h*0.56, w*0.24, h*0.48);
+      ctx.moveTo(w*0.42, h*0.28);           // wing root at shoulder
+      ctx.bezierCurveTo(w*0.1, h*(-0.3), w*(-0.4), h*(-0.1), w*(-0.35), h*0.35); // top arc
+      ctx.bezierCurveTo(w*(-0.2), h*0.55, w*0.1, h*0.6, w*0.38, h*0.52);         // bottom arc
       ctx.closePath(); ctx.fill(); ctx.strokeStyle=OL; ctx.lineWidth=1.5; ctx.stroke();
+      // Wing membrane highlights (inner lighter teal)
+      ctx.fillStyle = WING_INNER;
+      ctx.beginPath();
+      ctx.moveTo(w*0.38, h*0.35);
+      ctx.bezierCurveTo(w*0.12, h*(-0.18), w*(-0.22), h*0.02, w*(-0.2), h*0.38);
+      ctx.bezierCurveTo(w*0.0, h*0.5, w*0.2, h*0.52, w*0.35, h*0.46);
+      ctx.closePath(); ctx.fill();
+      // Wing finger spikes (3 dark points along top edge)
+      ctx.fillStyle = DARK;
+      const wpts = [[w*(-0.32), h*(-0.02)], [w*(-0.14), h*(-0.2)], [w*0.06, h*(-0.22)]];
+      for (const [px2,py2] of wpts) {
+        ctx.beginPath(); ctx.moveTo(px2-6, py2+12); ctx.lineTo(px2, py2-10); ctx.lineTo(px2+6, py2+12); ctx.closePath(); ctx.fill();
+      }
       // Wing ribs
       ctx.strokeStyle = '#155830'; ctx.lineWidth = 1;
-      ctx.beginPath(); ctx.moveTo(w*0.22, h*0.42); ctx.bezierCurveTo(w*(-0.12), h*0.2, w*(-0.2), h*0.42, w*(-0.04), h*0.56); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(w*0.18, h*0.46); ctx.bezierCurveTo(w*(-0.2), h*0.3, w*(-0.24), h*0.48, w*(-0.07), h*0.6); ctx.stroke();
-      // Right/front wing (partially visible)
+      ctx.beginPath(); ctx.moveTo(w*0.40, h*0.38); ctx.bezierCurveTo(w*0.0, h*0.1, w*(-0.25), h*0.24, w*(-0.22), h*0.42); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(w*0.38, h*0.44); ctx.bezierCurveTo(w*0.1, h*0.26, w*(-0.14), h*0.34, w*(-0.16), h*0.46); ctx.stroke();
+
+      // Right (near) wing — smaller, partially behind body
       ctx.fillStyle = WING;
       ctx.beginPath();
-      ctx.moveTo(w*0.38, h*0.32);
-      ctx.bezierCurveTo(w*0.2, h*0.0, w*0.08, h*0.1, w*0.1, h*0.38);
-      ctx.bezierCurveTo(w*0.2, h*0.42, w*0.32, h*0.38, w*0.38, h*0.36);
+      ctx.moveTo(w*0.62, h*0.28);
+      ctx.bezierCurveTo(w*0.9, h*(-0.18), w*1.2, h*0.0, w*1.1, h*0.38);
+      ctx.bezierCurveTo(w*0.96, h*0.52, w*0.78, h*0.5, w*0.64, h*0.48);
       ctx.closePath(); ctx.fill(); ctx.strokeStyle=OL; ctx.lineWidth=1; ctx.stroke();
+      ctx.fillStyle = WING_INNER;
+      ctx.beginPath();
+      ctx.moveTo(w*0.64, h*0.34);
+      ctx.bezierCurveTo(w*0.88, h*(-0.06), w*1.06, h*0.08, w*1.0, h*0.38);
+      ctx.bezierCurveTo(w*0.9, h*0.46, w*0.76, h*0.46, w*0.66, h*0.44);
+      ctx.closePath(); ctx.fill();
 
-      // Tail — thick, curves left then up
-      ctx.strokeStyle = DARK; ctx.lineWidth = 10; ctx.lineCap = 'round';
-      ctx.beginPath(); ctx.moveTo(w*0.3, h*0.78); ctx.quadraticCurveTo(w*(-0.04), h*0.72, w*(-0.02), h*0.5); ctx.stroke();
-      ctx.strokeStyle = OL; ctx.lineWidth = 1.5;
-      ctx.beginPath(); ctx.moveTo(w*0.3, h*0.78); ctx.quadraticCurveTo(w*(-0.04), h*0.72, w*(-0.02), h*0.5); ctx.stroke();
-      flame(w*(-0.02), h*0.42, 1.1);
+      // === TAIL — slim, curves backward (left), orange tip ===
+      ctx.strokeStyle = BODY; ctx.lineWidth = 7; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(w*0.28, h*0.82); ctx.quadraticCurveTo(w*(-0.08), h*0.78, w*(-0.1), h*0.56); ctx.stroke();
+      ctx.strokeStyle = DARK; ctx.lineWidth = 5;
+      ctx.beginPath(); ctx.moveTo(w*0.25, h*0.82); ctx.quadraticCurveTo(w*(-0.06), h*0.77, w*(-0.08), h*0.57); ctx.stroke();
+      ctx.strokeStyle = OL; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(w*0.28, h*0.82); ctx.quadraticCurveTo(w*(-0.08), h*0.78, w*(-0.1), h*0.56); ctx.stroke();
+      flame(w*(-0.1), h*0.48, 0.95);
 
-      // Hind legs with claws
+      // === LEGS ===
+      // Hind left leg
       ctx.fillStyle = BODY;
-      ctx.beginPath(); ctx.ellipse(w*(0.3+step*0.04), h*0.86, w*0.12, h*0.12, 0.1, 0, Math.PI*2);
+      ctx.beginPath(); ctx.moveTo(w*(0.28+step*0.03), h*0.78); ctx.lineTo(w*(0.22+step*0.03), h*0.97); ctx.lineTo(w*(0.38+step*0.03), h*0.97); ctx.lineTo(w*(0.42+step*0.03), h*0.78); ctx.closePath();
+      ctx.fill(); ctx.strokeStyle=OL; ctx.lineWidth=1.5; ctx.stroke();
+      // Hind claws
+      ctx.fillStyle = CLAW;
+      for (let i=0;i<3;i++) ctx.fillRect(w*0.2+i*6+step*2, h*0.97, 5, 7);
+
+      // Hind right leg
+      ctx.fillStyle = BODY;
+      ctx.beginPath(); ctx.moveTo(w*(0.56-step*0.03), h*0.78); ctx.lineTo(w*(0.52-step*0.03), h*0.97); ctx.lineTo(w*(0.68-step*0.03), h*0.97); ctx.lineTo(w*(0.7-step*0.03), h*0.78); ctx.closePath();
       ctx.fill(); ctx.strokeStyle=OL; ctx.lineWidth=1.5; ctx.stroke();
       ctx.fillStyle = CLAW;
-      ctx.fillRect(w*0.22+step*2, h*0.945, 5, 8); ctx.fillRect(w*0.3+step*2, h*0.945, 5, 8); ctx.fillRect(w*0.38+step*2, h*0.945, 5, 8);
+      for (let i=0;i<3;i++) ctx.fillRect(w*0.5+i*6-step*2, h*0.97, 5, 7);
 
-      // Body
+      // === BODY — upright, slightly pear-shaped ===
       ctx.fillStyle = BODY;
-      ctx.beginPath(); ctx.ellipse(w*0.52, h*0.58, w*0.4, h*0.28, 0, 0, Math.PI*2);
+      ctx.beginPath(); ctx.ellipse(w*0.5, h*0.62, w*0.34, h*0.26, 0, 0, Math.PI*2);
       ctx.fill(); ctx.strokeStyle=OL; ctx.lineWidth=1.5; ctx.stroke();
-      // Cream belly with ridges
+
+      // Cream belly — large oval, characteristic Charizard feature
       ctx.fillStyle = CREAM;
-      ctx.beginPath(); ctx.ellipse(w*0.64, h*0.61, w*0.22, h*0.21, 0.15, 0, Math.PI*2); ctx.fill();
-      ctx.strokeStyle = '#e0c070'; ctx.lineWidth = 1;
-      for (let i=0; i<4; i++) { ctx.beginPath(); ctx.ellipse(w*0.64, h*(0.54+i*0.05), w*(0.17-i*0.03), h*0.02, 0, 0, Math.PI*2); ctx.stroke(); }
+      ctx.beginPath(); ctx.ellipse(w*0.53, h*0.65, w*0.24, h*0.2, 0, 0, Math.PI*2); ctx.fill();
 
-      // Front leg
+      // Arms (short, T-rex style, pointing forward-right)
       ctx.fillStyle = BODY;
-      ctx.beginPath(); ctx.ellipse(w*(0.72-step*0.04), h*0.86, w*0.12, h*0.12, -0.1, 0, Math.PI*2);
+      ctx.beginPath(); ctx.moveTo(w*0.72, h*0.54); ctx.lineTo(w*0.88, h*0.58); ctx.lineTo(w*0.84, h*0.66); ctx.lineTo(w*0.68, h*0.62); ctx.closePath();
       ctx.fill(); ctx.strokeStyle=OL; ctx.lineWidth=1.5; ctx.stroke();
       ctx.fillStyle = CLAW;
-      ctx.fillRect(w*0.66-step*2, h*0.945, 5, 8); ctx.fillRect(w*0.73-step*2, h*0.945, 5, 8); ctx.fillRect(w*0.8-step*2, h*0.945, 5, 8);
+      ctx.fillRect(w*0.88, h*0.58, 4, 8); ctx.fillRect(w*0.93, h*0.57, 4, 8);
 
-      // Arm
+      // === NECK — connects to angular dragon head ===
       ctx.fillStyle = BODY;
-      ctx.beginPath(); ctx.ellipse(w*0.78, h*0.52, w*0.1, h*0.07, 0.5, 0, Math.PI*2);
-      ctx.fill(); ctx.strokeStyle=OL; ctx.lineWidth=1.5; ctx.stroke();
-      ctx.fillStyle = CLAW;
-      ctx.fillRect(w*0.84, h*0.57, 4, 8); ctx.fillRect(w*0.9, h*0.57, 4, 8);
-
-      // Neck
-      ctx.fillStyle = BODY;
-      ctx.beginPath(); ctx.ellipse(w*0.68, h*0.38, w*0.18, h*0.1, -0.2, 0, Math.PI*2);
+      ctx.beginPath(); ctx.ellipse(w*0.58, h*0.42, w*0.14, h*0.14, -0.15, 0, Math.PI*2);
       ctx.fill(); ctx.strokeStyle=OL; ctx.lineWidth=1.5; ctx.stroke();
 
-      // Head — broad dragon head
+      // === HEAD — angular dragon, flat on top, broad snout ===
+      // Skull (flat top)
       ctx.fillStyle = BODY;
-      ctx.beginPath(); ctx.ellipse(w*0.76, h*0.22, w*0.23, h*0.18, 0, 0, Math.PI*2);
-      ctx.fill(); ctx.strokeStyle=OL; ctx.lineWidth=1.5; ctx.stroke();
-      // Snout
+      ctx.beginPath();
+      ctx.moveTo(w*0.44, h*0.36);      // top-left
+      ctx.lineTo(w*0.76, h*0.32);      // top-right
+      ctx.lineTo(w*0.82, h*0.16);      // right-top (snout rises)
+      ctx.bezierCurveTo(w*0.78, h*0.06, w*0.56, h*0.06, w*0.44, h*0.14);
+      ctx.closePath(); ctx.fill(); ctx.strokeStyle=OL; ctx.lineWidth=1.5; ctx.stroke();
+
+      // Snout — flat, wide, extends right
       ctx.fillStyle = DARK;
-      ctx.beginPath(); ctx.ellipse(w*0.94, h*0.26, w*0.07, h*0.07, 0, 0, Math.PI*2);
+      ctx.beginPath();
+      ctx.moveTo(w*0.66, h*0.22);
+      ctx.lineTo(w*0.98, h*0.24);      // snout tip right
+      ctx.lineTo(w*1.0, h*0.34);       // lower jaw
+      ctx.lineTo(w*0.66, h*0.36);
+      ctx.closePath(); ctx.fill(); ctx.strokeStyle=OL; ctx.lineWidth=1; ctx.stroke();
+      // Nostril
+      ctx.fillStyle = '#1a0808'; ctx.beginPath(); ctx.ellipse(w*0.94, h*0.27, 2, 1.5, 0, 0, Math.PI*2); ctx.fill();
+
+      // Two horns pointing BACKWARD (not up) — characteristic Charizard
+      ctx.fillStyle = '#c0a840';
+      // Front horn (lower on head)
+      ctx.beginPath(); ctx.moveTo(w*0.64, h*0.12); ctx.lineTo(w*0.44, h*0.06); ctx.lineTo(w*0.62, h*0.2); ctx.closePath();
       ctx.fill(); ctx.strokeStyle=OL; ctx.lineWidth=1; ctx.stroke();
-      ctx.fillStyle = '#000'; ctx.beginPath(); ctx.ellipse(w*0.96, h*0.24, 1.5, 1.2, 0, 0, Math.PI*2); ctx.fill();
+      // Back horn (higher)
+      ctx.beginPath(); ctx.moveTo(w*0.56, h*0.08); ctx.lineTo(w*0.34, h*0.0); ctx.lineTo(w*0.52, h*0.16); ctx.closePath();
+      ctx.fill(); ctx.strokeStyle=OL; ctx.lineWidth=1; ctx.stroke();
 
-      // Two horns
-      ctx.fillStyle = '#c0b060';
-      ctx.beginPath(); ctx.moveTo(w*0.7, h*0.1); ctx.lineTo(w*0.62, h*(-0.06)); ctx.lineTo(w*0.76, h*0.12); ctx.closePath(); ctx.fill(); ctx.strokeStyle=OL; ctx.lineWidth=1; ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(w*0.78, h*0.08); ctx.lineTo(w*0.72, h*(-0.06)); ctx.lineTo(w*0.84, h*0.1); ctx.closePath(); ctx.fill(); ctx.strokeStyle=OL; ctx.lineWidth=1; ctx.stroke();
-
-      // Eye
-      ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.ellipse(w*0.84, h*0.2, 4, 5, -0.2, 0, Math.PI*2); ctx.fill();
-      ctx.fillStyle = '#ff8800'; ctx.beginPath(); ctx.ellipse(w*0.85, h*0.21, 2, 2.5, 0, 0, Math.PI*2); ctx.fill();
-      ctx.fillStyle = '#000'; ctx.beginPath(); ctx.ellipse(w*0.85, h*0.215, 1, 1.2, 0, 0, Math.PI*2); ctx.fill();
-      ctx.fillStyle = '#fff'; ctx.fillRect(w*0.84, h*0.17, 1.5, 1.5);
+      // Eye — orange iris, small
+      ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.ellipse(w*0.72, h*0.18, 5, 5.5, -0.2, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = '#ff8800'; ctx.beginPath(); ctx.ellipse(w*0.72, h*0.19, 3, 3.5, 0, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = '#000'; ctx.beginPath(); ctx.ellipse(w*0.73, h*0.20, 1.5, 1.8, 0, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = '#fff'; ctx.fillRect(w*0.71, h*0.155, 1.5, 1.5);
     }
   }
 
