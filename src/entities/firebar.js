@@ -7,7 +7,7 @@ export class FireBar {
     this.angle = Math.random() * Math.PI * 2;
     // speed param in FSM is arbitrary; map to radians/frame
     // negative speed = clockwise (in screen coords, +y is down)
-    this.angularVel = direction * 0.045 * (Math.abs(speed) || 1) * (speed < 0 ? -1 : 1);
+    this.angularVel = direction * 0.07 * (Math.abs(speed) || 1) * (speed < 0 ? -1 : 1);
     this.SPACING = 14; // px between each fireball
   }
 

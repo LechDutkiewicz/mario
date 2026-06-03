@@ -426,22 +426,28 @@ export class Game {
       if (!p.dead && !castleBoss.defeated && aabb(p, castleBoss)) {
         this._hurtPlayer();
       }
-      // Boss dead → show ending
+      // Boss dead → player auto-walks to Pikachu
       if (castleBoss.dead && !this._castleBossComplete) {
         this._castleBossComplete = true;
-        this.score += SCORE_BOSS * 2;
-        this._endingTimer = 0;
-        this.state = STATE.ENDING;
+        this.music.stop();
+        this._playEndJingle();
+        // Walk to pikachuX or a fixed spot right of the bridge
+        const destX = (lvl.pikachuX ?? castleBoss.x + 400) + 60;
+        this.pcEnterX = destX;
+        p.walkToPC = true;
+        this.walkToPC = true;
       }
     }
-    // Boss axe — touching it defeats boss and collapses bridge
+    // Ultra Ball — touching it starts catch sequence
     const bossAxe = lvl.bossAxe;
     if (bossAxe && !bossAxe.taken) {
       bossAxe.update();
       if (!p.dead && aabb(p, bossAxe)) {
         bossAxe.taken = true;
         if (castleBoss && !castleBoss.defeated) {
-          castleBoss.defeatByAxe(lvl.bossBridgeX, lvl.bossBridgeW);
+          const ballCX = bossAxe.x + bossAxe.w / 2;
+          const ballCY = bossAxe.y + bossAxe.h / 2;
+          castleBoss.startCatch(ballCX, ballCY, lvl.bossBridgeX, lvl.bossBridgeW);
           this.score += SCORE_BOSS * 2;
           this._spawnScorePopup(castleBoss.x + castleBoss.w / 2, castleBoss.y, SCORE_BOSS * 2);
         }
@@ -589,11 +595,10 @@ export class Game {
           this.resetLevel(false);
           this.music.start();
         } else if (this.world === 1 && this.world1Level === 3) {
-          // All of world 1 done — proceed to world 2
-          this.world = 2;
-          this.world2Area = 0;
-          this.resetLevel(false);
-          this.music.start();
+          // All of world 1 done — show Pikachu ending
+          this._endingTimer = 0;
+          this.state = STATE.ENDING;
+          return;
         } else if (this.world === 2 && this.world2Area === 1) {
           this._doAreaTransition(2);
         } else if (this.world === 2) {
@@ -767,6 +772,11 @@ export class Game {
     if (lvl.boss && !lvl.boss.dead)  lvl.boss.draw(r, this.cam);
     if (lvl.castleBoss) lvl.castleBoss.draw(r, this.cam);
     if (lvl.bossAxe && !lvl.bossAxe.taken) lvl.bossAxe.draw(r, this.cam);
+    // Pikachu waiting at end of castle
+    if (lvl.pikachuX != null) {
+      const pikX = Math.floor(lvl.pikachuX - this.cam.x);
+      this._drawPikachu(this.ctx, pikX, GROUND_Y - 4, 0.7);
+    }
     for (const bar of (lvl.fireBars || [])) bar.draw(r, this.cam);
     for (const fb of this.fireballs) fb.draw(r, this.cam);
     for (const bs of this.bossShots) bs.draw(r, this.cam);

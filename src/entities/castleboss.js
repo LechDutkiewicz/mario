@@ -30,19 +30,33 @@ export class CastleBoss {
 
   get stompable() { return false; }
 
-  defeatByAxe(bridgeX, bridgeW) {
+  // Called when player touches the Ultra Ball — starts catch sequence
+  startCatch(ballX, ballY, bridgeX, bridgeW) {
     if (this.defeated) return;
-    this.defeated = true;
-    this.vx = 0;
-    this.vy = 0;
+    this.defeated  = true;
+    this.catching  = true;    // phase 1: ball flies toward boss
+    this.catchTimer = 0;
+    this.catchBallX = ballX;
+    this.catchBallY = ballY;
+    this.catchTargetX = this.x + this.w / 2;
+    this.catchTargetY = this.y + this.h / 2;
+    this.vx = 0; this.vy = 0;
+    // Store bridge info for collapse after catch completes
+    this._bridgeX = bridgeX;
+    this._bridgeW = bridgeW;
+  }
+
+  defeatByAxe(bridgeX, bridgeW) { this.startCatch(0, 0, bridgeX, bridgeW); }
+
+  _beginBridgeCollapse() {
     this.bridgeCollapsing = true;
-    // Create falling bridge segment list
-    const segCount = Math.ceil(bridgeW / TILE);
+    this.deathTimer = 180;
+    const segCount = Math.ceil(this._bridgeW / TILE);
     this.bridgeSegments = Array.from({ length: segCount }, (_, i) => ({
-      x: bridgeX + i * TILE,
+      x: this._bridgeX + i * TILE,
       y: GROUND_Y,
       vy: 0,
-      delay: i * 4,  // staggered collapse left→right
+      delay: i * 4,
       gone: false,
     }));
   }
@@ -51,11 +65,28 @@ export class CastleBoss {
     if (this.dead) return;
     this.anim++;
 
-    if (this.defeated) {
-      // Wait for bridge to open, then fall
+    if (this.catching) {
+      this.catchTimer++;
+      const t = this.catchTimer;
+      // Phase 1 (0-40): ball flies from ball position to boss center
+      if (t < 40) {
+        const prog = t / 40;
+        this.catchBallX += (this.catchTargetX - this.catchBallX) * 0.12;
+        this.catchBallY += (this.catchTargetY - this.catchBallY) * 0.12;
+      }
+      // Phase 2 (40-100): boss shrinks/flashes into ball
+      // Phase 3 (100-160): ball wobbles 3 times on ground
+      // Phase 4 (160): bridge collapses, boss gone
+      if (t === 160) {
+        this.catching = false;
+        this._beginBridgeCollapse();
+      }
+      return;
+    }
+
+    if (this.bridgeCollapsing) {
       this.deathTimer--;
-      const allGone = !this.bridgeSegments ||
-        this.bridgeSegments.every(s => s.gone);
+      const allGone = !this.bridgeSegments || this.bridgeSegments.every(s => s.gone);
       if (allGone || this.deathTimer < 120) {
         this.vy += GRAVITY * 1.5;
         this.y  += this.vy;
@@ -119,6 +150,45 @@ export class CastleBoss {
         ctx.strokeStyle = '#5a4830'; ctx.lineWidth = 1;
         ctx.strokeRect(bx, Math.floor(s.y), TILE, TILE / 4);
       }
+    }
+
+    // Draw catch animation
+    if (this.catching) {
+      const t = this.catchTimer;
+      const bx = Math.floor(this.catchBallX - cam.x);
+      const by = Math.floor(this.catchBallY);
+      // Phase 1: flying ball
+      if (t < 40) {
+        _drawUltraBallShape(ctx, bx, by, 14);
+      }
+      // Phase 2 (40-100): boss shrinks while flashing, ball stays on boss
+      if (t >= 40 && t < 100) {
+        const scale = 1 - (t - 40) / 60;
+        const bossX = Math.floor(this.x + this.w / 2 - cam.x);
+        const bossY = Math.floor(this.y + this.h / 2);
+        ctx.globalAlpha = scale;
+        ctx.fillStyle = '#e8642a';
+        ctx.beginPath();
+        ctx.arc(bossX, bossY, 40 * scale, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.globalAlpha = 1;
+        _drawUltraBallShape(ctx, bossX, bossY, 14);
+      }
+      // Phase 3 (100-160): ball wobbles on ground at boss x
+      if (t >= 100) {
+        const groundBallX = Math.floor(this.catchTargetX - cam.x);
+        const wobble = Math.sin((t - 100) * 0.25) * 8 * Math.max(0, 1 - (t - 100) / 60);
+        _drawUltraBallShape(ctx, groundBallX + wobble, GROUND_Y - 14, 14);
+        // Exclamation marks
+        if (t < 130) {
+          ctx.fillStyle = '#ffd700';
+          ctx.font = 'bold 18px monospace';
+          ctx.textAlign = 'center';
+          ctx.fillText('!', groundBallX, GROUND_Y - 34);
+          ctx.textAlign = 'left';
+        }
+      }
+      return; // don't draw the boss normally during catch
     }
 
     if (this.dead) return;
@@ -214,24 +284,46 @@ export class CastleBoss {
     ctx.fillRect(x + w * 0.18, y + h * 0.82 + sw, 16, 18);
     ctx.fillRect(x + w * 0.54, y + h * 0.82 - sw, 16, 18);
 
-    // "Defeat with axe" hint — chain between boss and axe position
+    // Hint above boss
     if (!this.defeated) {
-      ctx.fillStyle = 'rgba(255,255,255,0.85)';
+      ctx.fillStyle = 'rgba(255,255,255,0.9)';
       ctx.font = 'bold 11px monospace';
       ctx.textAlign = 'center';
-      ctx.fillText('GRAB THE AXE!', x + w / 2, y - 10);
+      ctx.fillText('GRAB THE ULTRA BALL!', x + w / 2, y - 10);
       ctx.textAlign = 'left';
     }
   }
 }
 
-// The axe at the far end of the castle bridge — touching it defeats boss
+// Helper — draws an Ultra Ball shape at (cx, cy) with radius r
+function _drawUltraBallShape(ctx, cx, cy, r) {
+  // Top half: black with yellow stripe
+  ctx.fillStyle = '#1a1a1a';
+  ctx.beginPath(); ctx.arc(cx, cy, r, Math.PI, 0); ctx.fill();
+  ctx.fillStyle = '#ffd700';
+  ctx.fillRect(cx - r * 0.5, cy - r * 0.6, r, r * 0.25);
+
+  // Bottom half: white
+  ctx.fillStyle = '#f0f0f0';
+  ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI); ctx.fill();
+
+  // Center line + button
+  ctx.strokeStyle = '#1a1a1a'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(cx - r, cy); ctx.lineTo(cx + r, cy); ctx.stroke();
+  ctx.fillStyle = '#f0f0f0';
+  ctx.beginPath(); ctx.arc(cx, cy, r * 0.28, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = '#1a1a1a'; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.arc(cx, cy, r * 0.28, 0, Math.PI * 2); ctx.stroke();
+  ctx.lineWidth = 1;
+}
+
+// Ultra Ball — replaces the axe; touch it to trigger boss catch sequence
 export class BossAxe {
   constructor(x, y) {
     this.x = x;
-    this.y = y - 36;
-    this.w = 24;
-    this.h = 36;
+    this.y = y - 28;
+    this.w = 28;
+    this.h = 28;
     this.taken = false;
     this.anim = 0;
   }
@@ -241,34 +333,25 @@ export class BossAxe {
   draw(r, cam) {
     if (this.taken) return;
     const ctx = r.ctx;
-    const x = Math.floor(this.x - cam.x) + 12;
-    const bob = Math.sin(this.anim * 0.08) * 4;
-    const y = Math.floor(this.y) + bob;
+    const cx = Math.floor(this.x - cam.x) + this.w / 2;
+    const bob = Math.sin(this.anim * 0.07) * 5;
+    const cy = Math.floor(this.y) + bob + 14;
+    const R  = 14;
 
-    // Handle
-    ctx.strokeStyle = '#8b4513'; ctx.lineWidth = 4;
-    ctx.beginPath(); ctx.moveTo(x, y + 34); ctx.lineTo(x, y + 8); ctx.stroke();
-    ctx.lineWidth = 1;
+    _drawUltraBallShape(ctx, cx, cy, R);
 
-    // Axe blade
+    // Pulsing glow
+    ctx.globalAlpha = 0.25 + Math.abs(Math.sin(this.anim * 0.05)) * 0.25;
     ctx.fillStyle = '#ffd700';
-    ctx.beginPath();
-    ctx.moveTo(x, y + 8); ctx.lineTo(x - 12, y - 6); ctx.lineTo(x - 12, y + 12);
-    ctx.closePath(); ctx.fill();
-    ctx.beginPath();
-    ctx.moveTo(x, y + 8); ctx.lineTo(x + 12, y - 6); ctx.lineTo(x + 12, y + 12);
-    ctx.closePath(); ctx.fill();
-
-    // Shine
-    ctx.fillStyle = '#fffaaa';
-    ctx.beginPath();
-    ctx.moveTo(x, y + 6); ctx.lineTo(x - 5, y - 2); ctx.lineTo(x - 5, y + 8);
-    ctx.closePath(); ctx.fill();
-
-    // Glow pulse
-    ctx.globalAlpha = 0.3 + Math.abs(Math.sin(this.anim * 0.05)) * 0.3;
-    ctx.fillStyle = '#ffd700';
-    ctx.beginPath(); ctx.arc(x, y + 4, 20, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(cx, cy, R + 8, 0, Math.PI * 2); ctx.fill();
     ctx.globalAlpha = 1;
+
+    // Label
+    ctx.fillStyle = 'rgba(255,255,255,0.9)';
+    ctx.font = 'bold 9px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('ULTRA', cx, cy - R - 4);
+    ctx.fillText('BALL', cx, cy - R + 5);
+    ctx.textAlign = 'left';
   }
 }
