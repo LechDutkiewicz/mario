@@ -201,10 +201,17 @@ export class Game {
   update() {
     const input = this.input;
 
-    // ESC returns to menu from any non-menu state
-    if (input.escape && this.state !== STATE.MENU) {
-      this.state = STATE.MENU;
-      return;
+    // ESC during gameplay → pause; ESC from other non-menu states → menu
+    if (input.escape) {
+      if (this.state === STATE.PLAYING) {
+        this.state = STATE.PAUSED; return;
+      }
+      if (this.state === STATE.PAUSED) {
+        this.state = STATE.PLAYING; return;
+      }
+      if (this.state !== STATE.MENU) {
+        this.state = STATE.MENU; return;
+      }
     }
 
     if (this.state === STATE.MENU) {
@@ -250,7 +257,8 @@ export class Game {
       this.state = STATE.PAUSED; return;
     }
     if (this.state === STATE.PAUSED) {
-      if (input.justPressed('KeyP')) this.state = STATE.PLAYING;
+      if (input.justPressed('KeyP')) { this.state = STATE.PLAYING; return; }
+      if (input.justPressed('KeyM')) { this.state = STATE.MENU; return; }
       return;
     }
     if (this.state === STATE.LEVEL_SELECT) {
@@ -904,7 +912,7 @@ export class Game {
 
     if (this.worldClearTimer > 0)    this._drawWorldClear();
     if (this.walkToPCTimer > 0)      this._drawScoreTally();
-    if (this.state === STATE.PAUSED)    this._overlay('PAUSED', 'Press P to resume');
+    if (this.state === STATE.PAUSED)    this._drawPauseMenu();
     if (this.state === STATE.GAME_OVER) this._overlay('GAME OVER', 'Press ENTER to save score');
     if (this.state === STATE.WIN)       this._drawWin();
     if (this.state === STATE.LEVEL_SELECT) this._drawLevelSelect();
@@ -1149,6 +1157,27 @@ export class Game {
       ctx.textAlign = 'center';
       ctx.fillText(lv.label, bx + bw / 2, by + bh / 2 + 7);
     });
+    ctx.textAlign = 'left';
+  }
+
+  _drawPauseMenu() {
+    const ctx = this.ctx;
+    const cx = CANVAS_WIDTH / 2;
+    const cy = CANVAS_HEIGHT / 2;
+    ctx.fillStyle = 'rgba(0,0,0,0.65)';
+    ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 52px monospace';
+    ctx.fillText('PAUZA', cx, cy - 40);
+    ctx.font = 'bold 20px monospace';
+    ctx.fillStyle = '#ffe066';
+    ctx.fillText('ESC / P  →  wróć do gry', cx, cy + 16);
+    ctx.fillStyle = '#ff8888';
+    ctx.fillText('M  →  wyjdź do menu', cx, cy + 50);
+    ctx.fillStyle = '#aaa';
+    ctx.font = 'bold 18px monospace';
+    ctx.fillText('SCORE ' + this.score, cx, cy + 90);
     ctx.textAlign = 'left';
   }
 
