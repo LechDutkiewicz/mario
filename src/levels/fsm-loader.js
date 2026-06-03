@@ -63,10 +63,7 @@ function processThing(e, out) {
       if (e.fireballs) {
         const dir = (e.direction === 1) ? -1 : 1;
         const spd = (e.speed !== undefined) ? e.speed : 1;
-        const bar = new FireBar(sx, stoneTopY, e.fireballs, spd, dir);
-        // Stagger starting angles so bars don't all point the same way
-        bar.angle = (out.fireBars.length * Math.PI * 0.37) % (Math.PI * 2);
-        out.fireBars.push(bar);
+        out.fireBars.push(new FireBar(sx, stoneTopY, e.fireballs, spd, dir));
       }
       break;
     }
