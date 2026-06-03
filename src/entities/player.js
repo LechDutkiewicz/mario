@@ -276,96 +276,6 @@ export class Player {
     ctx.fillStyle = '#ff9999'; ctx.fillRect(w*0.855, h*0.24, 1.5, 1.5);
   }
 
-  _drawFlareon(ctx, w, h) {
-    const BODY  = '#f5d890';
-    const MANE  = '#d03800';
-    const MANE2 = '#f06000';
-    const MANE3 = '#ff9900';
-    const EYE   = '#2a1a0a';
-    const OL    = '#111';
-    const jumping = !this.onGround;
-    const step = Math.abs(this.vx) > 0.3 ? Math.floor(this.animTimer / 8) % 2 : 0;
-    const t = Math.floor(this.animTimer / 5) % 4;
-    const flick = t < 2 ? t : 4 - t;
-
-    // Bushy tail — left side, cream with flame tips
-    ctx.fillStyle = BODY;
-    ctx.beginPath(); ctx.ellipse(w*0.1, h*0.5, w*0.14, h*0.22, -0.2, 0, Math.PI*2);
-    ctx.fill(); ctx.strokeStyle=OL; ctx.lineWidth=1.5; ctx.stroke();
-    ctx.fillStyle = MANE2;
-    ctx.beginPath(); ctx.ellipse(w*0.04, h*0.34, 5+flick, 8+flick, -0.4, 0, Math.PI*2); ctx.fill();
-    ctx.beginPath(); ctx.ellipse(w*(-0.02), h*0.46, 4+flick, 7+flick, 0.2, 0, Math.PI*2); ctx.fill();
-    ctx.fillStyle = MANE3;
-    ctx.beginPath(); ctx.ellipse(w*0.04, h*0.32, 3, 5+flick*0.7, -0.4, 0, Math.PI*2); ctx.fill();
-    ctx.beginPath(); ctx.ellipse(w*(-0.02), h*0.44, 2.5, 4+flick*0.7, 0.2, 0, Math.PI*2); ctx.fill();
-
-    // Main body
-    ctx.fillStyle = BODY;
-    ctx.beginPath(); ctx.ellipse(w*0.5, h*0.6, w*0.35, h*0.24, 0, 0, Math.PI*2);
-    ctx.fill(); ctx.strokeStyle=OL; ctx.lineWidth=1.5; ctx.stroke();
-
-    // Legs — two pairs
-    const ly = h * 0.82;
-    ctx.fillStyle = BODY;
-    ctx.beginPath(); ctx.ellipse(w*(0.28+step*0.05), ly, w*0.09, h*0.1, 0, 0, Math.PI*2);
-    ctx.fill(); ctx.strokeStyle=OL; ctx.lineWidth=1.5; ctx.stroke();
-    ctx.beginPath(); ctx.ellipse(w*(0.44-step*0.05), ly, w*0.09, h*0.1, 0, 0, Math.PI*2);
-    ctx.fill(); ctx.strokeStyle=OL; ctx.lineWidth=1.5; ctx.stroke();
-    ctx.beginPath(); ctx.ellipse(w*(0.6+step*0.05), ly, w*0.09, h*0.1, 0, 0, Math.PI*2);
-    ctx.fill(); ctx.strokeStyle=OL; ctx.lineWidth=1.5; ctx.stroke();
-    ctx.beginPath(); ctx.ellipse(w*(0.74-step*0.05), ly, w*0.09, h*0.1, 0, 0, Math.PI*2);
-    ctx.fill(); ctx.strokeStyle=OL; ctx.lineWidth=1.5; ctx.stroke();
-
-    // Fluffy mane — large, multi-layer, fills left+center of top half
-    const maneBlobs = [
-      [w*0.18, h*0.32, w*0.16, h*0.18, 0],
-      [w*0.3,  h*0.24, w*0.16, h*0.2,  0],
-      [w*0.44, h*0.2,  w*0.16, h*0.2,  0],
-      [w*0.56, h*0.26, w*0.14, h*0.18, 0],
-      [w*0.22, h*0.44, w*0.14, h*0.16, 0],
-      [w*0.36, h*0.42, w*0.14, h*0.16, 0],
-    ];
-    for (const [mx,my,mrx,mry] of maneBlobs) {
-      ctx.fillStyle = MANE;
-      ctx.beginPath(); ctx.ellipse(mx, my, mrx, mry, 0, 0, Math.PI*2);
-      ctx.fill(); ctx.strokeStyle=OL; ctx.lineWidth=1; ctx.stroke();
-    }
-    const maneBlobs2 = [
-      [w*0.28, h*0.3,  w*0.13, h*0.15, 0],
-      [w*0.44, h*0.26, w*0.13, h*0.16, 0],
-      [w*0.56, h*0.32, w*0.11, h*0.14, 0],
-    ];
-    for (const [mx,my,mrx,mry] of maneBlobs2) {
-      ctx.fillStyle = MANE2;
-      ctx.beginPath(); ctx.ellipse(mx, my, mrx, mry, 0, 0, Math.PI*2); ctx.fill();
-      ctx.fillStyle = MANE3;
-      ctx.beginPath(); ctx.ellipse(mx, my, mrx*0.55, mry*0.55, 0, 0, Math.PI*2); ctx.fill();
-    }
-
-    // Head — visible above/right of mane
-    ctx.fillStyle = BODY;
-    ctx.beginPath(); ctx.ellipse(w*0.78, h*0.26, w*0.2, h*0.16, 0, 0, Math.PI*2);
-    ctx.fill(); ctx.strokeStyle=OL; ctx.lineWidth=1.5; ctx.stroke();
-
-    // Ears — pointed, flame-tipped
-    const tilt = jumping ? 0.05 : 0;
-    ctx.fillStyle = BODY;
-    ctx.beginPath();
-    ctx.moveTo(w*0.7, h*0.17); ctx.lineTo(w*(0.64+tilt), h*0.02); ctx.lineTo(w*0.76, h*0.14);
-    ctx.closePath(); ctx.fill(); ctx.strokeStyle=OL; ctx.lineWidth=1.2; ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(w*0.84, h*0.16); ctx.lineTo(w*(0.9-tilt), h*0.02); ctx.lineTo(w*0.93, h*0.14);
-    ctx.closePath(); ctx.fill(); ctx.strokeStyle=OL; ctx.lineWidth=1.2; ctx.stroke();
-    ctx.fillStyle = MANE2;
-    ctx.beginPath(); ctx.moveTo(w*(0.64+tilt), h*0.02); ctx.lineTo(w*(0.62+tilt), h*-0.04); ctx.lineTo(w*0.73, h*0.12); ctx.closePath(); ctx.fill();
-    ctx.beginPath(); ctx.moveTo(w*(0.9-tilt), h*0.02); ctx.lineTo(w*(0.93-tilt), h*-0.04); ctx.lineTo(w*0.87, h*0.12); ctx.closePath(); ctx.fill();
-
-    // Eye
-    ctx.fillStyle = EYE;
-    ctx.beginPath(); ctx.ellipse(w*0.87, h*0.25, 3, 3.5, 0, 0, Math.PI*2); ctx.fill();
-    ctx.fillStyle = '#fff'; ctx.fillRect(w*0.865, h*0.22, 1.5, 1.5);
-  }
-
   _drawCrouchUmbreon(ctx, w, h) {
     // Squashed Umbreon — compact crouching form
     const BODY  = '#2e2e52';
@@ -436,86 +346,6 @@ export class Player {
     ctx.lineWidth = 2;
     ctx.strokeRect(w * 0.19, h * 0.84, w * 0.18, h * 0.08);
     ctx.strokeRect(w * 0.57, h * 0.84, w * 0.18, h * 0.08);
-
-    ctx.restore();
-  }
-
-  _drawCrouchFlareon(ctx, w, h) {
-    // Squashed Flareon — compact crouching form
-    const BODY  = '#f5d090';
-    const MANE  = '#e84a0c';
-    const MANE2 = '#ff8c00';
-    const EYE   = '#2a1a0a';
-    const SHINE = '#fff';
-    const t = Math.floor(this.animTimer / 4) % 3;
-
-    ctx.save();
-
-    // Body — wide and squat
-    ctx.fillStyle = BODY;
-    ctx.beginPath();
-    ctx.ellipse(w * 0.5, h * 0.64, w * 0.46, h * 0.3, 0, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Compressed mane/collar — wider, shorter
-    ctx.fillStyle = MANE;
-    ctx.beginPath();
-    ctx.arc(w * 0.5, h * 0.42, w * 0.46, Math.PI * 0.05, Math.PI * 0.95);
-    ctx.closePath();
-    ctx.fill();
-    ctx.fillStyle = MANE2;
-    ctx.beginPath();
-    ctx.ellipse(w * 0.5, h * 0.44, w * 0.38, h * 0.16, 0, 0, Math.PI * 2);
-    ctx.fill();
-    // Flame flicker — shorter peaks
-    ctx.fillStyle = '#ffcc00';
-    ctx.beginPath();
-    ctx.ellipse(w * 0.5, h * 0.38, w * 0.22 + (t === 0 ? 3 : 0), h * 0.1, 0, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Head — low and wide
-    ctx.fillStyle = BODY;
-    ctx.beginPath();
-    ctx.ellipse(w * 0.5, h * 0.24, w * 0.35, h * 0.18, 0, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Short flat ears
-    ctx.fillStyle = BODY;
-    ctx.beginPath();
-    ctx.moveTo(w * 0.22, h * 0.16);
-    ctx.lineTo(w * 0.12, h * 0.04);
-    ctx.lineTo(w * 0.36, h * 0.13);
-    ctx.closePath(); ctx.fill();
-    ctx.beginPath();
-    ctx.moveTo(w * 0.62, h * 0.16);
-    ctx.lineTo(w * 0.78, h * 0.04);
-    ctx.lineTo(w * 0.72, h * 0.13);
-    ctx.closePath(); ctx.fill();
-    // Flame ear tips
-    ctx.fillStyle = MANE;
-    ctx.beginPath();
-    ctx.moveTo(w * 0.12, h * 0.04);
-    ctx.lineTo(w * 0.1, h * (-0.02));
-    ctx.lineTo(w * 0.24, h * 0.1);
-    ctx.closePath(); ctx.fill();
-    ctx.beginPath();
-    ctx.moveTo(w * 0.78, h * 0.04);
-    ctx.lineTo(w * 0.8, h * (-0.02));
-    ctx.lineTo(w * 0.7, h * 0.1);
-    ctx.closePath(); ctx.fill();
-
-    // Eyes
-    ctx.fillStyle = EYE;
-    ctx.beginPath(); ctx.ellipse(w * 0.36, h * 0.24, 3.5, 4, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.beginPath(); ctx.ellipse(w * 0.64, h * 0.24, 3.5, 4, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = SHINE;
-    ctx.fillRect(w * 0.35, h * 0.2, 2, 2);
-    ctx.fillRect(w * 0.63, h * 0.2, 2, 2);
-
-    // Stub legs
-    ctx.fillStyle = BODY;
-    ctx.fillRect(w * 0.18, h * 0.82, w * 0.2, h * 0.16);
-    ctx.fillRect(w * 0.56, h * 0.82, w * 0.2, h * 0.16);
 
     ctx.restore();
   }
@@ -670,130 +500,6 @@ export class Player {
       ctx.strokeStyle = D; ctx.lineWidth = 1.8; ctx.lineCap = 'round';
       ctx.beginPath(); ctx.moveTo(w*0.76, h*0.155); ctx.lineTo(w*0.87, h*0.145); ctx.stroke();
 
-    } else {
-      // ── CHARIZARD ── bipedal orange dragon, large teal bat wings
-      const C = '#f06020', D = '#c03010', CREAM = '#f8e878', W1 = '#1e6848', W2 = '#2a9460', CLAW = '#e8e898';
-
-      // === TAIL — curves down-left from body base, flame at tip ===
-      ctx.strokeStyle = D; ctx.lineWidth = 10; ctx.lineCap = 'round';
-      ctx.beginPath();
-      ctx.moveTo(w*0.38, h*0.80);
-      ctx.bezierCurveTo(w*0.16, h*0.92, w*0.02, h*0.88, w*(-0.04), h*0.72);
-      ctx.stroke();
-      ctx.strokeStyle = C; ctx.lineWidth = 6;
-      ctx.beginPath();
-      ctx.moveTo(w*0.36, h*0.80);
-      ctx.bezierCurveTo(w*0.16, h*0.90, w*0.03, h*0.86, w*(-0.03), h*0.73);
-      ctx.stroke();
-      flame(w*(-0.04), h*0.62, 1.0);
-
-      // === LEFT WING — bat wing behind body, 3 finger-tip points at top ===
-      ctx.fillStyle = W1; ctx.strokeStyle = OL; ctx.lineWidth = 1.5;
-      ctx.beginPath();
-      ctx.moveTo(w*0.38, h*0.42);            // wing root at left shoulder
-      // sweep up-left to 1st finger tip
-      ctx.bezierCurveTo(w*0.10, h*0.28, w*(-0.10), h*0.10, w*(-0.18), h*0.00);
-      ctx.bezierCurveTo(w*(-0.22), h*(-0.04), w*(-0.14), h*0.10, w*(-0.06), h*0.16); // finger 1 dip
-      // sweep to 2nd finger tip
-      ctx.bezierCurveTo(w*(-0.14), h*0.20, w*(-0.18), h*0.26, w*(-0.14), h*0.30);
-      ctx.bezierCurveTo(w*(-0.10), h*0.34, w*(-0.02), h*0.36, w*0.06, h*0.38); // finger 2 base
-      // lower membrane back to body
-      ctx.bezierCurveTo(w*0.14, h*0.52, w*0.28, h*0.56, w*0.36, h*0.54);
-      ctx.closePath(); ctx.fill(); ctx.stroke();
-      // lighter inner membrane
-      ctx.fillStyle = W2;
-      ctx.beginPath();
-      ctx.moveTo(w*0.36, h*0.50);
-      ctx.bezierCurveTo(w*0.16, h*0.36, w*(-0.02), h*0.22, w*0.00, h*0.34);
-      ctx.bezierCurveTo(w*0.04, h*0.44, w*0.20, h*0.52, w*0.34, h*0.50);
-      ctx.closePath(); ctx.fill();
-      // wing ribs
-      ctx.strokeStyle = '#145030'; ctx.lineWidth = 1;
-      ctx.beginPath(); ctx.moveTo(w*0.36,h*0.48); ctx.bezierCurveTo(w*0.10,h*0.32,w*(-0.08),h*0.32,w*(-0.04),h*0.42); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(w*0.36,h*0.44); ctx.bezierCurveTo(w*0.18,h*0.18,w*(0.02),h*0.12,w*(0.04),h*0.24); ctx.stroke();
-
-      // === RIGHT WING — smaller bat wing on right side, 2 finger tips ===
-      ctx.fillStyle = W1; ctx.strokeStyle = OL; ctx.lineWidth = 1.2;
-      ctx.beginPath();
-      ctx.moveTo(w*0.62, h*0.42);
-      ctx.bezierCurveTo(w*0.84, h*0.26, w*1.04, h*0.08, w*1.10, h*(-0.02));
-      ctx.bezierCurveTo(w*1.14, h*(-0.06), w*1.06, h*0.10, w*0.98, h*0.16); // finger 1
-      ctx.bezierCurveTo(w*1.04, h*0.22, w*1.08, h*0.30, w*1.04, h*0.36);
-      ctx.bezierCurveTo(w*1.00, h*0.40, w*0.90, h*0.44, w*0.82, h*0.46); // finger 2
-      ctx.bezierCurveTo(w*0.78, h*0.54, w*0.70, h*0.56, w*0.64, h*0.54);
-      ctx.closePath(); ctx.fill(); ctx.stroke();
-      ctx.fillStyle = W2;
-      ctx.beginPath();
-      ctx.moveTo(w*0.64, h*0.50);
-      ctx.bezierCurveTo(w*0.82, h*0.34, w*1.00, h*0.24, w*0.98, h*0.38);
-      ctx.bezierCurveTo(w*0.90, h*0.48, w*0.76, h*0.52, w*0.66, h*0.50);
-      ctx.closePath(); ctx.fill();
-      ctx.strokeStyle = '#145030'; ctx.lineWidth = 1;
-      ctx.beginPath(); ctx.moveTo(w*0.64,h*0.48); ctx.bezierCurveTo(w*0.86,h*0.32,w*1.02,h*0.30,w*0.98,h*0.40); ctx.stroke();
-
-      // === TWO BACK LEGS (bipedal — thick, like T-rex) ===
-      const la = lp * 0.05, lb = -lp * 0.05;
-      ctx.fillStyle = C; ctx.strokeStyle = OL; ctx.lineWidth = 1.8;
-      // left leg
-      ctx.beginPath(); ctx.roundRect(w*0.32+la*w-10, h*0.74, 20, h*0.24, 5); ctx.fill(); ctx.stroke();
-      // right leg
-      ctx.beginPath(); ctx.roundRect(w*0.58+lb*w-10, h*0.74, 20, h*0.24, 5); ctx.fill(); ctx.stroke();
-      ctx.fillStyle = CLAW;
-      for (let i=-1;i<=1;i++) { ctx.beginPath(); ctx.ellipse(w*0.32+la*w+i*6,h*0.97,3,5,0,0,Math.PI*2); ctx.fill(); }
-      for (let i=-1;i<=1;i++) { ctx.beginPath(); ctx.ellipse(w*0.58+lb*w+i*6,h*0.97,3,5,0,0,Math.PI*2); ctx.fill(); }
-
-      // === BODY ===
-      ctx.fillStyle = C; ctx.strokeStyle = OL; ctx.lineWidth = 1.8;
-      ctx.beginPath(); ctx.ellipse(w*0.50, h*0.57, w*0.28, h*0.22, 0, 0, Math.PI*2);
-      ctx.fill(); ctx.stroke();
-      // cream belly
-      ctx.fillStyle = CREAM;
-      ctx.beginPath(); ctx.ellipse(w*0.54, h*0.60, w*0.19, h*0.16, 0.1, 0, Math.PI*2); ctx.fill();
-
-      // === SMALL T-REX ARMS (clearly above legs, mid-body height) ===
-      ctx.fillStyle = C; ctx.strokeStyle = OL; ctx.lineWidth = 1.2;
-      ctx.beginPath(); ctx.ellipse(w*0.78, h*0.54, w*0.09, h*0.065, 0.5, 0, Math.PI*2);
-      ctx.fill(); ctx.stroke();
-      ctx.fillStyle = CLAW;
-      ctx.beginPath(); ctx.ellipse(w*0.86, h*0.58, 2.5, 4, 0.3, 0, Math.PI*2); ctx.fill();
-      ctx.beginPath(); ctx.ellipse(w*0.90, h*0.56, 2.5, 4, -0.2, 0, Math.PI*2); ctx.fill();
-
-      // === NECK ===
-      ctx.fillStyle = C; ctx.strokeStyle = OL; ctx.lineWidth = 1.8;
-      ctx.beginPath(); ctx.ellipse(w*0.60, h*0.40, w*0.12, h*0.10, -0.15, 0, Math.PI*2);
-      ctx.fill(); ctx.stroke();
-
-      // === HEAD — round orange oval, snout extends right ===
-      ctx.beginPath(); ctx.ellipse(w*0.66, h*0.26, w*0.22, h*0.20, 0, 0, Math.PI*2);
-      ctx.fill(); ctx.stroke();
-      // snout — slightly darker protrusion to the right
-      ctx.fillStyle = D;
-      ctx.beginPath();
-      ctx.ellipse(w*0.84, h*0.30, w*0.11, h*0.08, 0.15, 0, Math.PI*2);
-      ctx.fill();
-      // nostril
-      ctx.fillStyle = '#1a0808'; ctx.beginPath(); ctx.ellipse(w*0.91, h*0.28, 2, 1.5, 0, 0, Math.PI*2); ctx.fill();
-
-      // === HORNS — 2 solid triangles at BACK of head, pointing backward-upward ===
-      ctx.fillStyle = '#c09040'; ctx.strokeStyle = OL; ctx.lineWidth = 1;
-      // front horn (at top-back of head)
-      ctx.beginPath();
-      ctx.moveTo(w*0.50, h*0.14);   // tip pointing up-left
-      ctx.lineTo(w*0.44, h*0.06);
-      ctx.lineTo(w*0.54, h*0.20);
-      ctx.closePath(); ctx.fill(); ctx.stroke();
-      // rear horn (slightly behind)
-      ctx.beginPath();
-      ctx.moveTo(w*0.42, h*0.17);
-      ctx.lineTo(w*0.34, h*0.10);
-      ctx.lineTo(w*0.46, h*0.22);
-      ctx.closePath(); ctx.fill(); ctx.stroke();
-
-      // === EYE — smaller, dragon-like ===
-      ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.ellipse(w*0.74, h*0.24, 4, 4.5, 0, 0, Math.PI*2); ctx.fill();
-      ctx.fillStyle = '#d05000'; ctx.beginPath(); ctx.ellipse(w*0.74, h*0.245, 2.4, 3, 0, 0, Math.PI*2); ctx.fill();
-      ctx.fillStyle = '#000'; ctx.beginPath(); ctx.ellipse(w*0.74, h*0.247, 1.3, 1.8, 0, 0, Math.PI*2); ctx.fill();
-      ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(w*0.726, h*0.228, 1.1, 0, Math.PI*2); ctx.fill();
     }
   }
 
@@ -1257,11 +963,7 @@ export class Player {
 
     // Dispatch big forms to dedicated drawers
     if (big && !this.crouching) {
-      if (this.power === POWER.FIRE) {
-        this._drawFlareon(ctx, w, h);
-        ctx.restore();
-        return;
-      } else if (this.power === POWER.BIG) {
+      if (this.power === POWER.BIG || this.power === POWER.FIRE) {
         this._drawUmbreon(ctx, w, h);
         ctx.restore();
         return;
@@ -1269,11 +971,7 @@ export class Player {
     }
 
     if (big && this.crouching) {
-      if (this.power === POWER.FIRE) {
-        this._drawCrouchFlareon(ctx, w, h);
-      } else {
-        this._drawCrouchUmbreon(ctx, w, h);
-      }
+      this._drawCrouchUmbreon(ctx, w, h);
       ctx.restore();
       return;
     }
