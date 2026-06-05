@@ -194,7 +194,7 @@ export class Player {
     if (this.x < 0) { this.x = 0; this.vx = 0; }
   }
 
-  _drawUmbreon(ctx, w, h) {
+  _drawUmbreon(ctx, w, h, isTera = false) {
     const BODY = '#1c1c38';
     const RING = '#ffe040';
     const EYE  = '#cc2200';
@@ -274,6 +274,46 @@ export class Player {
     ctx.fillStyle = EYE;
     ctx.beginPath(); ctx.ellipse(w*0.86, h*0.27, 3, 3.5, 0, 0, Math.PI*2); ctx.fill();
     ctx.fillStyle = '#ff9999'; ctx.fillRect(w*0.855, h*0.24, 1.5, 1.5);
+
+    // Tera crystal — golden gem on forehead, only in POWER.FIRE form
+    if (isTera) {
+      const cx = w * 0.76, cy = h * 0.09;
+      // Outer glow
+      const glow = ctx.createRadialGradient(cx, cy, 2, cx, cy, 11);
+      glow.addColorStop(0, 'rgba(255,240,80,0.7)');
+      glow.addColorStop(1, 'rgba(255,200,0,0)');
+      ctx.fillStyle = glow;
+      ctx.beginPath(); ctx.ellipse(cx, cy, 11, 11, 0, 0, Math.PI*2); ctx.fill();
+
+      // Crystal — hexagonal gem (flat-topped)
+      const R = 7, r = 4.5;
+      ctx.beginPath();
+      // top point
+      ctx.moveTo(cx,         cy - R);
+      ctx.lineTo(cx + r,     cy - R*0.5);
+      ctx.lineTo(cx + r,     cy + R*0.5);
+      ctx.lineTo(cx,         cy + R);
+      ctx.lineTo(cx - r,     cy + R*0.5);
+      ctx.lineTo(cx - r,     cy - R*0.5);
+      ctx.closePath();
+      const grad = ctx.createLinearGradient(cx - r, cy - R, cx + r, cy + R);
+      grad.addColorStop(0,   '#fff8b0');
+      grad.addColorStop(0.3, '#ffe040');
+      grad.addColorStop(0.7, '#f0a000');
+      grad.addColorStop(1,   '#c06000');
+      ctx.fillStyle = grad;
+      ctx.fill();
+      ctx.strokeStyle = '#ffd700'; ctx.lineWidth = 1.2; ctx.stroke();
+
+      // Inner highlight facet
+      ctx.fillStyle = 'rgba(255,255,200,0.55)';
+      ctx.beginPath();
+      ctx.moveTo(cx,     cy - R);
+      ctx.lineTo(cx + r, cy - R*0.5);
+      ctx.lineTo(cx,     cy);
+      ctx.closePath();
+      ctx.fill();
+    }
   }
 
   _drawCrouchUmbreon(ctx, w, h) {
@@ -964,7 +1004,7 @@ export class Player {
     // Dispatch big forms to dedicated drawers
     if (big && !this.crouching) {
       if (this.power === POWER.BIG || this.power === POWER.FIRE) {
-        this._drawUmbreon(ctx, w, h);
+        this._drawUmbreon(ctx, w, h, this.power === POWER.FIRE);
         ctx.restore();
         return;
       }
