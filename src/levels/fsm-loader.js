@@ -158,12 +158,31 @@ function processThing(e, out) {
       out.platforms.push(new PipeBlock(ux(x), htiles, false));
       break;
     }
+    case 'Coral': {
+      const coralTopY = GY - y * 4;
+      const coralH    = e.height !== undefined ? e.height * 4 : T;
+      out.platforms.push(new Platform(sx, coralTopY, T, coralH, '#1a6e3c'));
+      break;
+    }
+
+    case 'Blooper':
+      out.enemies.push(new Enemy(sx, GY - (y - 8) * 4, 'blooper'));
+      break;
+
+    case 'CheepCheep':
+      out.enemies.push(new Enemy(sx, GY - (y - 8) * 4, 'cheepcheep', !!e.smart));
+      break;
+
+    case 'Podoboo':
+      out.enemies.push(new Enemy(sx, GY + 64, 'podoboo'));
+      break;
+
+    case 'Springboard':
+      break;
+
     case 'ScrollBlocker':
     case 'ScrollEnabler':
     case 'Vine':
-    case 'Springboard':
-    case 'Blooper':
-    case 'CheepCheep':
     case 'DecorativeBack':
     case 'DecorativeDot':
     case 'CustomText':
@@ -332,12 +351,25 @@ function processMacro(e, out) {
       break;
     }
 
+    case 'Bridge': {
+      const bx = ux(e.x || 0);
+      const by = GY - (e.y || 24) * 4;
+      const bw = ux(e.width || 16);
+      out.platforms.push(new Platform(bx, by, bw, 10, '#8b5e2a'));
+      break;
+    }
+
     // Decorative / purely visual / unsupported
-    case 'CastleSmall': {
+    case 'CastleSmall':
+    case 'CastleLarge': {
       if (!out.castleSmalls) out.castleSmalls = [];
       out.castleSmalls.push({ x: ux(x), y: GY });
       break;
     }
+
+    case 'CheepsStart':
+    case 'CheepsStop':
+      break;
 
     case 'Pattern':
     case 'PipeCorner':

@@ -16,6 +16,9 @@ export class Enemy {
     this.y = flying ? flyMinY : y - this.h;
     this.vx = type === 'koffing' ? -0.8 : type === 'squirtle' ? -1.3 : -1.1;
     this.vy = 0;
+    if (type === 'blooper') { this.w = 26; this.h = 26; this.vx = 0; this.vy = 0; this.y = y - this.h; }
+    if (type === 'cheepcheep') { this.w = 26; this.h = 20; this.vx = -2; this.y = y - this.h; }
+    if (type === 'podoboo') { this.w = 20; this.h = 20; this.vx = 0; this.baseY = y - this.h; this.y = y - this.h; this.vy = 0; this.jumpTimer = Math.floor(Math.random() * 80) + 30; this.isJumping = false; }
     this.dead = false;
     this.squashTimer = 0;
     this.animTimer = Math.floor(Math.random() * 60);
@@ -26,7 +29,7 @@ export class Enemy {
     this.shellSliding = false;
   }
 
-  get stompable() { return true; }
+  get stompable() { return this.type !== 'cheepcheep' && this.type !== 'blooper' && this.type !== 'podoboo'; }
 
   squash() {
     if (this.type === 'squirtle') {
@@ -130,6 +133,53 @@ export class Enemy {
       return;
     }
 
+    if (this.type === 'blooper') {
+      if (!this.active) {
+        if (Math.abs(this.x - player.x) < 520) this.active = true;
+        else return;
+      }
+      // Chase player slowly
+      const dx = player.x - this.x, dy = player.y - this.y;
+      const dist = Math.sqrt(dx*dx + dy*dy) || 1;
+      this.x += (dx/dist) * 1.2;
+      this.y += (dy/dist) * 1.2;
+      return;
+    }
+    if (this.type === 'cheepcheep') {
+      if (!this.active) {
+        if (Math.abs(this.x - player.x) < 520) this.active = true;
+        else return;
+      }
+      this.x += this.vx;
+      if (this.smart) {
+        // Arc toward player height
+        const dy = player.y - this.y;
+        this.vy += dy * 0.01;
+        if (this.vy > 2) this.vy = 2;
+        if (this.vy < -2) this.vy = -2;
+        this.y += this.vy;
+      }
+      return;
+    }
+    if (this.type === 'podoboo') {
+      if (this.dying) {
+        this.vy += 0.4;
+        this.y += this.vy;
+        return;
+      }
+      if (this.jumpTimer > 0) { this.jumpTimer--; return; }
+      if (!this.isJumping) { this.isJumping = true; this.vy = -16; }
+      this.vy += 0.4;
+      this.y += this.vy;
+      if (this.y >= this.baseY) {
+        this.y = this.baseY;
+        this.vy = 0;
+        this.isJumping = false;
+        this.jumpTimer = 80;
+      }
+      return;
+    }
+
     // Ekans / Squirtle — walks on ground
     this.vy += GRAVITY;
     if (this.vy > MAX_FALL_SPEED) this.vy = MAX_FALL_SPEED;
@@ -171,6 +221,12 @@ export class Enemy {
       this._drawKoffing(ctx, x, y, w, h);
     } else if (this.type === 'squirtle') {
       this._drawSquirtle(ctx, x, y, w, h);
+    } else if (this.type === 'blooper') {
+      this._drawBlooper(ctx, x, y, w, h);
+    } else if (this.type === 'cheepcheep') {
+      this._drawCheepCheep(ctx, x, y, w, h);
+    } else if (this.type === 'podoboo') {
+      this._drawPodoboo(ctx, x, y, w, h);
     } else {
       this._drawEkans(ctx, x, y, w, h);
     }
@@ -369,5 +425,49 @@ export class Enemy {
     ctx.fillStyle = '#4a90d9';
     ctx.fillRect(x + w * 0.12 + step * 4, y + h * 0.78, w * 0.22, h * 0.2);
     ctx.fillRect(x + w * 0.58 - step * 4, y + h * 0.78, w * 0.22, h * 0.2);
+  }
+
+  _drawBlooper(ctx, x, y, w, h) {
+    // White squid body with purple tentacles
+    ctx.fillStyle = '#dde';
+    ctx.beginPath(); ctx.ellipse(x+w/2, y+h*0.45, w*0.4, h*0.38, 0, 0, Math.PI*2); ctx.fill();
+    ctx.strokeStyle='#8888aa'; ctx.lineWidth=1;
+    // Tentacles
+    for(let i=0;i<4;i++){const tx=x+w*0.15+i*w*0.22; ctx.beginPath(); ctx.moveTo(tx,y+h*0.75); ctx.lineTo(tx-3,y+h); ctx.stroke();}
+    // Eyes
+    ctx.fillStyle='#cc0000'; ctx.beginPath(); ctx.ellipse(x+w*0.35,y+h*0.35,4,4,0,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(x+w*0.65,y+h*0.35,4,4,0,0,Math.PI*2); ctx.fill();
+  }
+
+  _drawCheepCheep(ctx, x, y, w, h) {
+    // Orange/red fish
+    ctx.fillStyle='#e84010';
+    ctx.beginPath(); ctx.ellipse(x+w*0.5,y+h*0.5, w*0.45,h*0.42, 0,0,Math.PI*2); ctx.fill();
+    // Tail fin
+    ctx.beginPath(); ctx.moveTo(x+2,y+h*0.25); ctx.lineTo(x-8,y); ctx.lineTo(x-8,y+h); ctx.lineTo(x+2,y+h*0.75); ctx.closePath(); ctx.fill();
+    // Eye
+    ctx.fillStyle='#fff'; ctx.beginPath(); ctx.ellipse(x+w*0.7,y+h*0.35,5,5,0,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle='#000'; ctx.beginPath(); ctx.ellipse(x+w*0.71,y+h*0.36,2.5,2.5,0,0,Math.PI*2); ctx.fill();
+    // Scales
+    ctx.strokeStyle='#c03000'; ctx.lineWidth=1;
+    ctx.beginPath(); ctx.arc(x+w*0.4,y+h*0.5,6,0,Math.PI); ctx.stroke();
+    ctx.beginPath(); ctx.arc(x+w*0.6,y+h*0.5,6,0,Math.PI); ctx.stroke();
+  }
+
+  _drawPodoboo(ctx, x, y, w, h) {
+    // Fireball from lava
+    if (!this.isJumping && !this.dying) return; // invisible when below screen
+    const flicker = Math.floor(this.animTimer/4)%2;
+    ctx.fillStyle = flicker ? '#ff6600' : '#ff9900';
+    ctx.beginPath(); ctx.ellipse(x+w/2,y+h/2, w*0.45,h*0.45, 0,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle='#ffdd00';
+    ctx.beginPath(); ctx.ellipse(x+w/2,y+h*0.4, w*0.25,h*0.25, 0,0,Math.PI*2); ctx.fill();
+    // Angry eyes
+    ctx.fillStyle='#fff';
+    ctx.beginPath(); ctx.ellipse(x+w*0.33,y+h*0.38,4,4,0,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(x+w*0.67,y+h*0.38,4,4,0,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle='#000';
+    ctx.beginPath(); ctx.ellipse(x+w*0.33,y+h*0.39,2,2,0,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(x+w*0.67,y+h*0.39,2,2,0,0,Math.PI*2); ctx.fill();
   }
 }
