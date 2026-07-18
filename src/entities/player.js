@@ -192,10 +192,12 @@ export class Player {
     this.onGround = res.onGround;
     if (this.onGround) this.isJumping = false;
 
-    // FSM WaterBlock — solid 16-unit (64px) band at the top: the player
-    // cannot swim above the water surface
-    if (this.underwater && this.y < 64) {
-      this.y = 64;
+    // FSM WaterBlock — the player cannot swim above the water surface.
+    // FSM screen: floor at 416px with a 64px solid band at the top; our
+    // ground sits at 540, so the surface maps to 540-416+64 = 188. This also
+    // seals the gap over the end-of-level wall (its top is exactly at 188).
+    if (this.underwater && this.y < 188) {
+      this.y = 188;
       if (this.vy < 0) this.vy = 0;
     }
 

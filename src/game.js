@@ -303,7 +303,7 @@ export class Game {
     }
     if (this._bubbles) {
       for (const b of this._bubbles) { b.y -= 0.7; b.x += Math.sin(b.life * 0.15) * 0.4; b.life--; }
-      this._bubbles = this._bubbles.filter(b => b.life > 0 && b.y > 4);
+      this._bubbles = this._bubbles.filter(b => b.life > 0 && b.y > 190);
     }
 
     // Moving platforms: update first so solids are current, then carry player
@@ -335,8 +335,8 @@ export class Game {
         this.area0AutoWalk = false;
         if (this.world === 1 && this.world1Level === 1 && this.world1SubArea === 0) {
           this._startWorld1AreaTransition(1); // 1-2: overworld → underground
-        } else {
-          this._startAreaTransition(1);       // world 2 area 0
+        } else if (this.world === 2) {
+          this._startWorld2SubAreaTransition(1); // world 2 entrance → first sub-area
         }
       }
       // Keep walking right until we hit the pipe

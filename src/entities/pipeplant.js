@@ -51,51 +51,83 @@ export class PipePlant {
     ctx.rect(x - 10, -100, w + 20, Math.floor(this.pipeTopY) + 110);
     ctx.clip();
 
-    // Victreebel body
-    ctx.fillStyle = '#8db600';
+    // ── ARBOK ── purple cobra rising from the pipe, hood spread wide
+    const OL = '#111';
+    const PUR = '#8a4ab0', PUR_D = '#5c2a80';
+    const cx2 = x + w / 2;
+    const sway = Math.sin(this.animTimer * 0.06) * 1.5;
+
+    // Body column — tapers into the pipe
+    ctx.fillStyle = PUR;
     ctx.beginPath();
-    ctx.ellipse(x + w / 2, y + h * 0.55, w * 0.45, h * 0.4, 0, 0, Math.PI * 2);
-    ctx.fill();
+    ctx.moveTo(cx2 - 6, y + h + 12);
+    ctx.quadraticCurveTo(cx2 - 7 + sway, y + h * 0.55, cx2 - 8 + sway, y + h * 0.42);
+    ctx.lineTo(cx2 + 8 + sway, y + h * 0.42);
+    ctx.quadraticCurveTo(cx2 + 7 + sway, y + h * 0.55, cx2 + 6, y + h + 12);
+    ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = OL; ctx.lineWidth = 1.3; ctx.stroke();
 
-    // Mouth opening at top
-    ctx.fillStyle = '#1a1a00';
+    // Hood — wide flat diamond behind the head
+    ctx.fillStyle = PUR;
     ctx.beginPath();
-    ctx.ellipse(x + w / 2, y + h * 0.18, w * 0.32, h * 0.2, 0, 0, Math.PI * 2);
-    ctx.fill();
+    ctx.moveTo(cx2 + sway, y - 2);                    // top of hood
+    ctx.quadraticCurveTo(cx2 - w * 0.62 + sway, y + h * 0.08, cx2 - w * 0.55 + sway, y + h * 0.30);
+    ctx.quadraticCurveTo(cx2 - w * 0.30 + sway, y + h * 0.48, cx2 + sway, y + h * 0.46);
+    ctx.quadraticCurveTo(cx2 + w * 0.30 + sway, y + h * 0.48, cx2 + w * 0.55 + sway, y + h * 0.30);
+    ctx.quadraticCurveTo(cx2 + w * 0.62 + sway, y + h * 0.08, cx2 + sway, y - 2);
+    ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = OL; ctx.lineWidth = 1.5; ctx.stroke();
 
-    // Teeth (white jagged)
-    ctx.fillStyle = '#fff';
-    for (let i = 0; i < 3; i++) {
-      ctx.beginPath();
-      ctx.moveTo(x + w * 0.25 + i * 7, y + h * 0.16);
-      ctx.lineTo(x + w * 0.25 + i * 7 + 3, y + h * 0.08);
-      ctx.lineTo(x + w * 0.25 + i * 7 + 6, y + h * 0.16);
-      ctx.closePath(); ctx.fill();
-    }
-
-    // Eyes (red)
-    ctx.fillStyle = '#e74c3c';
-    ctx.beginPath(); ctx.arc(x + w * 0.32, y + h * 0.35, 4, 0, Math.PI * 2); ctx.fill();
-    ctx.beginPath(); ctx.arc(x + w * 0.68, y + h * 0.35, 4, 0, Math.PI * 2); ctx.fill();
-
-    // Vine stem
-    ctx.strokeStyle = '#2ecc71';
-    ctx.lineWidth = 4;
-    ctx.beginPath();
-    ctx.moveTo(x + w / 2, y + h * 0.8);
-    ctx.lineTo(x + w / 2, y + h + 10);
+    // Hood face-pattern — the angry "scary face" marking
+    // Red eyespots
+    ctx.fillStyle = '#d82828';
+    ctx.beginPath(); ctx.ellipse(cx2 - w * 0.26 + sway, y + h * 0.20, 4.5, 5.5, 0.15, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = OL; ctx.lineWidth = 1; ctx.stroke();
+    ctx.beginPath(); ctx.ellipse(cx2 + w * 0.26 + sway, y + h * 0.20, 4.5, 5.5, -0.15, 0, Math.PI * 2); ctx.fill();
     ctx.stroke();
-
-    // Leaf curl animation
-    const leafAngle = Math.sin(this.animTimer * 0.08) * 0.3;
-    ctx.fillStyle = '#27ae60';
-    ctx.save();
-    ctx.translate(x + w / 2 + 8, y + h * 0.6);
-    ctx.rotate(leafAngle);
+    // Black angry brows over the eyespots
+    ctx.fillStyle = '#1a1a1a';
     ctx.beginPath();
-    ctx.ellipse(10, 0, 12, 6, 0, 0, Math.PI * 2);
+    ctx.moveTo(cx2 - w * 0.40 + sway, y + h * 0.08);
+    ctx.lineTo(cx2 - w * 0.10 + sway, y + h * 0.16);
+    ctx.lineTo(cx2 - w * 0.38 + sway, y + h * 0.18);
+    ctx.closePath(); ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(cx2 + w * 0.40 + sway, y + h * 0.08);
+    ctx.lineTo(cx2 + w * 0.10 + sway, y + h * 0.16);
+    ctx.lineTo(cx2 + w * 0.38 + sway, y + h * 0.18);
+    ctx.closePath(); ctx.fill();
+    // Yellow band under the pattern
+    ctx.fillStyle = '#f0c828';
+    ctx.beginPath();
+    ctx.ellipse(cx2 + sway, y + h * 0.36, w * 0.30, 4, 0, 0, Math.PI * 2);
     ctx.fill();
-    ctx.restore();
+
+    // Head — small, atop the hood
+    ctx.fillStyle = PUR_D;
+    ctx.beginPath();
+    ctx.ellipse(cx2 + sway, y + h * 0.04, w * 0.20, h * 0.10, 0, 0, Math.PI * 2);
+    ctx.fill(); ctx.strokeStyle = OL; ctx.lineWidth = 1.2; ctx.stroke();
+    // Real eyes — narrow yellow slits
+    ctx.fillStyle = '#f0c828';
+    ctx.fillRect(cx2 - 5 + sway, y + h * 0.005, 3, 4);
+    ctx.fillRect(cx2 + 2 + sway, y + h * 0.005, 3, 4);
+    ctx.fillStyle = '#111';
+    ctx.fillRect(cx2 - 4 + sway, y + h * 0.01, 1.2, 3);
+    ctx.fillRect(cx2 + 3 + sway, y + h * 0.01, 1.2, 3);
+
+    // Forked tongue flick
+    if (Math.sin(this.animTimer * 0.18) > 0.4) {
+      ctx.strokeStyle = '#e04040'; ctx.lineWidth = 1.4; ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(cx2 + sway, y - 1);
+      ctx.lineTo(cx2 + sway, y - 7);
+      ctx.moveTo(cx2 + sway, y - 7);
+      ctx.lineTo(cx2 - 3 + sway, y - 11);
+      ctx.moveTo(cx2 + sway, y - 7);
+      ctx.lineTo(cx2 + 3 + sway, y - 11);
+      ctx.stroke();
+    }
 
     ctx.restore();
   }

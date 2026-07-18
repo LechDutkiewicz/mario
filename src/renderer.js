@@ -189,7 +189,7 @@ export class Renderer {
     }
 
     if (this.currentSetting === 'underwater') {
-      const SURFACE = 64;   // FSM WaterBlock: top 16 units (64px) are above water
+      const SURFACE = 188;  // FSM WaterBlock mapped to our ground height (540-416+64)
       // Air band above the surface
       ctx.fillStyle = '#a8d8f0';
       ctx.fillRect(0, 0, CANVAS_WIDTH, SURFACE);
