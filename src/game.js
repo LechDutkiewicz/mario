@@ -286,6 +286,11 @@ export class Game {
     const solids = lvl.solids;
     const p      = this.player;
 
+    // Music theme follows the level setting (castle for x-4, underwater for water areas)
+    this.music.setTheme(lvl.setting === 'underwater' ? 'underwater'
+                      : lvl.setting === 'castle'     ? 'castle'
+                      : 'overworld');
+
     // Underwater physics flag (FSM: map.underwater) + player bubbles every 96 frames
     p.underwater = !!lvl.underwater;
     if (p.underwater && !p.dead) {

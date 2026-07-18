@@ -192,9 +192,10 @@ export class Player {
     this.onGround = res.onGround;
     if (this.onGround) this.isJumping = false;
 
-    // FSM WaterBlock — invisible barrier stops swimming above the surface
-    if (this.underwater && this.y < 8) {
-      this.y = 8;
+    // FSM WaterBlock — solid 16-unit (64px) band at the top: the player
+    // cannot swim above the water surface
+    if (this.underwater && this.y < 64) {
+      this.y = 64;
       if (this.vy < 0) this.vy = 0;
     }
 

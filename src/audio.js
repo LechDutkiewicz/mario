@@ -44,6 +44,43 @@ const MELODY = [
   [N._, 2, N._],    [N.G4, 2, N.G2],
 ];
 
+// Extra notes for the castle / underwater themes
+const N2 = {
+  E2: 82.407, B2: 123.471, C3: 130.813, E3: 164.814, G3v: 195.998,
+  C4: 261.626, Cs4: 277.183, D4: 293.665, Ds4: 311.127, E4v: 329.628,
+  F4: 349.228, Gs4: 415.305, As4: 466.164, F5: 698.456,
+};
+
+// Castle theme — tense E-minor chromatic ostinato (levels x-4, boss castles)
+const CASTLE_MELODY = [
+  [N2.E4v, 1, N2.E2], [N.B3, 1, 0],   [N2.E4v, 1, N2.B2], [N2.F4, 1, 0],
+  [N2.E4v, 1, N2.C3], [N.B3, 1, 0],   [N2.E4v, 1, N2.B2], [N.G4, 1, 0],
+  [N2.E4v, 1, N2.E2], [N.B3, 1, 0],   [N2.E4v, 1, N2.B2], [N2.Ds4, 1, 0],
+  [N2.F4, 1, N2.C3],  [N2.E4v, 1, 0], [N2.Ds4, 1, N2.B2], [N2.E4v, 1, 0],
+  [N.A4, 1, N2.E2],   [N2.Gs4, 1, 0], [N.A4, 1, N2.B2],   [N2.As4, 1, 0],
+  [N.A4, 1, N2.C3],   [N2.Gs4, 1, 0], [N2.F4, 1, N2.B2],  [N2.E4v, 1, 0],
+  [N2.Ds4, 1, N2.E2], [N2.E4v, 1, 0], [N2.F4, 1, N2.B2],  [N2.E4v, 1, 0],
+  [N2.Ds4, 1, N2.C3], [N2.C4, 1, 0],  [N.B3, 2, N2.E2],
+];
+
+// Underwater theme — gentle 3/4 waltz in G major (SMB 2-2 style)
+const WATER_MELODY = [
+  [N.G4, 2, N.G2],  [N.B4, 2, N.D3], [N.D5, 2, N.B3],
+  [N.E5, 2, N.G2],  [N.D5, 2, N.D3], [N.B4, 2, N.B3],
+  [N.C5, 2, N2.C3], [N.E5, 2, N.G3], [N.G5, 2, N2.E3],
+  [N.E5, 2, N2.C3], [N.D5, 2, N.G3], [N.B4, 2, N2.E3],
+  [N.A4, 2, N.D3],  [N.C5, 2, N.A3], [N2.F5, 2, N.D3],
+  [N.E5, 2, N.D3],  [N.D5, 2, N.A3], [N.C5, 2, N.D3],
+  [N.B4, 2, N.G2],  [N.D5, 2, N.D3], [N.G4, 2, N.B3],
+  [N.A4, 4, N.D3],  [N.G4, 2, N.G2],
+];
+
+const THEMES = {
+  overworld:  { melody: MELODY,        wave: 'square',   vol: 0.055, bassWave: 'triangle', bassVol: 0.08 },
+  underwater: { melody: WATER_MELODY,  wave: 'triangle', vol: 0.10,  bassWave: 'sine',     bassVol: 0.09 },
+  castle:     { melody: CASTLE_MELODY, wave: 'square',   vol: 0.05,  bassWave: 'sawtooth', bassVol: 0.045 },
+};
+
 export class Music {
   constructor() {
     this.actx    = null;
@@ -51,6 +88,19 @@ export class Music {
     this.idx     = 0;
     this.t       = 0;
     this.tid     = null;
+    this.theme   = 'overworld';
+  }
+
+  // Switch theme (by level setting); restarts the loop if the theme changed
+  setTheme(name) {
+    if (!THEMES[name]) name = 'overworld';
+    if (name === this.theme) return;
+    this.theme = name;
+    if (this.running) {
+      this.idx = 0;
+      const ac = this._ctx();
+      if (this.t < ac.currentTime) this.t = ac.currentTime + 0.05;
+    }
   }
 
   _ctx() {
@@ -77,13 +127,14 @@ export class Music {
   _pump() {
     if (!this.running) return;
     const ac = this._ctx();
+    const th = THEMES[this.theme] || THEMES.overworld;
     while (this.t < ac.currentTime + 0.3) {
-      const [mhz, dur, bhz] = MELODY[this.idx];
+      const [mhz, dur, bhz] = th.melody[this.idx % th.melody.length];
       const d = dur * STEP;
-      if (mhz) this._tone(ac, mhz, this.t, d, 'square', 0.055);
-      if (bhz) this._tone(ac, bhz, this.t, d * 1.8, 'triangle', 0.08);
+      if (mhz) this._tone(ac, mhz, this.t, d, th.wave, th.vol);
+      if (bhz) this._tone(ac, bhz, this.t, d * 1.8, th.bassWave, th.bassVol);
       this.t += d;
-      this.idx = (this.idx + 1) % MELODY.length;
+      this.idx = (this.idx + 1) % th.melody.length;
     }
     this.tid = setTimeout(() => this._pump(), 50);
   }

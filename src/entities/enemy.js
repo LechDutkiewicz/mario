@@ -1,4 +1,4 @@
-import { GRAVITY, MAX_FALL_SPEED } from '../constants.js';
+import { GRAVITY, MAX_FALL_SPEED, GROUND_Y } from '../constants.js';
 import { resolveCollisions } from '../physics.js';
 
 // type: 'ekans' (stompable purple snake) | 'koffing' (floating toxic ball, fireball only) | 'squirtle' (shell mechanic)
@@ -16,8 +16,15 @@ export class Enemy {
     this.y = flying ? flyMinY : y - this.h;
     this.vx = type === 'koffing' ? -0.8 : type === 'squirtle' ? -1.3 : -1.1;
     this.vy = 0;
-    if (type === 'blooper') { this.w = 26; this.h = 26; this.vx = 0; this.vy = 0; this.y = y - this.h; }
-    if (type === 'cheepcheep') { this.w = 26; this.h = 20; this.vx = -2; this.y = y - this.h; }
+    // FSM Blooper: speed=unitsized2 (right cap 2), speedinv=-unitsized4 (start/left cap -1)
+    if (type === 'blooper') { this.w = 26; this.h = 26; this.vx = -1; this.vy = 0; this.y = y - this.h; this.counter = 0; this.squeeze = 0; }
+    // FSM CheepCheep: red (smart) xvel -1, yvel -1/6; normal xvel -2/3, yvel -1/8
+    if (type === 'cheepcheep') {
+      this.w = 26; this.h = 20; this.y = y - this.h;
+      this.vx = smart ? -1 : -4 / 6;
+      this.vy = smart ? -4 / 24 : -0.125;
+      this.cheepInit = true;
+    }
     if (type === 'podoboo') { this.w = 20; this.h = 20; this.vx = 0; this.baseY = y - this.h; this.y = y - this.h; this.vy = 0; this.jumpTimer = Math.floor(Math.random() * 80) + 30; this.isJumping = false; }
     this.dead = false;
     this.squashTimer = 0;
@@ -138,11 +145,32 @@ export class Enemy {
         if (Math.abs(this.x - player.x) < 520) this.active = true;
         else return;
       }
-      // Chase player slowly
-      const dx = player.x - this.x, dy = player.y - this.y;
-      const dist = Math.sqrt(dx*dx + dy*dy) || 1;
-      this.x += (dx/dist) * 1.2;
-      this.y += (dy/dist) * 1.2;
+      // FSM moveBlooper: rises at increasing rate; every ~1s squeezes and sinks
+      // until it's below the player or near the floor, then unsqueezes.
+      const squeezeStep = () => {
+        this.squeeze = 2;
+        this.vx /= 1.17;
+        // FSM: me.top > player.bottom || me.bottom > (floor - 14u)
+        if (this.y > player.y + player.h || this.y + this.h > GROUND_Y - 56) {
+          this.squeeze = 0;
+          this.counter = 0;
+        }
+      };
+      if (this.counter === 56)      { this.squeeze = 1; this.counter++; }
+      else if (this.counter === 63) { squeezeStep(); }
+      else                          { this.counter++; }
+      if (this.y < 74) squeezeStep();   // too high — force squeeze (unitsizet16 + 10)
+
+      if (this.squeeze) this.vy = Math.max(this.vy + 0.021, 0.7);   // sinking
+      else              this.vy = Math.min(this.vy - 0.035, -0.7);  // rising, accelerating
+      this.y += this.vy;
+
+      // Horizontal homing only while rising (FSM: !squeeze)
+      if (!this.squeeze) {
+        if (player.x > this.x + this.w + 32)          this.vx = Math.min(2, this.vx + 0.125);
+        else if (player.x + player.w < this.x - 32)   this.vx = Math.max(-1, this.vx - 0.125);
+      }
+      this.x += this.vx;
       return;
     }
     if (this.type === 'cheepcheep') {
@@ -150,15 +178,14 @@ export class Enemy {
         if (Math.abs(this.x - player.x) < 520) this.active = true;
         else return;
       }
-      this.x += this.vx;
-      if (this.smart) {
-        // Arc toward player height
-        const dy = player.y - this.y;
-        this.vy += dy * 0.01;
-        if (this.vy > 2) this.vy = 2;
-        if (this.vy < -2) this.vy = -2;
-        this.y += this.vy;
+      // FSM moveCheepInit: flip vertical drift if spawned above the player
+      if (this.cheepInit) {
+        this.cheepInit = false;
+        if (this.y < player.y) this.vy *= -1;
       }
+      // FSM moveCheep: constant slow drift — no homing
+      this.x += this.vx;
+      this.y += this.vy;
       return;
     }
     if (this.type === 'podoboo') {
@@ -459,6 +486,13 @@ export class Enemy {
   _drawBlooper(ctx, x, y, w, h) {
     const OL = '#111';
     const sway = Math.sin(this.animTimer * 0.1) * 2;
+    // Squeeze (FSM sinking state) — flatten the bell
+    if (this.squeeze) {
+      ctx.save();
+      ctx.translate(x + w / 2, y + h);
+      ctx.scale(1.12, 0.78);
+      ctx.translate(-(x + w / 2), -(y + h));
+    }
 
     // Tentacles — two long wavy ones
     ctx.strokeStyle = '#4878b8'; ctx.lineWidth = 2.5; ctx.lineCap = 'round';
@@ -497,6 +531,7 @@ export class Enemy {
     ctx.fillStyle = '#111';
     ctx.beginPath(); ctx.ellipse(x + w * 0.42, y + h * 0.5, 1.8, 2.5, 0, 0, Math.PI * 2); ctx.fill();
     ctx.beginPath(); ctx.ellipse(x + w * 0.58, y + h * 0.5, 1.8, 2.5, 0, 0, Math.PI * 2); ctx.fill();
+    if (this.squeeze) ctx.restore();
   }
 
   // Magikarp — red fish with whiskers and crown fin
