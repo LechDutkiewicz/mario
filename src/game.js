@@ -494,14 +494,16 @@ export class Game {
       if (!p.dead && !castleBoss.defeated && aabb(p, castleBoss)) {
         this._hurtPlayer();
       }
-      // Boss dead → player auto-walks to Pikachu
+      // Boss dead → player auto-walks to the waiting trainer
       if (castleBoss.dead && !this._castleBossComplete) {
         this._castleBossComplete = true;
         this.music.stop();
         this._playEndJingle();
-        // Walk to pikachuX or a fixed spot right of the bridge
-        const destX = (lvl.pikachuX ?? castleBoss.x + 400) + 60;
+        // Stop just BEFORE the rescued trainer (not past them — no falling
+        // off the edge of the castle floor)
+        const destX = (lvl.pikachuX ?? castleBoss.x + 400) - p.w - 14;
         this.pcEnterX = destX;
+        this._rescueName = this._rescuedTrainer().toUpperCase();
         p.walkToPC = true;
         this.walkToPC = true;
       }
@@ -679,6 +681,13 @@ export class Game {
         p.walkToPC = false;
         this.walkToPC = false;
         this.walkToPCTimer = 180;
+        // Castle rescue cutscene — celebrate reaching the trainer
+        if (this._rescueName) {
+          p.x = this.pcEnterX;   // stand right next to them, don't overshoot
+          p.vx = 0;
+          this._showMsg(`${this._rescueName} IS SAFE!`, 170);
+          this._rescueName = null;
+        }
       }
       return;
     }
@@ -940,11 +949,11 @@ export class Game {
     }
     if (lvl.castleBoss) lvl.castleBoss.draw(r, this.cam);
     if (lvl.bossAxe && !lvl.bossAxe.taken) lvl.bossAxe.draw(r, this.cam);
-    // Pikachu waiting at end of castle (same scale as player ~40px tall)
+    // Rescued trainer waiting at end of castle (Ash / Goh / Friede by world)
     if (lvl.pikachuX != null) {
       const pikX = Math.floor(lvl.pikachuX - this.cam.x);
       const pikY = (lvl.bossBridgeY ?? GROUND_Y) - 4;
-      this._drawPikachu(this.ctx, pikX, pikY, 0.3);
+      this._drawTrainer(this.ctx, pikX, pikY, this._rescuedTrainer());
     }
     for (const bar of (lvl.fireBars || [])) bar.draw(r, this.cam);
     for (const fb of this.fireballs) fb.draw(r, this.cam);
@@ -1325,6 +1334,80 @@ export class Game {
     ctx.fillStyle = '#b0e0ff';
     ctx.fillText('Press ENTER to play again', CANVAS_WIDTH / 2, 420);
     ctx.textAlign = 'left';
+  }
+
+  // Which anime trainer waits at the end of this world's castle
+  _rescuedTrainer() {
+    return this.world === 1 ? 'ash' : this.world === 2 ? 'goh' : 'friede';
+  }
+
+  // Simple cartoon trainer, ~48px tall, facing left toward the arriving player.
+  // cx = horizontal center, footY = ground line. who: 'ash' | 'goh' | 'friede'
+  _drawTrainer(ctx, cx, footY, who) {
+    const PAL = {
+      ash:    { hair: '#1a1a1a', cap: '#d82020', capPeak: '#f0f0f0', jacket: '#2858c8', trim: '#f0f0f0', pants: '#4a68b0', shoes: '#222',    skin: '#f0c8a0' },
+      goh:    { hair: '#20304a', cap: null,      capPeak: null,      jacket: '#f4f4f4', trim: '#d82020', pants: '#607080', shoes: '#f0f0f0', skin: '#f0c8a0' },
+      friede: { hair: '#e8e8e8', cap: null,      capPeak: null,      jacket: '#284898', trim: '#101828', pants: '#282838', shoes: '#503818', skin: '#e8b890' },
+    };
+    const c = PAL[who] || PAL.ash;
+    const H = 48;
+    const top = footY - H;
+    const wave = Math.sin((this._lavaAnim || 0) * 0.1);   // waving arm
+
+    // Shoes
+    ctx.fillStyle = c.shoes;
+    ctx.fillRect(cx - 9, footY - 5, 8, 5);
+    ctx.fillRect(cx + 1, footY - 5, 8, 5);
+    // Legs
+    ctx.fillStyle = c.pants;
+    ctx.fillRect(cx - 7, top + 28, 6, H - 33);
+    ctx.fillRect(cx + 1, top + 28, 6, H - 33);
+    // Jacket torso
+    ctx.fillStyle = c.jacket;
+    ctx.fillRect(cx - 8, top + 14, 16, 15);
+    // Trim stripe down the middle
+    ctx.fillStyle = c.trim;
+    ctx.fillRect(cx - 1.5, top + 14, 3, 15);
+    // Static arm (left side, hangs down)
+    ctx.fillStyle = c.jacket;
+    ctx.fillRect(cx - 12, top + 15, 4, 11);
+    ctx.fillStyle = c.skin;
+    ctx.fillRect(cx - 12, top + 26, 4, 3);
+    // Waving arm (right side, raised, swings)
+    ctx.save();
+    ctx.translate(cx + 10, top + 17);
+    ctx.rotate(-2.3 + wave * 0.45);
+    ctx.fillStyle = c.jacket;
+    ctx.fillRect(-2, 0, 4, 12);
+    ctx.fillStyle = c.skin;
+    ctx.fillRect(-2, 12, 4, 4);
+    ctx.restore();
+    // Head
+    ctx.fillStyle = c.skin;
+    ctx.beginPath(); ctx.arc(cx, top + 8, 7.5, 0, Math.PI * 2); ctx.fill();
+    // Hair (back and top)
+    ctx.fillStyle = c.hair;
+    ctx.beginPath(); ctx.arc(cx + 1.5, top + 6, 7.5, Math.PI * 0.85, Math.PI * 2.05); ctx.fill();
+    if (who === 'friede') {
+      // Spiky white tufts
+      ctx.beginPath();
+      ctx.moveTo(cx - 6, top + 3); ctx.lineTo(cx - 9, top - 4); ctx.lineTo(cx - 2, top + 1);
+      ctx.lineTo(cx + 1, top - 5); ctx.lineTo(cx + 5, top + 1); ctx.lineTo(cx + 9, top - 2);
+      ctx.lineTo(cx + 7, top + 5); ctx.closePath(); ctx.fill();
+    }
+    // Cap (Ash)
+    if (c.cap) {
+      ctx.fillStyle = c.cap;
+      ctx.beginPath(); ctx.arc(cx, top + 4, 7.5, Math.PI, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = c.capPeak;
+      ctx.fillRect(cx - 12, top + 3, 8, 3);   // peak points left, toward player
+    }
+    // Eye (facing left)
+    ctx.fillStyle = '#111';
+    ctx.beginPath(); ctx.arc(cx - 4, top + 8.5, 1.4, 0, Math.PI * 2); ctx.fill();
+    // Smile
+    ctx.strokeStyle = '#111'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.arc(cx - 3, top + 11, 2.5, 0.2, Math.PI * 0.8); ctx.stroke();
   }
 
   _drawEntranceHPipe(lvl) {

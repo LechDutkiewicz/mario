@@ -4,7 +4,11 @@ import { BossShot } from './projectile.js';
 
 // Castle boss — Gengar (Bowser equivalent)
 // Defeated by touching the axe (collapses bridge) OR 5 fireballs
-// Mechanics: walks left/right, jumps every ~3s, shoots one fireball LEFT every ~2s
+// Mechanics ported 1:1 from FSM Bowser:
+// - moveBowser: sinusoidal drift while facing the player, chase when passed
+// - bowserJumps: jump (yvel -1.4u) every 117 frames, gravity/2.8
+// - bowserFires: three interleaved fire intervals (280/350/490 frames) with a
+//   14-frame windup; each flame homes down to the player's height level
 export class CastleBoss {
   constructor(x, y, leftBound, rightBound) {
     this.w = 56;
@@ -19,10 +23,16 @@ export class CastleBoss {
     this.defeated = false;
     this.anim = 0;
     this.active = false;
-    this.shootTimer = 100;
-    this.jumpTimer  = 160;
     this.onGround   = false;
     this._hp = 5;
+    // FSM Bowser state
+    this.lookleft   = true;
+    this.counter    = -0.7;                 // phase of the sinusoidal drift
+    this.jumpTimer  = 117;
+    this.fireTimers = [280, 350, 490];      // three independent countdowns
+    this.fireDelays = [280, 350, 490];
+    this.windup     = 0;                    // frames until the pending flame fires
+    this.windupTarget = 0;
     // Bridge collapse state
     this.bridgeCollapsing = false;
     this.bridgeSegments   = null;
@@ -96,30 +106,56 @@ export class CastleBoss {
       else return;
     }
 
-    // Reduced gravity gives same jump peak height but ~35% longer hang time
-    this.vy += GRAVITY * 0.55;
+    // FSM: Bowser gravity is gravity / 2.8 (floaty jumps)
+    this.vy += GRAVITY / 2.8;
     if (this.vy > MAX_FALL_SPEED) this.vy = MAX_FALL_SPEED;
+
+    // Face the player (FSM lookTowardPlayer)
+    this.lookleft = player.x + player.w / 2 < this.x + this.w / 2;
+
+    // FSM moveBowser: sinusoidal drift while looking left, chase right otherwise
+    if (this.lookleft) {
+      this.counter += 0.007;
+      this.vx = Math.sin(Math.PI * this.counter) / 1.4;
+    } else {
+      this.vx = Math.min(this.vx + 0.07, 0.84);
+    }
+
     const res = resolveCollisions(this, solids);
     this.onGround = res.onGround;
 
-    // Bounce off bridge bounds
-    if (this.x <= this.leftBound)  { this.x = this.leftBound;            this.vx =  Math.abs(this.vx); }
-    if (this.x + this.w >= this.rightBound) { this.x = this.rightBound - this.w; this.vx = -Math.abs(this.vx); }
+    // Stay on the bridge
+    if (this.x <= this.leftBound)  this.x = this.leftBound;
+    if (this.x + this.w >= this.rightBound) this.x = this.rightBound - this.w;
 
-    // Periodic jump
+    // FSM bowserJumps: every 117 frames, only when resting and facing the player
     this.jumpTimer--;
-    if (this.jumpTimer <= 0 && this.onGround) {
-      this.vy = -8;
-      this.jumpTimer = 150 + Math.floor(Math.random() * 60);
+    if (this.jumpTimer <= 0) {
+      this.jumpTimer = 117;
+      if (this.onGround && this.lookleft) {
+        this.vy = -5.6;   // unitsize * -1.4
+        this.onGround = false;
+      }
     }
 
-    // Shoot ONE fireball to the left every ~2 seconds
-    this.shootTimer--;
-    if (this.shootTimer <= 0) {
-      this.shootTimer = 110 + Math.floor(Math.random() * 40);
-      const sx = this.x;
-      const sy = this.y + this.h * 0.55;
-      game.bossShots.push(new BossShot(sx, sy, -4.5, 0));
+    // FSM bowserFires: three interleaved intervals — short bursts, longer gaps
+    for (let i = 0; i < 3; i++) {
+      this.fireTimers[i]--;
+      if (this.fireTimers[i] <= 0) {
+        this.fireTimers[i] = this.fireDelays[i];
+        if (this.lookleft && this.windup <= 0) {
+          this.windup = 14;   // mouth closes, flame comes 14 frames later
+          // roundDigit(player.bottom, unitsizet8) — target level rounded to 32px
+          this.windupTarget = Math.round((player.y + player.h) / 32) * 32;
+        }
+      }
+    }
+    if (this.windup > 0) {
+      this.windup--;
+      if (this.windup === 0) {
+        // FSM: flame spawns at left - 32, top + 16, xvel -0.63u = -2.52
+        game.bossShots.push(new BossShot(this.x - 32, this.y + 16, -2.52, 0, this.windupTarget));
+      }
     }
   }
 
@@ -220,26 +256,33 @@ export class CastleBoss {
     ctx.beginPath(); ctx.ellipse(cx - w * 0.17, cy - h * 0.08 + bob, 4, 5, 0, 0, Math.PI * 2); ctx.fill();
     ctx.beginPath(); ctx.ellipse(cx + w * 0.17, cy - h * 0.08 + bob, 4, 5, 0, 0, Math.PI * 2); ctx.fill();
 
-    // Wide grinning mouth
+    // Mouth — closed while winding up a flame (FSM "firing" class), wide grin otherwise
     const mouthY = cy + h * 0.12 + bob;
-    ctx.fillStyle = '#1a0828';
-    ctx.beginPath();
-    ctx.arc(cx, mouthY, w * 0.32, 0.1, Math.PI - 0.1);
-    ctx.fill();
-    ctx.fillStyle = '#f0f0f0';
-    const toothW = (w * 0.6) / 5;
-    for (let i = 0; i < 5; i++) {
-      const tx = cx - w * 0.3 + i * toothW;
+    if (this.windup > 0) {
+      ctx.strokeStyle = '#1a0828'; ctx.lineWidth = 3; ctx.lineCap = 'round';
       ctx.beginPath();
-      ctx.moveTo(tx, mouthY);
-      ctx.lineTo(tx + toothW * 0.5, mouthY + 7);
-      ctx.lineTo(tx + toothW, mouthY);
-      ctx.closePath(); ctx.fill();
+      ctx.moveTo(cx - w * 0.26, mouthY + 2);
+      ctx.quadraticCurveTo(cx, mouthY + 6, cx + w * 0.26, mouthY + 2);
+      ctx.stroke();
+    } else {
+      ctx.fillStyle = '#1a0828';
+      ctx.beginPath();
+      ctx.arc(cx, mouthY, w * 0.32, 0.1, Math.PI - 0.1);
+      ctx.fill();
+      ctx.fillStyle = '#f0f0f0';
+      const toothW = (w * 0.6) / 5;
+      for (let i = 0; i < 5; i++) {
+        const tx = cx - w * 0.3 + i * toothW;
+        ctx.beginPath();
+        ctx.moveTo(tx, mouthY);
+        ctx.lineTo(tx + toothW * 0.5, mouthY + 7);
+        ctx.lineTo(tx + toothW, mouthY);
+        ctx.closePath(); ctx.fill();
+      }
+      // Tongue
+      ctx.fillStyle = '#e04080';
+      ctx.beginPath(); ctx.ellipse(cx + w * 0.08, mouthY + 6, 7, 5, 0.2, 0, Math.PI * 2); ctx.fill();
     }
-
-    // Tongue
-    ctx.fillStyle = '#e04080';
-    ctx.beginPath(); ctx.ellipse(cx + w * 0.08, mouthY + 6, 7, 5, 0.2, 0, Math.PI * 2); ctx.fill();
   }
 }
 

@@ -150,17 +150,22 @@ export class Fireball {
   }
 }
 
-// Hyper Beam orb — yellow glowing orb, flies straight from Persian
+// Boss projectile.
+// Without ylev: Hyper Beam orb (Persian) — flies straight.
+// With ylev (FSM BowserFire): Gengar's ghost-flame — flies left and homes
+// DOWN to the target height level (moveFlying: shiftVert by ≤ unitsize until
+// bottom == ylev), never up.
 export class BossShot {
-  constructor(x, y, vx, vy) {
+  constructor(x, y, vx, vy, ylev = null) {
     this.x = x;
     this.y = y;
-    this.w = 20;
-    this.h = 20;
+    this.ylev = ylev;
+    this.w = ylev != null ? 26 : 20;
+    this.h = ylev != null ? 10 : 20;
     this.vx = vx;
     this.vy = vy;
     this.dead = false;
-    this.life = 220;
+    this.life = 300;
     this.anim = 0;
   }
 
@@ -169,10 +174,18 @@ export class BossShot {
     this.life--;
     this.x += this.vx;
     this.y += this.vy;
+    // FSM moveFlying — descend toward ylev, max unitsize (4px) per frame
+    if (this.ylev != null) {
+      const bottom = this.y + this.h;
+      if (Math.round(bottom) < this.ylev) {
+        this.y += Math.min(this.ylev - bottom, 4);
+      }
+    }
     if (this.life <= 0) this.dead = true;
   }
 
   draw(r, cam) {
+    if (this.ylev != null) { this._drawFlame(r, cam); return; }
     const ctx = r.ctx;
     const cx = this.x - cam.x + this.w / 2;
     const cy = this.y + this.h / 2;
@@ -192,5 +205,37 @@ export class BossShot {
     ctx.beginPath();
     ctx.arc(cx, cy, this.w / 2, 0, Math.PI * 2);
     ctx.stroke();
+  }
+
+  // Gengar's ghost-flame — purple horizontal flame, flips vertically like the
+  // FSM BowserFire sprite cycle
+  _drawFlame(r, cam) {
+    const ctx = r.ctx;
+    const bx = this.x - cam.x;
+    const cy = this.y + this.h / 2;
+    const flip = Math.floor(this.anim / 6) % 2 ? -1 : 1;
+
+    ctx.save();
+    ctx.translate(bx + this.w / 2, cy);
+    ctx.scale(1, flip);
+
+    // Flame body — head at the front (left), wavy tail behind
+    const t = Math.floor(this.anim / 3) % 2;
+    ctx.fillStyle = t ? '#b040e0' : '#8828c8';
+    ctx.beginPath();
+    ctx.arc(-this.w * 0.32, 0, this.h * 0.5, Math.PI * 0.5, Math.PI * 1.5);
+    ctx.lineTo(this.w * 0.18, -this.h * 0.28);
+    ctx.lineTo(this.w * 0.34, -this.h * 0.1);
+    ctx.lineTo(this.w * 0.22, this.h * 0.12);
+    ctx.lineTo(this.w * 0.5, this.h * 0.3);
+    ctx.lineTo(-this.w * 0.1, this.h * 0.5);
+    ctx.closePath(); ctx.fill();
+    // Bright core
+    ctx.fillStyle = t ? '#e8a0ff' : '#d070f8';
+    ctx.beginPath();
+    ctx.ellipse(-this.w * 0.24, 0, this.w * 0.18, this.h * 0.28, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.restore();
   }
 }
