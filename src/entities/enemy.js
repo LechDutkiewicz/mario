@@ -356,118 +356,240 @@ export class Enemy {
     ctx.globalAlpha = 1;
   }
 
+  // Sandshrew — sandy armadillo; curls into a ball (shell mechanic)
   _drawSquirtle(ctx, x, y, w, h) {
+    const SAND = '#e0c068', SAND_D = '#b89440', BELLY = '#f8ecc8', OL = '#111';
+
     if (this.inShell) {
-      // Oval shell on ground
-      const sy2 = y + h - 20;
-      ctx.fillStyle = '#8B6914';
-      ctx.beginPath(); ctx.ellipse(x + w / 2, sy2, w * 0.48, 14, 0, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = '#C8A832';
-      ctx.beginPath(); ctx.ellipse(x + w / 2, sy2, w * 0.38, 10, 0, 0, Math.PI * 2); ctx.fill();
-      // Shell pattern lines
-      ctx.strokeStyle = '#7a5a10'; ctx.lineWidth = 1.5;
-      ctx.beginPath(); ctx.moveTo(x + w / 2, sy2 - 10); ctx.lineTo(x + w / 2, sy2 + 10); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(x + w * 0.12, sy2); ctx.lineTo(x + w * 0.88, sy2); ctx.stroke();
-      // If sliding, add motion lines
+      // Curled-up ball with brick-pattern plates
+      const cy2 = y + h - 13;
+      ctx.fillStyle = SAND;
+      ctx.beginPath(); ctx.arc(x + w / 2, cy2, 13, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = OL; ctx.lineWidth = 1.5; ctx.stroke();
+      // Brick plate lines (rotate when sliding)
+      const rot = this.shellSliding ? this.animTimer * 0.35 * (this.vx > 0 ? 1 : -1) : 0;
+      ctx.save();
+      ctx.translate(x + w / 2, cy2);
+      ctx.rotate(rot);
+      ctx.strokeStyle = SAND_D; ctx.lineWidth = 1.5;
+      for (let i = -1; i <= 1; i++) {
+        ctx.beginPath(); ctx.moveTo(-11, i * 6); ctx.lineTo(11, i * 6); ctx.stroke();
+      }
+      ctx.beginPath(); ctx.moveTo(-5, -6); ctx.lineTo(-5, 0); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(5, 0); ctx.lineTo(5, 6); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(0, -12); ctx.lineTo(0, -6); ctx.stroke();
+      ctx.restore();
+      // Motion lines when sliding
       if (this.shellSliding) {
         ctx.strokeStyle = 'rgba(255,255,255,0.5)'; ctx.lineWidth = 2;
         const dir = this.vx > 0 ? -1 : 1;
         for (let i = 1; i <= 3; i++) {
           ctx.beginPath();
-          ctx.moveTo(x + w / 2 + dir * (w * 0.5 + i * 6), sy2 - 6 + i * 3);
-          ctx.lineTo(x + w / 2 + dir * (w * 0.5 + i * 6 + 12), sy2 - 6 + i * 3);
+          ctx.moveTo(x + w / 2 + dir * (14 + i * 6), cy2 - 6 + i * 3);
+          ctx.lineTo(x + w / 2 + dir * (14 + i * 6 + 12), cy2 - 6 + i * 3);
           ctx.stroke();
         }
       }
       return;
     }
 
-    // Wings for flying Paratroopa
+    // Wings for the flying variant
     if (this.flying) {
       const wingFlap = Math.floor(this.animTimer / 8) % 2;
       ctx.fillStyle = '#e8e8ff';
       ctx.strokeStyle = '#8888cc'; ctx.lineWidth = 1;
-      // Left wing
       ctx.beginPath();
       ctx.ellipse(x - 8 + wingFlap * 3, y + h * 0.35, 10, 6, -0.4, 0, Math.PI * 2);
       ctx.fill(); ctx.stroke();
-      // Right wing
       ctx.beginPath();
       ctx.ellipse(x + w + 8 - wingFlap * 3, y + h * 0.35, 10, 6, 0.4, 0, Math.PI * 2);
       ctx.fill(); ctx.stroke();
     }
 
-    // Walking Squirtle
-    // Shell on back (behind body)
-    ctx.fillStyle = '#8B6914';
-    ctx.beginPath(); ctx.ellipse(x + w / 2, y + h * 0.55, w * 0.44, h * 0.3, 0, Math.PI, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = '#C8A832';
-    ctx.beginPath(); ctx.ellipse(x + w / 2, y + h * 0.52, w * 0.38, h * 0.22, 0, Math.PI, Math.PI * 2); ctx.fill();
+    const dir = this.vx <= 0 ? -1 : 1;   // face direction of travel
+    const fx = (ux) => x + w / 2 + dir * (ux - 0.5) * w;  // mirrorable x
 
-    // Body
-    ctx.fillStyle = '#4a90d9';
-    ctx.beginPath(); ctx.ellipse(x + w / 2, y + h * 0.62, w * 0.4, h * 0.28, 0, 0, Math.PI * 2); ctx.fill();
+    // Walking Sandshrew — low, on all fours
+    // Back armor dome with brick pattern
+    ctx.fillStyle = SAND;
+    ctx.beginPath(); ctx.ellipse(x + w / 2, y + h * 0.52, w * 0.46, h * 0.4, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = OL; ctx.lineWidth = 1.5; ctx.stroke();
+    ctx.strokeStyle = SAND_D; ctx.lineWidth = 1.2;
+    ctx.beginPath(); ctx.moveTo(x + w * 0.1, y + h * 0.38); ctx.lineTo(x + w * 0.9, y + h * 0.38); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x + w * 0.08, y + h * 0.55); ctx.lineTo(x + w * 0.92, y + h * 0.55); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(fx(0.35), y + h * 0.38); ctx.lineTo(fx(0.35), y + h * 0.55); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(fx(0.6), y + h * 0.22); ctx.lineTo(fx(0.6), y + h * 0.38); ctx.stroke();
 
-    // Head
-    ctx.fillStyle = '#5aa0e0';
-    ctx.beginPath(); ctx.ellipse(x + w / 2, y + h * 0.28, w * 0.32, h * 0.22, 0, 0, Math.PI * 2); ctx.fill();
+    // Pale belly (front-lower part)
+    ctx.fillStyle = BELLY;
+    ctx.beginPath(); ctx.ellipse(fx(0.62), y + h * 0.7, w * 0.24, h * 0.18, 0, 0, Math.PI * 2); ctx.fill();
 
-    // Eyes
-    ctx.fillStyle = '#fff';
-    ctx.beginPath(); ctx.ellipse(x + w * 0.33, y + h * 0.22, 5, 6, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.beginPath(); ctx.ellipse(x + w * 0.67, y + h * 0.22, 5, 6, 0, 0, Math.PI * 2); ctx.fill();
+    // Snout + face on the leading side
+    ctx.fillStyle = BELLY;
+    ctx.beginPath(); ctx.ellipse(fx(0.82), y + h * 0.42, w * 0.16, h * 0.16, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = OL; ctx.lineWidth = 1; ctx.stroke();
+    // Ear nub
+    ctx.fillStyle = SAND;
+    ctx.beginPath(); ctx.ellipse(fx(0.72), y + h * 0.2, 3.5, 4.5, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = OL; ctx.lineWidth = 1; ctx.stroke();
+    // Eye — narrow, mischievous
     ctx.fillStyle = '#111';
-    ctx.beginPath(); ctx.ellipse(x + w * 0.34, y + h * 0.23, 2.5, 3, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.beginPath(); ctx.ellipse(x + w * 0.68, y + h * 0.23, 2.5, 3, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(fx(0.8), y + h * 0.36, 2.2, 3, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(fx(0.8) - 1, y + h * 0.32, 1.5, 1.5);
+    // Nose tip
+    ctx.fillStyle = '#333';
+    ctx.beginPath(); ctx.arc(fx(0.95), y + h * 0.44, 1.5, 0, Math.PI * 2); ctx.fill();
 
-    // Legs (animated)
+    // Claws / legs (animated)
     const step = Math.abs(this.vx) > 0.3 ? Math.floor(this.animTimer / 8) % 2 : 0;
-    ctx.fillStyle = '#4a90d9';
-    ctx.fillRect(x + w * 0.12 + step * 4, y + h * 0.78, w * 0.22, h * 0.2);
-    ctx.fillRect(x + w * 0.58 - step * 4, y + h * 0.78, w * 0.22, h * 0.2);
+    ctx.fillStyle = SAND;
+    ctx.strokeStyle = OL; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.ellipse(x + w * 0.24 + step * 3, y + h * 0.9, 5, 4, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    ctx.beginPath(); ctx.ellipse(x + w * 0.7 - step * 3, y + h * 0.9, 5, 4, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    // White claws
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(x + w * 0.2 + step * 3, y + h * 0.94, 2, 3);
+    ctx.fillRect(x + w * 0.26 + step * 3, y + h * 0.94, 2, 3);
+    ctx.fillRect(x + w * 0.66 - step * 3, y + h * 0.94, 2, 3);
+    ctx.fillRect(x + w * 0.72 - step * 3, y + h * 0.94, 2, 3);
   }
 
+  // Tentacool — blue jellyfish with red crystals, dangling tentacles
   _drawBlooper(ctx, x, y, w, h) {
-    // White squid body with purple tentacles
-    ctx.fillStyle = '#dde';
-    ctx.beginPath(); ctx.ellipse(x+w/2, y+h*0.45, w*0.4, h*0.38, 0, 0, Math.PI*2); ctx.fill();
-    ctx.strokeStyle='#8888aa'; ctx.lineWidth=1;
-    // Tentacles
-    for(let i=0;i<4;i++){const tx=x+w*0.15+i*w*0.22; ctx.beginPath(); ctx.moveTo(tx,y+h*0.75); ctx.lineTo(tx-3,y+h); ctx.stroke();}
-    // Eyes
-    ctx.fillStyle='#cc0000'; ctx.beginPath(); ctx.ellipse(x+w*0.35,y+h*0.35,4,4,0,0,Math.PI*2); ctx.fill();
-    ctx.beginPath(); ctx.ellipse(x+w*0.65,y+h*0.35,4,4,0,0,Math.PI*2); ctx.fill();
+    const OL = '#111';
+    const sway = Math.sin(this.animTimer * 0.1) * 2;
+
+    // Tentacles — two long wavy ones
+    ctx.strokeStyle = '#4878b8'; ctx.lineWidth = 2.5; ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(x + w * 0.3, y + h * 0.7);
+    ctx.quadraticCurveTo(x + w * 0.2 + sway, y + h * 1.1, x + w * 0.28 - sway, y + h * 1.5);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(x + w * 0.7, y + h * 0.7);
+    ctx.quadraticCurveTo(x + w * 0.8 - sway, y + h * 1.1, x + w * 0.72 + sway, y + h * 1.5);
+    ctx.stroke();
+
+    // Bell — light blue dome
+    ctx.fillStyle = '#68a8d8';
+    ctx.beginPath();
+    ctx.ellipse(x + w / 2, y + h * 0.42, w * 0.42, h * 0.4, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = OL; ctx.lineWidth = 1.5; ctx.stroke();
+    // Lighter blue base band
+    ctx.fillStyle = '#90c8e8';
+    ctx.beginPath();
+    ctx.ellipse(x + w / 2, y + h * 0.62, w * 0.36, h * 0.14, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Red crystal orbs — one big center-top, two small sides
+    ctx.fillStyle = '#d02020';
+    ctx.beginPath(); ctx.ellipse(x + w / 2, y + h * 0.2, 5, 5.5, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = OL; ctx.lineWidth = 1; ctx.stroke();
+    ctx.beginPath(); ctx.ellipse(x + w * 0.26, y + h * 0.42, 3.5, 4, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    ctx.beginPath(); ctx.ellipse(x + w * 0.74, y + h * 0.42, 3.5, 4, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    // Crystal shine
+    ctx.fillStyle = '#ff9090';
+    ctx.fillRect(x + w / 2 - 2, y + h * 0.14, 2, 2);
+
+    // Eyes — small, between crystals
+    ctx.fillStyle = '#111';
+    ctx.beginPath(); ctx.ellipse(x + w * 0.42, y + h * 0.5, 1.8, 2.5, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(x + w * 0.58, y + h * 0.5, 1.8, 2.5, 0, 0, Math.PI * 2); ctx.fill();
   }
 
+  // Magikarp — red fish with whiskers and crown fin
   _drawCheepCheep(ctx, x, y, w, h) {
-    // Orange/red fish
-    ctx.fillStyle='#e84010';
-    ctx.beginPath(); ctx.ellipse(x+w*0.5,y+h*0.5, w*0.45,h*0.42, 0,0,Math.PI*2); ctx.fill();
-    // Tail fin
-    ctx.beginPath(); ctx.moveTo(x+2,y+h*0.25); ctx.lineTo(x-8,y); ctx.lineTo(x-8,y+h); ctx.lineTo(x+2,y+h*0.75); ctx.closePath(); ctx.fill();
-    // Eye
-    ctx.fillStyle='#fff'; ctx.beginPath(); ctx.ellipse(x+w*0.7,y+h*0.35,5,5,0,0,Math.PI*2); ctx.fill();
-    ctx.fillStyle='#000'; ctx.beginPath(); ctx.ellipse(x+w*0.71,y+h*0.36,2.5,2.5,0,0,Math.PI*2); ctx.fill();
-    // Scales
-    ctx.strokeStyle='#c03000'; ctx.lineWidth=1;
-    ctx.beginPath(); ctx.arc(x+w*0.4,y+h*0.5,6,0,Math.PI); ctx.stroke();
-    ctx.beginPath(); ctx.arc(x+w*0.6,y+h*0.5,6,0,Math.PI); ctx.stroke();
+    const OL = '#111';
+    const flop = Math.sin(this.animTimer * 0.15) * 2;
+
+    // Tail fin — pale yellow-white fan on the left
+    ctx.fillStyle = '#f8e8c0';
+    ctx.beginPath();
+    ctx.moveTo(x + 3, y + h * 0.3);
+    ctx.lineTo(x - 8, y - 2 + flop);
+    ctx.lineTo(x - 6, y + h * 0.5);
+    ctx.lineTo(x - 8, y + h + 2 - flop);
+    ctx.lineTo(x + 3, y + h * 0.7);
+    ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = OL; ctx.lineWidth = 1; ctx.stroke();
+
+    // Body — red, rounded
+    ctx.fillStyle = '#e83820';
+    ctx.beginPath(); ctx.ellipse(x + w * 0.52, y + h * 0.5, w * 0.44, h * 0.44, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = OL; ctx.lineWidth = 1.5; ctx.stroke();
+
+    // Crown fin on top — spiky pale yellow
+    ctx.fillStyle = '#f8e8c0';
+    ctx.beginPath();
+    ctx.moveTo(x + w * 0.32, y + h * 0.14);
+    ctx.lineTo(x + w * 0.4, y - 5 + flop * 0.5);
+    ctx.lineTo(x + w * 0.5, y + h * 0.08);
+    ctx.lineTo(x + w * 0.6, y - 5 + flop * 0.5);
+    ctx.lineTo(x + w * 0.68, y + h * 0.14);
+    ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = OL; ctx.lineWidth = 1; ctx.stroke();
+
+    // White belly
+    ctx.fillStyle = '#f8f0e0';
+    ctx.beginPath(); ctx.ellipse(x + w * 0.56, y + h * 0.68, w * 0.3, h * 0.2, 0, 0, Math.PI * 2); ctx.fill();
+
+    // Side fin
+    ctx.fillStyle = '#f8e8c0';
+    ctx.beginPath(); ctx.ellipse(x + w * 0.45, y + h * 0.62, 5, 3.5, 0.4 + flop * 0.1, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = OL; ctx.lineWidth = 0.8; ctx.stroke();
+
+    // Big round eye
+    ctx.fillStyle = '#fff';
+    ctx.beginPath(); ctx.ellipse(x + w * 0.72, y + h * 0.34, 5, 5.5, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = OL; ctx.lineWidth = 1; ctx.stroke();
+    ctx.fillStyle = '#111';
+    ctx.beginPath(); ctx.ellipse(x + w * 0.73, y + h * 0.35, 2.5, 3, 0, 0, Math.PI * 2); ctx.fill();
+
+    // Open mouth — big lips
+    ctx.strokeStyle = OL; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.arc(x + w * 0.94, y + h * 0.52, 4, Math.PI * 0.6, Math.PI * 1.4, true); ctx.stroke();
+
+    // Whiskers — yellow, drooping from mouth
+    ctx.strokeStyle = '#f0d060'; ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(x + w * 0.9, y + h * 0.58);
+    ctx.quadraticCurveTo(x + w * 0.98, y + h * 0.8, x + w * 0.9 + flop * 0.5, y + h * 0.95);
+    ctx.stroke();
   }
 
+  // Slugma — lava slug with droopy eyes, rises from the lava
   _drawPodoboo(ctx, x, y, w, h) {
-    // Fireball from lava
-    if (!this.isJumping && !this.dying) return; // invisible when below screen
-    const flicker = Math.floor(this.animTimer/4)%2;
-    ctx.fillStyle = flicker ? '#ff6600' : '#ff9900';
-    ctx.beginPath(); ctx.ellipse(x+w/2,y+h/2, w*0.45,h*0.45, 0,0,Math.PI*2); ctx.fill();
-    ctx.fillStyle='#ffdd00';
-    ctx.beginPath(); ctx.ellipse(x+w/2,y+h*0.4, w*0.25,h*0.25, 0,0,Math.PI*2); ctx.fill();
-    // Angry eyes
-    ctx.fillStyle='#fff';
-    ctx.beginPath(); ctx.ellipse(x+w*0.33,y+h*0.38,4,4,0,0,Math.PI*2); ctx.fill();
-    ctx.beginPath(); ctx.ellipse(x+w*0.67,y+h*0.38,4,4,0,0,Math.PI*2); ctx.fill();
-    ctx.fillStyle='#000';
-    ctx.beginPath(); ctx.ellipse(x+w*0.33,y+h*0.39,2,2,0,0,Math.PI*2); ctx.fill();
-    ctx.beginPath(); ctx.ellipse(x+w*0.67,y+h*0.39,2,2,0,0,Math.PI*2); ctx.fill();
+    if (!this.isJumping && !this.dying) return; // hidden below the lava surface
+    const OL = '#111';
+    const flicker = Math.floor(this.animTimer / 4) % 2;
+
+    // Dripping magma blobs beneath
+    ctx.fillStyle = flicker ? '#ff5500' : '#e84010';
+    ctx.beginPath(); ctx.ellipse(x + w * 0.3, y + h * 0.95, 3, 4, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(x + w * 0.7, y + h * 1.0, 2.5, 3.5, 0, 0, Math.PI * 2); ctx.fill();
+
+    // Body — teardrop magma blob leaning up
+    ctx.fillStyle = flicker ? '#f04818' : '#e03810';
+    ctx.beginPath();
+    ctx.moveTo(x + w * 0.5, y - h * 0.15);
+    ctx.bezierCurveTo(x + w * 1.05, y + h * 0.15, x + w * 1.0, y + h * 0.9, x + w * 0.5, y + h * 0.95);
+    ctx.bezierCurveTo(x + w * 0.0, y + h * 0.9, x - w * 0.05, y + h * 0.15, x + w * 0.5, y - h * 0.15);
+    ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = OL; ctx.lineWidth = 1.3; ctx.stroke();
+
+    // Inner glow
+    ctx.fillStyle = flicker ? '#ff9030' : '#ff7020';
+    ctx.beginPath(); ctx.ellipse(x + w * 0.5, y + h * 0.55, w * 0.3, h * 0.3, 0, 0, Math.PI * 2); ctx.fill();
+
+    // Droopy round eyes on top — Slugma's signature look
+    ctx.fillStyle = '#f8d838';
+    ctx.beginPath(); ctx.ellipse(x + w * 0.34, y + h * 0.16, 4.5, 5, -0.15, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = OL; ctx.lineWidth = 1; ctx.stroke();
+    ctx.beginPath(); ctx.ellipse(x + w * 0.66, y + h * 0.16, 4.5, 5, 0.15, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#111';
+    ctx.beginPath(); ctx.ellipse(x + w * 0.35, y + h * 0.2, 1.8, 2.2, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(x + w * 0.65, y + h * 0.2, 1.8, 2.2, 0, 0, Math.PI * 2); ctx.fill();
   }
 }
