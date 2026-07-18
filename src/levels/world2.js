@@ -25,6 +25,15 @@ function _build21(subArea) {
     lvl.exitOverworldX = 5120;
     return lvl;
   }
+  if (subArea === 2) {
+    // Sky bonus area (vine climb) — area index 1 in 2-1 JSON
+    const lvl = loadFSMLevel(world21Data, 1);
+    lvl.flagPole = null;
+    lvl.pokeCenterX = undefined;
+    lvl.isSky = true;
+    lvl.skyReturnX = 5152;   // FSM location 1: xloc 1288 → back in the overworld
+    return lvl;
+  }
   // subArea 0: overworld (area 0)
   const lvl = loadFSMLevel(world21Data, 0);
   for (const p of lvl.platforms) {

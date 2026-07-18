@@ -40,6 +40,8 @@ export class QuestionBlock {
     this.bump = 8;
     if (this.contents === 'pokeball' || this.contents === 'coin') {
       game.collectBlockCoin(this.x + this.w / 2 - 10, this.y - 4);
+    } else if (this.contents === 'star' || this.contents === 'oneup' || this.contents === 'vine') {
+      game.spawnBrickContents(this);
     } else {
       // If player is Eevee → Rare Candy (Umbreon), if Umbreon → Fire Stone (Flareon)
       const kind = game.player.big ? 'firestone' : 'candy';
@@ -94,15 +96,26 @@ export class QuestionBlock {
 
 // Breakable brick — big player breaks it from below, small player bounces it
 export class BrickBlock {
-  constructor(x, y) {
+  constructor(x, y, contents = null) {
     this.x = x; this.y = y; this.w = TILE; this.h = TILE;
     this.dead = false;
     this.bump = 0;
+    this.contents = contents;   // 'star' | 'candy' | 'oneup' | 'vine' | 'coin' | null
+    this.used = false;
     this.kind = 'brick';
   }
 
   onBump(game) {
     if (this.bump > 0) return;
+    // Bricks with contents dispense them instead of breaking
+    if (this.contents) {
+      if (!this.used) {
+        this.used = true;
+        game.spawnBrickContents(this);
+      }
+      this.bump = 8;
+      return;
+    }
     if (game.player.big) {
       this.dead = true;
       game.score += 50;
@@ -274,5 +287,64 @@ export class PipeBlock {
     // Outlines
     ctx.strokeStyle = '#0a2e0a'; ctx.lineWidth = 1.5;
     ctx.strokeRect(sx, showCap ? sy + TILE : sy, w, showCap ? h - TILE : h);
+  }
+}
+
+// Springboard (FSM: 32px wide, 58px tall) — the player bounces off it;
+// compression/launch is orchestrated by game.js
+export class Springboard {
+  constructor(x, y) {
+    this.x = x; this.y = y;
+    this.w = 32; this.h = 58;
+    this.baseY = y;             // fully extended top
+    this.compress = 0;          // 0..20 px of compression
+    this.dead = false;
+    this.kind = 'spring';
+  }
+
+  update() {
+    // Relax toward extended when not being compressed by game.js
+    if (this.compress > 0 && !this.compressing) {
+      this.compress = Math.max(0, this.compress - 4);
+      this.y = this.baseY + this.compress;
+      this.h = 58 - this.compress;
+    }
+    this.compressing = false;
+  }
+
+  // Called by game.js while the player is pressing it down
+  press(amount) {
+    this.compress = Math.min(20, amount);
+    this.y = this.baseY + this.compress;
+    this.h = 58 - this.compress;
+    this.compressing = true;
+  }
+
+  draw(r, cam) {
+    const ctx = r.ctx;
+    const x = Math.floor(this.x - cam.x);
+    const top = Math.floor(this.y);
+    const bottom = Math.floor(this.baseY + 58);
+
+    // Base plate
+    ctx.fillStyle = '#606060';
+    ctx.fillRect(x + 2, bottom - 6, this.w - 4, 6);
+    // Coils — squeeze with compression
+    const coils = 4;
+    const span = (bottom - 6) - (top + 8);
+    ctx.strokeStyle = '#b0b0b0'; ctx.lineWidth = 3;
+    for (let i = 0; i < coils; i++) {
+      const cy = top + 10 + (span / coils) * (i + 0.5);
+      ctx.beginPath();
+      ctx.ellipse(x + this.w / 2, cy, this.w * 0.32, 3.5, 0, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+    // Top plate — red
+    ctx.fillStyle = '#c83028';
+    ctx.fillRect(x, top, this.w, 8);
+    ctx.fillStyle = '#e85850';
+    ctx.fillRect(x + 2, top + 1, this.w - 4, 3);
+    ctx.strokeStyle = '#111'; ctx.lineWidth = 1.2;
+    ctx.strokeRect(x, top, this.w, 8);
   }
 }

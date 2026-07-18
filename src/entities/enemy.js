@@ -26,6 +26,16 @@ export class Enemy {
       this.cheepInit = true;
     }
     if (type === 'podoboo') { this.w = 20; this.h = 20; this.vx = 0; this.baseY = y - this.h; this.y = y - this.h; this.vy = 0; this.jumpTimer = Math.floor(Math.random() * 80) + 30; this.isJumping = false; }
+    // FSM Lakitu → Zubat: hovers, orbits the player, drops Pineco eggs every 140f
+    if (type === 'zubat') { this.w = 30; this.h = 26; this.vx = 0; this.vy = 0; this.y = Math.min(y - this.h, 240); this.counter = 0; this.throwTimer = 140; }
+    // FSM HammerBro → Cubone: slides on a sine, throws bone bursts, hops
+    if (type === 'cubone') { this.w = 28; this.h = 34; this.vx = 0; this.vy = 0; this.y = y - this.h; this.counter = 0; this.boneTimer = 35; this.boneBurst = 3; this.hopTimer = 140; }
+    // FSM Spiny → Pineco: walking spiky ball, hurts to stomp
+    if (type === 'pineco') { this.w = 24; this.h = 22; this.vx = -0.84; this.y = y - this.h; }
+    // Spiny egg — falls from Zubat, becomes a walking Pineco on landing
+    if (type === 'pinecoegg') { this.w = 22; this.h = 22; this.vx = 0; this.vy = -8.4; this.y = y; }
+    // Leaping Magikarp (FSM startCheepSpawn) — arcs out of the water
+    if (type === 'cheepjump') { this.w = 26; this.h = 20; this.y = y; this.active = true; }
     this.dead = false;
     this.squashTimer = 0;
     this.animTimer = Math.floor(Math.random() * 60);
@@ -36,7 +46,11 @@ export class Enemy {
     this.shellSliding = false;
   }
 
-  get stompable() { return this.type !== 'cheepcheep' && this.type !== 'blooper' && this.type !== 'podoboo'; }
+  get stompable() {
+    return this.type !== 'blooper' && this.type !== 'podoboo' &&
+           this.type !== 'cheepcheep' &&
+           this.type !== 'pineco' && this.type !== 'pinecoegg';
+  }
 
   squash() {
     if (this.type === 'squirtle') {
@@ -65,7 +79,7 @@ export class Enemy {
     this.vx = this.vx < 0 ? -2 : 2;
   }
 
-  update(solids, player) {
+  update(solids, player, game) {
     if (this.dead && !this.dying) return;
 
     if (this.squashTimer > 0) {
@@ -137,6 +151,79 @@ export class Enemy {
           break;
         }
       }
+      return;
+    }
+
+    // Zubat (FSM Lakitu): hovers above, orbits the player on a ±117px sine,
+    // drops a Pineco egg every 140 frames
+    if (this.type === 'zubat') {
+      if (!this.active) {
+        if (Math.abs(this.x - player.x) < 620) this.active = true;
+        else return;
+      }
+      this.counter += 0.007;
+      const targetX = player.x + player.vx + Math.sin(Math.PI * this.counter) * 117;
+      const maxStep = 3.8;   // FSM: player.maxspeed * 0.7
+      const dx = targetX - this.x;
+      this.x += Math.max(-maxStep, Math.min(maxStep, dx * 0.05));
+      this.y += Math.sin(this.animTimer * 0.05) * 0.4;   // gentle hover bob
+      this.throwTimer--;
+      if (this.throwTimer <= 0 && game) {
+        this.throwTimer = 140;
+        const egg = new Enemy(this.x + this.w / 2 - 11, this.y + this.h, 'pinecoegg');
+        game.level.enemies.push(egg);
+      }
+      return;
+    }
+
+    // Cubone (FSM HammerBro): sine slide, faces player, throws bone bursts, hops
+    if (this.type === 'cubone') {
+      if (!this.active) {
+        if (Math.abs(this.x - player.x) < 560) this.active = true;
+        else return;
+      }
+      this.vy += GRAVITY / 2;   // FSM: gravity / 2
+      if (this.vy > MAX_FALL_SPEED) this.vy = MAX_FALL_SPEED;
+      this.counter += 0.007;
+      this.vx = Math.sin(Math.PI * this.counter) / 2.1;
+      resolveCollisions(this, solids);
+      // Hop every 140 frames
+      this.hopTimer--;
+      if (this.hopTimer <= 0) {
+        this.hopTimer = 140;
+        if (this.vy === 0) this.vy = -5;
+      }
+      // Bone bursts: 3 bones ~35f apart, then a longer pause
+      this.boneTimer--;
+      if (this.boneTimer <= 0 && game) {
+        this.boneBurst--;
+        this.boneTimer = this.boneBurst > 0 ? 35 : 90;
+        if (this.boneBurst <= 0) this.boneBurst = 3;
+        const dir = player.x < this.x ? -1 : 1;
+        game.spawnBone(this.x + this.w / 2, this.y + 4, dir);
+      }
+      return;
+    }
+
+    // Pineco egg — tossed up, falls, becomes a walking Pineco on landing
+    if (this.type === 'pinecoegg') {
+      this.vy += GRAVITY;
+      if (this.vy > MAX_FALL_SPEED) this.vy = MAX_FALL_SPEED;
+      const res = resolveCollisions(this, solids);
+      if (res.onGround) {
+        this.type = 'pineco';
+        this.vx = player.x < this.x ? -0.84 : 0.84;
+      }
+      if (this.y > 800) this.dead = true;
+      return;
+    }
+
+    // Leaping Magikarp — ballistic arc, no collisions
+    if (this.type === 'cheepjump') {
+      this.vy += 0.286;   // FSM moveCheepJumping: unitsize / 14
+      this.x += this.vx;
+      this.y += this.vy;
+      if (this.y > 800) this.dead = true;
       return;
     }
 
@@ -212,7 +299,7 @@ export class Enemy {
     if (this.vy > MAX_FALL_SPEED) this.vy = MAX_FALL_SPEED;
     const prevVx = this.vx;
     const res = resolveCollisions(this, solids);
-    const sp = this.type === 'squirtle' ? 1.3 : 1.1;
+    const sp = this.type === 'squirtle' ? 1.3 : this.type === 'pineco' ? 0.84 : 1.1;
 
     // If wall was hit (hitSide), reverse direction
     if (res.hitSide && prevVx !== 0) {
@@ -250,10 +337,16 @@ export class Enemy {
       this._drawSquirtle(ctx, x, y, w, h);
     } else if (this.type === 'blooper') {
       this._drawBlooper(ctx, x, y, w, h);
-    } else if (this.type === 'cheepcheep') {
+    } else if (this.type === 'cheepcheep' || this.type === 'cheepjump') {
       this._drawCheepCheep(ctx, x, y, w, h);
     } else if (this.type === 'podoboo') {
       this._drawPodoboo(ctx, x, y, w, h);
+    } else if (this.type === 'zubat') {
+      this._drawZubat(ctx, x, y, w, h);
+    } else if (this.type === 'cubone') {
+      this._drawCubone(ctx, x, y, w, h);
+    } else if (this.type === 'pineco' || this.type === 'pinecoegg') {
+      this._drawPineco(ctx, x, y, w, h);
     } else {
       this._drawEkans(ctx, x, y, w, h);
     }
@@ -592,6 +685,145 @@ export class Enemy {
     ctx.moveTo(x + w * 0.9, y + h * 0.58);
     ctx.quadraticCurveTo(x + w * 0.98, y + h * 0.8, x + w * 0.9 + flop * 0.5, y + h * 0.95);
     ctx.stroke();
+  }
+
+  // Zubat — blue bat hovering above (Lakitu role)
+  _drawZubat(ctx, x, y, w, h) {
+    const OL = '#111';
+    const flap = Math.floor(this.animTimer / 6) % 2;
+    const BLUE = '#5878c8', PURP = '#7858a8';
+
+    // Wings — big, flap
+    ctx.fillStyle = PURP;
+    ctx.strokeStyle = OL; ctx.lineWidth = 1.2;
+    // left wing
+    ctx.beginPath();
+    ctx.moveTo(x + w * 0.3, y + h * 0.45);
+    ctx.lineTo(x - w * 0.35, y + (flap ? h * 0.05 : h * 0.55));
+    ctx.lineTo(x - w * 0.15, y + h * 0.6);
+    ctx.lineTo(x + w * 0.25, y + h * 0.65);
+    ctx.closePath(); ctx.fill(); ctx.stroke();
+    // right wing
+    ctx.beginPath();
+    ctx.moveTo(x + w * 0.7, y + h * 0.45);
+    ctx.lineTo(x + w * 1.35, y + (flap ? h * 0.05 : h * 0.55));
+    ctx.lineTo(x + w * 1.15, y + h * 0.6);
+    ctx.lineTo(x + w * 0.75, y + h * 0.65);
+    ctx.closePath(); ctx.fill(); ctx.stroke();
+
+    // Body — round blue
+    ctx.fillStyle = BLUE;
+    ctx.beginPath(); ctx.ellipse(x + w / 2, y + h * 0.5, w * 0.36, h * 0.42, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = OL; ctx.lineWidth = 1.4; ctx.stroke();
+
+    // Ears — pointed
+    ctx.fillStyle = BLUE;
+    ctx.beginPath();
+    ctx.moveTo(x + w * 0.32, y + h * 0.2); ctx.lineTo(x + w * 0.22, y - h * 0.15); ctx.lineTo(x + w * 0.46, y + h * 0.12);
+    ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(x + w * 0.68, y + h * 0.2); ctx.lineTo(x + w * 0.78, y - h * 0.15); ctx.lineTo(x + w * 0.54, y + h * 0.12);
+    ctx.closePath(); ctx.fill(); ctx.stroke();
+
+    // No eyes (Zubat!) — open mouth with fangs
+    ctx.fillStyle = '#301848';
+    ctx.beginPath(); ctx.ellipse(x + w / 2, y + h * 0.62, w * 0.18, h * 0.14, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#fff';
+    ctx.beginPath();
+    ctx.moveTo(x + w * 0.42, y + h * 0.53); ctx.lineTo(x + w * 0.46, y + h * 0.63); ctx.lineTo(x + w * 0.50, y + h * 0.53);
+    ctx.closePath(); ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(x + w * 0.52, y + h * 0.53); ctx.lineTo(x + w * 0.56, y + h * 0.63); ctx.lineTo(x + w * 0.60, y + h * 0.53);
+    ctx.closePath(); ctx.fill();
+  }
+
+  // Cubone — brown, skull helmet, holds a bone (Hammer Bro role)
+  _drawCubone(ctx, x, y, w, h) {
+    const OL = '#111';
+    const BODY = '#b8905c', BELLY = '#e8d0a0', SKULL = '#f0ece0';
+    const throwing = this.boneTimer < 12;
+
+    // Body
+    ctx.fillStyle = BODY;
+    ctx.beginPath(); ctx.ellipse(x + w / 2, y + h * 0.62, w * 0.42, h * 0.34, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = OL; ctx.lineWidth = 1.4; ctx.stroke();
+    // Belly
+    ctx.fillStyle = BELLY;
+    ctx.beginPath(); ctx.ellipse(x + w / 2, y + h * 0.68, w * 0.26, h * 0.22, 0, 0, Math.PI * 2); ctx.fill();
+
+    // Feet
+    ctx.fillStyle = BODY;
+    const step = Math.floor(this.animTimer / 10) % 2;
+    ctx.beginPath(); ctx.ellipse(x + w * 0.3 + step * 2, y + h * 0.95, 5, 3.5, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = OL; ctx.lineWidth = 1; ctx.stroke();
+    ctx.beginPath(); ctx.ellipse(x + w * 0.7 - step * 2, y + h * 0.95, 5, 3.5, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+
+    // Bone in hand — raised when about to throw
+    ctx.save();
+    ctx.translate(x + w * 0.94, y + h * (throwing ? 0.30 : 0.52));
+    ctx.rotate(throwing ? -0.9 : 0.5);
+    ctx.strokeStyle = '#f0ece0'; ctx.lineWidth = 3; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(-6, 0); ctx.lineTo(6, 0); ctx.stroke();
+    ctx.fillStyle = '#f0ece0';
+    for (const [bx2, by2] of [[-7, -2], [-7, 2], [7, -2], [7, 2]]) {
+      ctx.beginPath(); ctx.arc(bx2, by2, 2.2, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.restore();
+
+    // Skull helmet head
+    ctx.fillStyle = SKULL;
+    ctx.beginPath(); ctx.ellipse(x + w / 2, y + h * 0.24, w * 0.40, h * 0.24, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = OL; ctx.lineWidth = 1.4; ctx.stroke();
+    // Skull snout
+    ctx.fillStyle = SKULL;
+    ctx.beginPath(); ctx.ellipse(x + w * 0.78, y + h * 0.32, w * 0.14, h * 0.10, 0.2, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = OL; ctx.lineWidth = 1; ctx.stroke();
+    // Skull horn nubs
+    ctx.fillStyle = SKULL;
+    ctx.beginPath(); ctx.moveTo(x + w * 0.30, y + h * 0.10); ctx.lineTo(x + w * 0.24, y - h * 0.03); ctx.lineTo(x + w * 0.40, y + h * 0.06);
+    ctx.closePath(); ctx.fill(); ctx.stroke();
+    // Eye holes — dark triangle-ish
+    ctx.fillStyle = '#1a1a1a';
+    ctx.beginPath(); ctx.ellipse(x + w * 0.60, y + h * 0.24, 3.2, 4, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(x + w * 0.36, y + h * 0.24, 3.2, 4, 0, 0, Math.PI * 2); ctx.fill();
+    // Green glint in the eye hole
+    ctx.fillStyle = '#68c058';
+    ctx.beginPath(); ctx.arc(x + w * 0.61, y + h * 0.25, 1.3, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(x + w * 0.37, y + h * 0.25, 1.3, 0, Math.PI * 2); ctx.fill();
+  }
+
+  // Pineco — spiky pinecone ball (Spiny role; hurts to stomp)
+  _drawPineco(ctx, x, y, w, h) {
+    const OL = '#111';
+    const cx = x + w / 2, cy = y + h / 2;
+    const r = Math.min(w, h) * 0.42;
+
+    // Spikes around the body
+    ctx.fillStyle = '#3a5a8a';
+    const spikes = 8;
+    const rot = this.type === 'pinecoegg' ? this.animTimer * 0.2 : 0;
+    for (let i = 0; i < spikes; i++) {
+      const a = rot + (i / spikes) * Math.PI * 2;
+      const sx2 = cx + Math.cos(a) * r, sy2 = cy + Math.sin(a) * r;
+      const tx = cx + Math.cos(a) * (r + 5), ty = cy + Math.sin(a) * (r + 5);
+      const px = Math.cos(a + Math.PI / 2), py = Math.sin(a + Math.PI / 2);
+      ctx.beginPath();
+      ctx.moveTo(sx2 + px * 3, sy2 + py * 3);
+      ctx.lineTo(tx, ty);
+      ctx.lineTo(sx2 - px * 3, sy2 - py * 3);
+      ctx.closePath(); ctx.fill();
+    }
+    // Body — layered blue-grey cone scales
+    ctx.fillStyle = '#5878a8';
+    ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = OL; ctx.lineWidth = 1.3; ctx.stroke();
+    ctx.strokeStyle = '#3a5a8a'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.arc(cx, cy - r * 0.3, r * 0.7, 0.3, Math.PI - 0.3); ctx.stroke();
+    ctx.beginPath(); ctx.arc(cx, cy + r * 0.1, r * 0.7, 0.3, Math.PI - 0.3); ctx.stroke();
+    // Eyes
+    ctx.fillStyle = '#111';
+    ctx.beginPath(); ctx.ellipse(cx - 4, cy - 2, 2, 2.8, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(cx + 4, cy - 2, 2, 2.8, 0, 0, Math.PI * 2); ctx.fill();
   }
 
   // Slugma — lava slug with droopy eyes, rises from the lava

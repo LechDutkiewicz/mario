@@ -9,7 +9,7 @@
 //   Ground    = GY (= 540)
 // ============================================================
 import { TILE, GROUND_Y, COLORS } from '../constants.js';
-import { Platform, QuestionBlock, PipeBlock, BrickBlock, MovingPlatform, TreePlatform } from '../entities/platform.js';
+import { Platform, QuestionBlock, PipeBlock, BrickBlock, MovingPlatform, TreePlatform, Springboard } from '../entities/platform.js';
 import { FlagPole } from '../entities/flagpole.js';
 import { Enemy } from '../entities/enemy.js';
 import { Coin } from '../entities/coin.js';
@@ -27,8 +27,9 @@ const ux = u => u * 4;
 const uy = u => GY - u * 4;
 
 function mapContents(c) {
-  if (!c || Array.isArray(c)) return 'pokeball';
-  const map = { Mushroom:'candy', Mushroom1Up:'candy', FireFlower:'firestone', Coin:'coin', Star:'candy' };
+  if (!c) return 'pokeball';
+  if (Array.isArray(c)) return c[0] === 'Vine' ? 'vine' : 'pokeball';
+  const map = { Mushroom:'candy', Mushroom1Up:'oneup', FireFlower:'firestone', Coin:'coin', Star:'star', Vine:'vine' };
   return map[c] || 'pokeball';
 }
 
@@ -40,7 +41,8 @@ function processThing(e, out) {
   switch (e.thing) {
     case 'Brick':
       // y = top of brick in FSM units → screen_top = GY - y*4
-      out.platforms.push(new BrickBlock(sx, uy(y)));
+      // Bricks may carry contents (Star, Mushroom, Vine, …) — spawned on bump
+      out.platforms.push(new BrickBlock(sx, uy(y), e.contents ? mapContents(e.contents) : null));
       break;
 
     case 'Stone':
@@ -73,13 +75,28 @@ function processThing(e, out) {
       break;
 
     case 'Goomba':
-    case 'Lakitu':
-    case 'BuzzyBeetle':
-    case 'HammerBro': {
+    case 'BuzzyBeetle': {
       // y = top of enemy (enemy height = 8 FSM units = 32px)
       // feet = GY - (y - 8) * 4
       const feetY = GY - (y - 8) * 4;
       out.enemies.push(new Enemy(sx, feetY, 'ekans'));
+      break;
+    }
+
+    case 'Lakitu':
+      // Zubat — hovers high, orbits the player, drops Pineco eggs
+      out.enemies.push(new Enemy(sx, GY - (y - 8) * 4, 'zubat'));
+      break;
+
+    case 'HammerBro':
+      // Cubone — slides side to side, throws bone boomerangs
+      out.enemies.push(new Enemy(sx, GY - (y - 8) * 4, 'cubone'));
+      break;
+
+    case 'Springboard': {
+      // FSM: width 8u (32px), height 14.5u (58px); y = top above floor
+      const sb = new Springboard(sx, GY - y * 4 - 58);
+      out.platforms.push(sb);
       break;
     }
 
@@ -175,9 +192,6 @@ function processThing(e, out) {
 
     case 'Podoboo':
       out.enemies.push(new Enemy(sx, GY + 64, 'podoboo'));
-      break;
-
-    case 'Springboard':
       break;
 
     case 'ScrollBlocker':
@@ -364,8 +378,14 @@ function processMacro(e, out) {
       break;
     }
 
+    // Zone where Magikarps leap out of the water below the bridges (SMB 2-3)
     case 'CheepsStart':
+      out.cheepZone = out.cheepZone || {};
+      out.cheepZone.start = ux(x);
+      break;
     case 'CheepsStop':
+      out.cheepZone = out.cheepZone || {};
+      out.cheepZone.end = ux(x);
       break;
 
     case 'Pattern':
@@ -436,6 +456,8 @@ export function loadFSMLevel(jsonData, areaIndex = 0) {
     plants:          out.plants,
     movingPlatforms: out.movingPlatforms,
     hPipeExits:      out.hPipeExits || [],
+    cheepZone:       out.cheepZone || null,
+    time:            jsonData.time ?? 300,
     boss:            null,
     castleSmalls:    out.castleSmalls || [],
     fireBars:        out.fireBars,

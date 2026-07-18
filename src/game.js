@@ -8,7 +8,8 @@ import { Music }    from './audio.js';
 import { Player }   from './entities/player.js';
 import { PowerUp }  from './entities/powerup.js';
 import { Coin }     from './entities/coin.js';
-import { Fireball } from './entities/projectile.js';
+import { Fireball, BossShot } from './entities/projectile.js';
+import { Enemy }    from './entities/enemy.js';
 import { buildWorld1 } from './levels/world1.js';
 import { buildWorld2 } from './levels/world2.js';
 import { buildWorld3 } from './levels/world3.js';
@@ -116,6 +117,36 @@ export class Game {
   spawnPowerUp(x, y, kind) {
     const element = CHAR_ELEMENT[this.selectedChar] || 'fire';
     this.powerups.push(new PowerUp(x, y, kind, element));
+  }
+
+  // Bone thrown by Cubone — arcing projectile that hurts the player
+  spawnBone(x, y, dir) {
+    const bone = new BossShot(x, y, dir * 2.2, -6);
+    bone.grav = true;
+    bone.style = 'bone';
+    bone.w = 18; bone.h = 12;
+    this.bossShots.push(bone);
+  }
+
+  // Bricks/blocks with special contents (star / oneup / vine)
+  spawnBrickContents(block) {
+    if (block.contents === 'star') {
+      this.spawnPowerUp(block.x + 2, block.y - 4, 'star');
+    } else if (block.contents === 'oneup') {
+      this.spawnPowerUp(block.x + 2, block.y - 4, 'oneup');
+    } else if (block.contents === 'vine') {
+      // Vine grows from the block up toward the sky
+      this._vine = {
+        x: block.x + block.w / 2,
+        bottomY: block.y,
+        topY: block.y,
+        targetTop: 90,
+      };
+      this.music.playCollect();
+    } else {
+      const kind = this.player.big ? 'firestone' : 'candy';
+      this.spawnPowerUp(block.x + 4, block.y - 4, kind);
+    }
   }
 
   _spawnScorePopup(x, y, score) {
@@ -306,6 +337,65 @@ export class Game {
       this._bubbles = this._bubbles.filter(b => b.life > 0 && b.y > 190);
     }
 
+    // ── Level time limit (SMB: one unit ≈ 0.4s = 24 frames) ──
+    if (this._timeLevel !== lvl) {
+      this._timeLevel = lvl;
+      this.timeLeft = lvl.time || 300;
+      this._timeTick = 0;
+      this._vine = null;
+    }
+    if (!p.dead && !this.walkToPC && this.walkToPCTimer === 0 &&
+        this.worldClearTimer === 0 && !this._castleBossComplete) {
+      this._timeTick++;
+      if (this._timeTick >= 24) {
+        this._timeTick = 0;
+        this.timeLeft--;
+        if (this.timeLeft <= 0) {
+          this.timeLeft = 0;
+          this._showMsg('TIME UP!', 90);
+          this.music.stop();
+          p.die();
+        }
+      }
+    }
+
+    // ── Leaping Magikarps over the bridges (FSM startCheepSpawn, every 21f) ──
+    if (lvl.cheepZone && lvl.cheepZone.start != null && lvl.cheepZone.end != null &&
+        !p.dead && p.x > lvl.cheepZone.start && p.x < lvl.cheepZone.end) {
+      this._cheepTick = (this._cheepTick || 0) + 1;
+      if (this._cheepTick >= 21) {
+        this._cheepTick = 0;
+        const karp = new Enemy(p.x + 60 + Math.random() * 420, 640, 'cheepjump');
+        karp.vx = -(0.5 + Math.random() * 2.2);
+        karp.vy = -(8.8 + Math.random() * 2.6);   // FSM: unitsize * -2.33 ± spread
+        lvl.enemies.push(karp);
+      }
+    }
+
+    // ── Vine: grows from a bumped block; climb it (hold up) to the sky area ──
+    if (this._vine) {
+      const v = this._vine;
+      if (v.topY > v.targetTop) v.topY -= 2;
+      const onVine = p.x + p.w > v.x - 12 && p.x < v.x + 12 &&
+                     p.y + p.h > v.topY && p.y < v.bottomY + 40;
+      if (onVine && input.jump && this.areaTransTimer === 0) {
+        p.y -= 2.4;
+        p.vy = 0;
+        p.isJumping = false;
+        if (p.y < v.targetTop + 30 && this.world === 2 && this.world2Level === 0) {
+          this._vine = null;
+          this._startWorld2SubAreaTransition(2);   // sky bonus area
+        }
+      }
+    }
+
+    // ── Sky bonus area: falling off the clouds returns to the overworld ──
+    if (lvl.isSky && !p.dead && p.y > 700 && this.areaTransTimer === 0) {
+      this._pendingSpawnX = lvl.skyReturnX;
+      this._startWorld2SubAreaTransition(0);
+      p.y = 700; p.vy = 0;
+    }
+
     // Moving platforms: update first so solids are current, then carry player
     if (lvl.movingPlatforms) {
       for (const mp of lvl.movingPlatforms) {
@@ -325,6 +415,31 @@ export class Game {
       if (s.update) s.update();
     }
     lvl.platforms = lvl.platforms.filter(s => !s.dead);
+
+    // ── Springboard: landing compresses it, then launches the player.
+    //    Holding jump during the launch gives the full FSM-style boost. ──
+    for (const pl of lvl.platforms) {
+      if (pl.kind !== 'spring') continue;
+      const overSpring = !p.dead &&
+        p.x + p.w > pl.x + 4 && p.x < pl.x + pl.w - 4 &&
+        (p.y + p.h) >= pl.baseY - 4 && (p.y + p.h) <= pl.baseY + 26;
+      if (overSpring && p.vy >= 0) {
+        if (!this._spring || this._spring.pl !== pl) this._spring = { pl, phase: 0 };
+        const s = this._spring;
+        s.phase++;
+        pl.press(Math.min(20, s.phase * 3));
+        p.y = pl.y - p.h;   // ride the compressing plate
+        p.vy = 0;
+        p.vx *= 0.7;        // FSM: hard to slide off
+        if (s.phase >= 8) {
+          p.vy = input.jump ? -13.5 : -8.5;
+          p.onGround = false;
+          this._spring = null;
+        }
+      } else if (this._spring && this._spring.pl === pl) {
+        this._spring = null;
+      }
+    }
 
     // Area 0 auto-walk: player walks right and enters pipe on contact with its left side
     let activeInput = input;
@@ -375,8 +490,16 @@ export class Game {
       pu.update(solids);
       if (!pu.dead && aabb(p, pu)) {
         pu.dead = true;
-        p.powerUp(pu.kind);
-        this.score += 1000;
+        if (pu.kind === 'star') {
+          p.starTimer = 600;   // ~10s of invincibility
+          this.score += 1000;
+        } else if (pu.kind === 'oneup') {
+          this.lives++;
+          this.scorePopups.push({ x: pu.x, y: pu.y, score: '1-UP', vy: -1.5, life: 60 });
+        } else {
+          p.powerUp(pu.kind);
+          this.score += 1000;
+        }
       }
     }
     this.powerups = this.powerups.filter(pu => !pu.dead);
@@ -388,7 +511,7 @@ export class Game {
     // Enemies (Ekans + Koffing + Squirtle)
     let stompedThisFrame = false;
     for (const e of lvl.enemies) {
-      e.update(solids, p);
+      e.update(solids, p, this);
       if (e.dead && !e.dying) continue;
 
       // Sliding shell kills other enemies
@@ -417,6 +540,13 @@ export class Game {
       if (e.dead || e.squashTimer > 0) continue;
 
       if (!p.dead && aabb(p, e)) {
+        // Star power — touching an enemy kills it outright
+        if (p.starTimer > 0) {
+          e.kill();
+          this.score += SCORE_STOMP;
+          this._spawnScorePopup(e.x + e.w / 2, e.y, SCORE_STOMP);
+          continue;
+        }
         const stomping = p.vy > 0 && (p.y + p.h) - e.y < 22;
         if (stomping && e.stompable && !stompedThisFrame) {
           stompedThisFrame = true;
@@ -778,6 +908,7 @@ export class Game {
 
     let spawnX = 80;
     if (subArea === 0 && this.level.exitOverworldX) spawnX = this.level.exitOverworldX;
+    if (this._pendingSpawnX != null) { spawnX = this._pendingSpawnX; this._pendingSpawnX = null; }
 
     this.player = new Player(spawnX, GROUND_Y - 60);
     this.player.power = prevPower;
@@ -891,6 +1022,25 @@ export class Game {
     for (const cs of (lvl.castleSmalls || [])) {
       this._drawCastleSmall(r.ctx, Math.floor(cs.x - this.cam.x), cs.y);
     }
+    // Vine growing from a bumped block
+    if (this._vine) {
+      const v = this._vine;
+      const vx2 = Math.floor(v.x - this.cam.x);
+      const ctx2 = this.ctx;
+      ctx2.strokeStyle = '#2e9e40'; ctx2.lineWidth = 6; ctx2.lineCap = 'round';
+      ctx2.beginPath(); ctx2.moveTo(vx2, v.bottomY); ctx2.lineTo(vx2, v.topY); ctx2.stroke();
+      ctx2.strokeStyle = '#1e7a28'; ctx2.lineWidth = 2;
+      ctx2.beginPath(); ctx2.moveTo(vx2 - 1, v.bottomY); ctx2.lineTo(vx2 - 1, v.topY); ctx2.stroke();
+      // Leaf pairs every 40px
+      ctx2.fillStyle = '#2e9e40';
+      for (let ly = v.bottomY - 24; ly > v.topY + 8; ly -= 40) {
+        ctx2.beginPath(); ctx2.ellipse(vx2 - 9, ly, 8, 4, -0.4, 0, Math.PI * 2); ctx2.fill();
+        ctx2.beginPath(); ctx2.ellipse(vx2 + 9, ly - 14, 8, 4, 0.4, 0, Math.PI * 2); ctx2.fill();
+      }
+      // Curled top
+      ctx2.strokeStyle = '#2e9e40'; ctx2.lineWidth = 4;
+      ctx2.beginPath(); ctx2.arc(vx2 + 5, v.topY, 6, Math.PI * 0.9, Math.PI * 1.9); ctx2.stroke();
+    }
     for (const pl of lvl.platforms)  pl.draw(r, this.cam);
     if (lvl.movingPlatforms) for (const mp of lvl.movingPlatforms) mp.draw(r, this.cam);
     for (const q  of lvl.qblocks)    q.draw(r, this.cam);
@@ -967,9 +1117,10 @@ export class Game {
       ctx2.textAlign = 'center';
       ctx2.strokeStyle = '#000';
       ctx2.lineWidth = 3;
-      ctx2.strokeText('+' + sp.score, Math.floor(sp.x - this.cam.x), Math.floor(sp.y));
+      const popTxt = typeof sp.score === 'number' ? '+' + sp.score : String(sp.score);
+      ctx2.strokeText(popTxt, Math.floor(sp.x - this.cam.x), Math.floor(sp.y));
       ctx2.fillStyle = '#fff';
-      ctx2.fillText('+' + sp.score, Math.floor(sp.x - this.cam.x), Math.floor(sp.y));
+      ctx2.fillText(popTxt, Math.floor(sp.x - this.cam.x), Math.floor(sp.y));
       ctx2.textAlign = 'left';
       ctx2.restore();
     }
@@ -1115,6 +1266,14 @@ export class Game {
     ctx.font = 'bold 20px monospace';
     ctx.strokeText('BALLS ' + this.coinsCollected, CANVAS_WIDTH - 234, 62);
     ctx.fillText('BALLS ' + this.coinsCollected,   CANVAS_WIDTH - 234, 62);
+    // Time remaining — flashes red when low
+    if (this.timeLeft != null) {
+      const timeStr = 'TIME ' + Math.max(0, this.timeLeft);
+      ctx.strokeText(timeStr, CANVAS_WIDTH - 234, 92);
+      ctx.fillStyle = this.timeLeft <= 50 && Math.floor((this._lavaAnim || 0) / 15) % 2 ? '#ff4040' : '#fff';
+      ctx.fillText(timeStr, CANVAS_WIDTH - 234, 92);
+      ctx.fillStyle = '#fff';
+    }
 
     const pw    = this.player.power;
     const charNames = {

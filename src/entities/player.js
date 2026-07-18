@@ -38,6 +38,7 @@ export class Player {
     this.jumpFrames = 0;
     this.underwater = false;   // set by game.js from level flag
     this.paddleFrames = 0;     // remaining frames of current swim stroke
+    this.starTimer = 0;        // invincibility star frames remaining
   }
 
   get big() { return this.power !== POWER.SMALL; }
@@ -71,7 +72,7 @@ export class Player {
 
   // returns true if player died from this hit
   takeDamage() {
-    if (this.invincible > 0 || this.dead) return false;
+    if (this.invincible > 0 || this.starTimer > 0 || this.dead) return false;
     if (this.power === POWER.FIRE) {
       this.power = POWER.BIG;
       this.invincible = INVINCIBLE_TIME;
@@ -112,6 +113,7 @@ export class Player {
     }
 
     if (this.invincible > 0) this.invincible--;
+    if (this.starTimer > 0) this.starTimer--;
     if (this.fireCooldown > 0) this.fireCooldown--;
     this.animTimer++;
 
@@ -1452,6 +1454,12 @@ export class Player {
     const ruffCol = RUFF;
 
     ctx.save();
+    // Star power — rainbow hue cycling (faster in the final 2 seconds);
+    // cleared automatically by ctx.restore()
+    if (this.starTimer > 0) {
+      const fast = this.starTimer < 120;
+      ctx.filter = `hue-rotate(${(this.animTimer * (fast ? 60 : 25)) % 360}deg) saturate(1.8) brightness(1.15)`;
+    }
     if (this.facing < 0) {
       ctx.translate(sx + w, sy);
       ctx.scale(-1, 1);

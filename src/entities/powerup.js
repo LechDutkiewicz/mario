@@ -305,7 +305,75 @@ const STONE_DRAWERS = {
   water:    _drawWaterStone,
 };
 
+// Star — bouncing invincibility star (SMB classic)
+function _drawStar(ctx, cx, cy, size, anim) {
+  const r = size * 0.42;
+  const spin = Math.sin(anim * 0.12) * 0.15;
+  const flash = Math.floor(anim / 4) % 2;
+
+  // Glow
+  const glow = ctx.createRadialGradient(cx, cy, r * 0.2, cx, cy, r * 1.7);
+  glow.addColorStop(0, 'rgba(255,240,100,0.55)');
+  glow.addColorStop(1, 'rgba(255,240,100,0)');
+  ctx.fillStyle = glow;
+  ctx.beginPath(); ctx.arc(cx, cy, r * 1.7, 0, Math.PI * 2); ctx.fill();
+
+  // Five-point star
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.rotate(spin);
+  ctx.fillStyle = flash ? '#ffe040' : '#ffd000';
+  ctx.beginPath();
+  for (let i = 0; i < 10; i++) {
+    const a = (i / 10) * Math.PI * 2 - Math.PI / 2;
+    const rad = i % 2 === 0 ? r : r * 0.45;
+    if (i === 0) ctx.moveTo(Math.cos(a) * rad, Math.sin(a) * rad);
+    else ctx.lineTo(Math.cos(a) * rad, Math.sin(a) * rad);
+  }
+  ctx.closePath(); ctx.fill();
+  ctx.strokeStyle = '#a07800'; ctx.lineWidth = 1.5; ctx.stroke();
+  // Eyes (SMB star has eyes)
+  ctx.fillStyle = '#111';
+  ctx.fillRect(-4, -2, 2.5, 5);
+  ctx.fillRect(2, -2, 2.5, 5);
+  ctx.restore();
+}
+
+// Revive — golden faceted crystal (extra life)
+function _drawRevive(ctx, cx, cy, size, anim) {
+  const s = size * 0.40;
+  const shimmer = 0.6 + Math.sin(anim * 0.1) * 0.3;
+
+  const glow = ctx.createRadialGradient(cx, cy, s * 0.2, cx, cy, s * 1.6);
+  glow.addColorStop(0, `rgba(255,220,80,${0.3 + shimmer * 0.15})`);
+  glow.addColorStop(1, 'rgba(255,220,80,0)');
+  ctx.fillStyle = glow;
+  ctx.beginPath(); ctx.arc(cx, cy, s * 1.6, 0, Math.PI * 2); ctx.fill();
+
+  // Diamond
+  ctx.fillStyle = '#f0c020';
+  ctx.beginPath();
+  ctx.moveTo(cx, cy - s);
+  ctx.lineTo(cx + s * 0.85, cy);
+  ctx.lineTo(cx, cy + s);
+  ctx.lineTo(cx - s * 0.85, cy);
+  ctx.closePath(); ctx.fill();
+  ctx.strokeStyle = '#a07800'; ctx.lineWidth = 1.5; ctx.stroke();
+  // Facet lines
+  ctx.strokeStyle = '#ffe878'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(cx, cy - s); ctx.lineTo(cx, cy + s); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(cx - s * 0.85, cy); ctx.lineTo(cx + s * 0.85, cy); ctx.stroke();
+  // Top-left facet highlight
+  ctx.fillStyle = `rgba(255,255,220,${0.35 + shimmer * 0.2})`;
+  ctx.beginPath();
+  ctx.moveTo(cx, cy - s);
+  ctx.lineTo(cx - s * 0.85, cy);
+  ctx.lineTo(cx, cy);
+  ctx.closePath(); ctx.fill();
+}
+
 // kind: 'candy' (Rare Candy → evolution 1) | 'firestone' (evolution stone → evolution 2)
+//     | 'star' (invincibility, bounces) | 'oneup' (Revive → extra life)
 // element: which evolution stone the 'firestone' kind renders as (per player character)
 export class PowerUp {
   constructor(x, y, kind, element = 'fire') {
@@ -318,7 +386,7 @@ export class PowerUp {
     this.h = 28;
     this.y = y;
     this.targetY = y - 30;
-    this.vx = kind === 'candy' ? 1.4 : 0;
+    this.vx = kind === 'candy' || kind === 'oneup' ? 1.4 : kind === 'star' ? 2.0 : 0;
     this.vy = 0;
     this.dead = false;
     this.emerging = true;
@@ -338,6 +406,7 @@ export class PowerUp {
     if (this.vy > MAX_FALL_SPEED) this.vy = MAX_FALL_SPEED;
     const res = resolveCollisions(this, solids);
     if (res.hitSide) this.vx = -this.vx;  // bounce off walls
+    if (this.kind === 'star' && res.onGround) this.vy = -5.5;  // star bounces
   }
 
   draw(r, cam) {
@@ -349,6 +418,10 @@ export class PowerUp {
 
     if (this.kind === 'candy') {
       _drawRareCandy(ctx, cx, cy, w, this.anim);
+    } else if (this.kind === 'star') {
+      _drawStar(ctx, cx, cy, w, this.anim);
+    } else if (this.kind === 'oneup') {
+      _drawRevive(ctx, cx, cy, w, this.anim);
     } else {
       (STONE_DRAWERS[this.element] || _drawFireStone)(ctx, cx, cy, w, this.anim);
     }

@@ -174,6 +174,7 @@ export class BossShot {
     this.life--;
     this.x += this.vx;
     this.y += this.vy;
+    if (this.grav) this.vy += 0.3;          // arcing bone (Cubone)
     // FSM moveFlying — descend toward ylev, max unitsize (4px) per frame
     if (this.ylev != null) {
       const bottom = this.y + this.h;
@@ -181,10 +182,12 @@ export class BossShot {
         this.y += Math.min(this.ylev - bottom, 4);
       }
     }
+    if (this.y > 820) this.dead = true;
     if (this.life <= 0) this.dead = true;
   }
 
   draw(r, cam) {
+    if (this.style === 'bone') { this._drawBone(r, cam); return; }
     if (this.ylev != null) { this._drawFlame(r, cam); return; }
     const ctx = r.ctx;
     const cx = this.x - cam.x + this.w / 2;
@@ -205,6 +208,25 @@ export class BossShot {
     ctx.beginPath();
     ctx.arc(cx, cy, this.w / 2, 0, Math.PI * 2);
     ctx.stroke();
+  }
+
+  // Spinning bone thrown by Cubone
+  _drawBone(r, cam) {
+    const ctx = r.ctx;
+    const cx = this.x - cam.x + this.w / 2;
+    const cy = this.y + this.h / 2;
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(this.anim * 0.25 * (this.vx > 0 ? 1 : -1));
+    ctx.strokeStyle = '#f0ece0'; ctx.lineWidth = 3.5; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(-7, 0); ctx.lineTo(7, 0); ctx.stroke();
+    ctx.fillStyle = '#f0ece0';
+    for (const [bx, by] of [[-8, -2.5], [-8, 2.5], [8, -2.5], [8, 2.5]]) {
+      ctx.beginPath(); ctx.arc(bx, by, 2.6, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.strokeStyle = '#c8c0a8'; ctx.lineWidth = 0.8;
+    ctx.beginPath(); ctx.moveTo(-6, 1.2); ctx.lineTo(6, 1.2); ctx.stroke();
+    ctx.restore();
   }
 
   // Gengar's ghost-flame — purple horizontal flame, flips vertically like the
