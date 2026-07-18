@@ -196,15 +196,19 @@ export class MovingPlatform {
         this.velY = 0;
       }
     } else {
-      // Oscillate mode (original behaviour)
+      // Oscillate mode — bounce strictly between [start, start + range].
+      // (The old |pos - start| >= range check reversed at BOTH ends of the
+      // start point, so platforms drifted a full range beyond their bounds.)
       if (this.axis === 'x') {
         this.x += this.speed * this.dir;
-        if (Math.abs(this.x - this.startX) >= this.range) this.dir = -this.dir;
+        if (this.x >= this.startX + this.range) { this.x = this.startX + this.range; this.dir = -1; }
+        if (this.x <= this.startX)             { this.x = this.startX;              this.dir =  1; }
         this.velX = this.x - prev;
         this.velY = 0;
       } else {
         this.y += this.speed * this.dir;
-        if (Math.abs(this.y - this.startY) >= this.range) this.dir = -this.dir;
+        if (this.y >= this.startY + this.range) { this.y = this.startY + this.range; this.dir = -1; }
+        if (this.y <= this.startY)             { this.y = this.startY;              this.dir =  1; }
         this.velY = this.y - prev;
         this.velX = 0;
       }

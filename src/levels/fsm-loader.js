@@ -285,18 +285,15 @@ function processMacro(e, out) {
 
     case 'EndInsideCastle': {
       // Castle floor height — Stone x:984, y:24, height:24 → top at GY-96 = 444
+      // FSM endCastleInside layout (no helper platforms in the original!):
+      // bridge = 13 tiles, Bowser at xloc+69u (+276px), axe right at bridge end
       const FLOOR_Y  = GY - 24 * 4;  // 444 — matches the castle wall/floor height
       const bridgeX  = ux(x);
-      const BRIDGE_W = T * 10;
-      // Stone floor to the right of bridge — wide enough for Ultra Ball + Pikachu
+      const BRIDGE_W = T * 13;       // FSM CastleBridge width: 13 tiles
+      // Stone floor to the right of bridge — wide enough for Ultra Ball + trainer
       const floorX   = bridgeX + BRIDGE_W;
       const FLOOR_W  = T * 12;
       out.platforms.push(new Platform(floorX, FLOOR_Y, FLOOR_W, GY - FLOOR_Y + T, COLORS.brick));
-
-      // Floating oscillating platform in boss area — high enough that boss jump can't reach it
-      out.movingPlatforms.push(new MovingPlatform(
-        bridgeX + T * 2, FLOOR_Y - T * 6, T * 4, T / 2, 'x', 1.2, T * 5
-      ));
 
       // Bridge platform — visually distinct planks, collapses when Ultra Ball is grabbed
       const bridge = new Platform(bridgeX, FLOOR_Y, BRIDGE_W, T, COLORS.brick);
@@ -306,16 +303,16 @@ function processMacro(e, out) {
       out.bossBridgeW = BRIDGE_W;
       out.bossBridgeY = FLOOR_Y;
 
-      // Boss patrols the bridge — starts toward the right end
-      const bossStartX = bridgeX + BRIDGE_W * 0.55;
-      out.castleBoss = new CastleBoss(bossStartX, FLOOR_Y, bridgeX, bridgeX + BRIDGE_W - T * 2);
+      // Boss on the bridge — FSM: Bowser at xloc + 69 units
+      const bossStartX = bridgeX + 276;
+      out.castleBoss = new CastleBoss(bossStartX, FLOOR_Y, bridgeX, bridgeX + BRIDGE_W - T);
       out.castleBoss.setBridgeCoords(bridgeX, BRIDGE_W, FLOOR_Y);
 
-      // Ultra Ball on the stone floor (6 tiles in from bridge end)
-      const ballX = floorX + T * 4;
+      // Ultra Ball right past the bridge end (FSM: CastleAxe at xloc + 104u = bridge end)
+      const ballX = floorX + T * 0.5;
       out.bossAxe = new BossAxe(ballX, FLOOR_Y);
 
-      // Pikachu waits at far end of right floor
+      // Rescued trainer waits at far end of right floor
       out.pikachuX = floorX + FLOOR_W - T * 2;
 
       out.noFlagPole = true;
