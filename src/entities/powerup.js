@@ -129,12 +129,190 @@ function _drawFireStone(ctx, cx, cy, size, anim) {
   ctx.closePath(); ctx.fill();
 }
 
-// kind: 'candy' (Rare Candy → Umbreon) | 'firestone' (Fire Stone → Flareon)
+// Leaf Stone — yellow-green stone with a dark leaf emblem (Grass type)
+function _drawLeafStone(ctx, cx, cy, size, anim) {
+  const s = size * 0.44;
+  const sway = Math.sin(anim * 0.08) * 1;
+
+  // Soft green glow
+  const glow = ctx.createRadialGradient(cx, cy, s * 0.2, cx, cy, s * 1.7);
+  glow.addColorStop(0, 'rgba(80,220,80,0.3)');
+  glow.addColorStop(1, 'rgba(80,220,80,0)');
+  ctx.fillStyle = glow;
+  ctx.beginPath(); ctx.arc(cx, cy, s * 1.7, 0, Math.PI * 2); ctx.fill();
+
+  // Stone body — same kidney silhouette as the Fire Stone
+  const stoneGrad = ctx.createRadialGradient(cx - s * 0.15, cy - s * 0.1, s * 0.1, cx, cy, s);
+  stoneGrad.addColorStop(0,   '#d8e890');
+  stoneGrad.addColorStop(0.5, '#a8c858');
+  stoneGrad.addColorStop(1,   '#688828');
+  ctx.fillStyle = stoneGrad;
+  ctx.beginPath();
+  ctx.moveTo(cx - s * 0.3, cy - s * 0.85);
+  ctx.bezierCurveTo(cx + s * 0.4, cy - s * 1.05, cx + s * 1.1, cy - s * 0.55, cx + s * 1.05, cy);
+  ctx.bezierCurveTo(cx + s * 1.0, cy + s * 0.55, cx + s * 0.4, cy + s * 0.9, cx - s * 0.1, cy + s * 0.9);
+  ctx.bezierCurveTo(cx - s * 0.7, cy + s * 0.9, cx - s * 1.1, cy + s * 0.5, cx - s * 1.05, cy);
+  ctx.bezierCurveTo(cx - s * 1.0, cy - s * 0.5, cx - s * 0.7, cy - s * 0.75, cx - s * 0.3, cy - s * 0.85);
+  ctx.closePath(); ctx.fill();
+  ctx.strokeStyle = '#3a5210'; ctx.lineWidth = 1.8; ctx.stroke();
+
+  // Leaf emblem — dark green, tip swaying gently
+  ctx.fillStyle = '#1e7a1e';
+  ctx.beginPath();
+  ctx.moveTo(cx, cy + s * 0.55);
+  ctx.bezierCurveTo(cx - s * 0.55, cy + s * 0.2, cx - s * 0.45, cy - s * 0.45, cx + sway * 0.1, cy - s * 0.65);
+  ctx.bezierCurveTo(cx + s * 0.45, cy - s * 0.45, cx + s * 0.55, cy + s * 0.2, cx, cy + s * 0.55);
+  ctx.closePath(); ctx.fill();
+  // Center vein
+  ctx.strokeStyle = '#a8e070'; ctx.lineWidth = 1.2;
+  ctx.beginPath();
+  ctx.moveTo(cx, cy + s * 0.5);
+  ctx.quadraticCurveTo(cx + sway * 0.1, cy, cx + sway * 0.15, cy - s * 0.55);
+  ctx.stroke();
+  // Side veins
+  ctx.lineWidth = 0.8;
+  ctx.beginPath(); ctx.moveTo(cx, cy + s * 0.1); ctx.lineTo(cx - s * 0.25, cy - s * 0.1); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(cx, cy - s * 0.15); ctx.lineTo(cx + s * 0.25, cy - s * 0.3); ctx.stroke();
+}
+
+// Thunder Stone — green stone with a yellow lightning bolt (Electric type)
+function _drawThunderStone(ctx, cx, cy, size, anim) {
+  const s = size * 0.44;
+  const flash = Math.sin(anim * 0.2) > 0.7;
+
+  // Yellow crackle glow
+  const glow = ctx.createRadialGradient(cx, cy, s * 0.2, cx, cy, s * 1.7);
+  glow.addColorStop(0, flash ? 'rgba(255,240,60,0.5)' : 'rgba(255,220,40,0.3)');
+  glow.addColorStop(1, 'rgba(255,220,40,0)');
+  ctx.fillStyle = glow;
+  ctx.beginPath(); ctx.arc(cx, cy, s * 1.7, 0, Math.PI * 2); ctx.fill();
+
+  // Stone body
+  const stoneGrad = ctx.createRadialGradient(cx - s * 0.15, cy - s * 0.1, s * 0.1, cx, cy, s);
+  stoneGrad.addColorStop(0,   '#a0e8b0');
+  stoneGrad.addColorStop(0.5, '#50b868');
+  stoneGrad.addColorStop(1,   '#207838');
+  ctx.fillStyle = stoneGrad;
+  ctx.beginPath();
+  ctx.moveTo(cx - s * 0.3, cy - s * 0.85);
+  ctx.bezierCurveTo(cx + s * 0.4, cy - s * 1.05, cx + s * 1.1, cy - s * 0.55, cx + s * 1.05, cy);
+  ctx.bezierCurveTo(cx + s * 1.0, cy + s * 0.55, cx + s * 0.4, cy + s * 0.9, cx - s * 0.1, cy + s * 0.9);
+  ctx.bezierCurveTo(cx - s * 0.7, cy + s * 0.9, cx - s * 1.1, cy + s * 0.5, cx - s * 1.05, cy);
+  ctx.bezierCurveTo(cx - s * 1.0, cy - s * 0.5, cx - s * 0.7, cy - s * 0.75, cx - s * 0.3, cy - s * 0.85);
+  ctx.closePath(); ctx.fill();
+  ctx.strokeStyle = '#0a4a1e'; ctx.lineWidth = 1.8; ctx.stroke();
+
+  // Lightning bolt emblem — angular yellow zigzag
+  ctx.fillStyle = flash ? '#fff890' : '#ffd820';
+  ctx.beginPath();
+  ctx.moveTo(cx + s * 0.15, cy - s * 0.75);
+  ctx.lineTo(cx - s * 0.4,  cy + s * 0.1);
+  ctx.lineTo(cx - s * 0.05, cy + s * 0.05);
+  ctx.lineTo(cx - s * 0.25, cy + s * 0.75);
+  ctx.lineTo(cx + s * 0.45, cy - s * 0.15);
+  ctx.lineTo(cx + s * 0.08, cy - s * 0.1);
+  ctx.closePath(); ctx.fill();
+  ctx.strokeStyle = '#a07800'; ctx.lineWidth = 1; ctx.stroke();
+}
+
+// Moon Stone — dark night stone with a pale crescent (Dark type / Umbreon)
+function _drawMoonStone(ctx, cx, cy, size, anim) {
+  const s = size * 0.44;
+  const shimmer = 0.5 + Math.sin(anim * 0.06) * 0.2;
+
+  // Cool violet glow
+  const glow = ctx.createRadialGradient(cx, cy, s * 0.2, cx, cy, s * 1.7);
+  glow.addColorStop(0, `rgba(150,120,255,${0.25 + shimmer * 0.15})`);
+  glow.addColorStop(1, 'rgba(150,120,255,0)');
+  ctx.fillStyle = glow;
+  ctx.beginPath(); ctx.arc(cx, cy, s * 1.7, 0, Math.PI * 2); ctx.fill();
+
+  // Stone body — deep night blue
+  const stoneGrad = ctx.createRadialGradient(cx - s * 0.15, cy - s * 0.1, s * 0.1, cx, cy, s);
+  stoneGrad.addColorStop(0,   '#5a5a88');
+  stoneGrad.addColorStop(0.5, '#32325a');
+  stoneGrad.addColorStop(1,   '#181830');
+  ctx.fillStyle = stoneGrad;
+  ctx.beginPath();
+  ctx.moveTo(cx - s * 0.3, cy - s * 0.85);
+  ctx.bezierCurveTo(cx + s * 0.4, cy - s * 1.05, cx + s * 1.1, cy - s * 0.55, cx + s * 1.05, cy);
+  ctx.bezierCurveTo(cx + s * 1.0, cy + s * 0.55, cx + s * 0.4, cy + s * 0.9, cx - s * 0.1, cy + s * 0.9);
+  ctx.bezierCurveTo(cx - s * 0.7, cy + s * 0.9, cx - s * 1.1, cy + s * 0.5, cx - s * 1.05, cy);
+  ctx.bezierCurveTo(cx - s * 1.0, cy - s * 0.5, cx - s * 0.7, cy - s * 0.75, cx - s * 0.3, cy - s * 0.85);
+  ctx.closePath(); ctx.fill();
+  ctx.strokeStyle = '#0a0a1a'; ctx.lineWidth = 1.8; ctx.stroke();
+
+  // Crescent moon emblem — pale gold, opening to the right
+  ctx.fillStyle = `rgba(240,230,170,${0.75 + shimmer * 0.25})`;
+  ctx.beginPath();
+  ctx.arc(cx, cy, s * 0.55, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#32325a';
+  ctx.beginPath();
+  ctx.arc(cx + s * 0.28, cy - s * 0.08, s * 0.48, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Tiny stars
+  ctx.fillStyle = `rgba(255,255,255,${shimmer})`;
+  ctx.fillRect(cx + s * 0.45, cy - s * 0.5, 2, 2);
+  ctx.fillRect(cx + s * 0.6,  cy + s * 0.3, 1.5, 1.5);
+}
+
+// Water Stone — glossy blue stone with a droplet (Water type)
+function _drawWaterStone(ctx, cx, cy, size, anim) {
+  const s = size * 0.44;
+  const ripple = Math.sin(anim * 0.1) * 0.5;
+
+  // Blue glow
+  const glow = ctx.createRadialGradient(cx, cy, s * 0.2, cx, cy, s * 1.7);
+  glow.addColorStop(0, 'rgba(60,160,255,0.3)');
+  glow.addColorStop(1, 'rgba(60,160,255,0)');
+  ctx.fillStyle = glow;
+  ctx.beginPath(); ctx.arc(cx, cy, s * 1.7, 0, Math.PI * 2); ctx.fill();
+
+  // Stone body
+  const stoneGrad = ctx.createRadialGradient(cx - s * 0.15, cy - s * 0.1, s * 0.1, cx, cy, s);
+  stoneGrad.addColorStop(0,   '#90d0f8');
+  stoneGrad.addColorStop(0.5, '#3888d8');
+  stoneGrad.addColorStop(1,   '#144898');
+  ctx.fillStyle = stoneGrad;
+  ctx.beginPath();
+  ctx.moveTo(cx - s * 0.3, cy - s * 0.85);
+  ctx.bezierCurveTo(cx + s * 0.4, cy - s * 1.05, cx + s * 1.1, cy - s * 0.55, cx + s * 1.05, cy);
+  ctx.bezierCurveTo(cx + s * 1.0, cy + s * 0.55, cx + s * 0.4, cy + s * 0.9, cx - s * 0.1, cy + s * 0.9);
+  ctx.bezierCurveTo(cx - s * 0.7, cy + s * 0.9, cx - s * 1.1, cy + s * 0.5, cx - s * 1.05, cy);
+  ctx.bezierCurveTo(cx - s * 1.0, cy - s * 0.5, cx - s * 0.7, cy - s * 0.75, cx - s * 0.3, cy - s * 0.85);
+  ctx.closePath(); ctx.fill();
+  ctx.strokeStyle = '#082858'; ctx.lineWidth = 1.8; ctx.stroke();
+
+  // Droplet emblem — light blue teardrop
+  ctx.fillStyle = '#c0e8ff';
+  ctx.beginPath();
+  ctx.moveTo(cx, cy - s * 0.65 + ripple);
+  ctx.bezierCurveTo(cx + s * 0.45, cy - s * 0.05, cx + s * 0.4, cy + s * 0.5, cx, cy + s * 0.55);
+  ctx.bezierCurveTo(cx - s * 0.4, cy + s * 0.5, cx - s * 0.45, cy - s * 0.05, cx, cy - s * 0.65 + ripple);
+  ctx.closePath(); ctx.fill();
+  // Droplet shine
+  ctx.fillStyle = 'rgba(255,255,255,0.7)';
+  ctx.beginPath(); ctx.ellipse(cx - s * 0.12, cy - s * 0.05, s * 0.1, s * 0.18, -0.3, 0, Math.PI * 2); ctx.fill();
+}
+
+const STONE_DRAWERS = {
+  fire:     _drawFireStone,
+  leaf:     _drawLeafStone,
+  electric: _drawThunderStone,
+  shadow:   _drawMoonStone,
+  water:    _drawWaterStone,
+};
+
+// kind: 'candy' (Rare Candy → evolution 1) | 'firestone' (evolution stone → evolution 2)
+// element: which evolution stone the 'firestone' kind renders as (per player character)
 export class PowerUp {
-  constructor(x, y, kind) {
+  constructor(x, y, kind, element = 'fire') {
     if (kind === 'mushroom' || kind === 'grow') kind = 'candy';
     if (kind === 'flower' || kind === 'fire' || kind === 'tm') kind = 'firestone';
     this.kind = kind;
+    this.element = element;
     this.x = x;
     this.w = 28;
     this.h = 28;
@@ -172,7 +350,7 @@ export class PowerUp {
     if (this.kind === 'candy') {
       _drawRareCandy(ctx, cx, cy, w, this.anim);
     } else {
-      _drawFireStone(ctx, cx, cy, w, this.anim);
+      (STONE_DRAWERS[this.element] || _drawFireStone)(ctx, cx, cy, w, this.anim);
     }
   }
 }

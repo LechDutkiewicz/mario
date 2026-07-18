@@ -14,6 +14,16 @@ import { buildWorld2 } from './levels/world2.js';
 import { buildWorld3 } from './levels/world3.js';
 import { aabb }     from './physics.js';
 
+// Pokémon type of each playable line — controls which evolution stone
+// spawns from ? blocks and what the fired projectile looks like.
+const CHAR_ELEMENT = {
+  eevee:      'shadow',    // Dark (Umbreon) — Moon Stone, Shadow Ball
+  charmander: 'fire',      // Fire — Fire Stone, flame
+  bulbasaur:  'leaf',      // Grass — Leaf Stone, Razor Leaf
+  piplup:     'water',     // Water — Water Stone, bubbles
+  pichu:      'electric',  // Electric — Thunder Stone, spark
+};
+
 export class Game {
   constructor(ctx, input) {
     this.ctx   = ctx;
@@ -92,7 +102,8 @@ export class Game {
 
   spawnFireball(player) {
     const x = player.facing > 0 ? player.x + player.w : player.x - 18;
-    this.fireballs.push(new Fireball(x, player.y + player.h * 0.4, player.facing));
+    const element = CHAR_ELEMENT[this.selectedChar] || 'fire';
+    this.fireballs.push(new Fireball(x, player.y + player.h * 0.4, player.facing, element));
   }
 
   collectBlockCoin(x, y) {
@@ -103,7 +114,8 @@ export class Game {
   }
 
   spawnPowerUp(x, y, kind) {
-    this.powerups.push(new PowerUp(x, y, kind));
+    const element = CHAR_ELEMENT[this.selectedChar] || 'fire';
+    this.powerups.push(new PowerUp(x, y, kind, element));
   }
 
   _spawnScorePopup(x, y, score) {
