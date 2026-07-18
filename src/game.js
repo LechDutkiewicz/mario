@@ -238,7 +238,7 @@ export class Game {
       return;
     }
     if (this.state === STATE.CHAR_SELECT) {
-      const chars = ['eevee', 'bulbasaur', 'pichu'];
+      const chars = ['eevee', 'charmander', 'bulbasaur', 'pichu'];
       if (input.justPressed('ArrowLeft')) this.charSelectIdx = (this.charSelectIdx + chars.length - 1) % chars.length;
       if (input.justPressed('ArrowRight')) this.charSelectIdx = (this.charSelectIdx + 1) % chars.length;
       if (input.justPressed('Enter') || input.justPressed('Space')) {
@@ -1055,12 +1055,13 @@ export class Game {
     ctx.fillText('CHOOSE YOUR PARTNER!', CANVAS_WIDTH / 2, 70);
 
     const chars = [
-      { name: 'EEVEE',     evolves: 'UMBREON / FLAREON',   color: '#c8864a' },
-      { name: 'BULBASAUR', evolves: 'IVYSAUR / VENUSAUR',  color: '#68a858' },
-      { name: 'PICHU',     evolves: 'PIKACHU / RAICHU',    color: '#f8d030' },
+      { name: 'EEVEE',      evolves: 'UMBREON / FLAREON',    color: '#c8864a' },
+      { name: 'CHARMANDER', evolves: 'CHARMELEON / CHARIZARD', color: '#f8933c' },
+      { name: 'BULBASAUR',  evolves: 'IVYSAUR / VENUSAUR',   color: '#68a858' },
+      { name: 'PICHU',      evolves: 'PIKACHU / RAICHU',     color: '#f8d030' },
     ];
     const boxW = 170, boxH = 230, spacing = 190;
-    const startX = CANVAS_WIDTH / 2 - spacing * 1;
+    const startX = CANVAS_WIDTH / 2 - spacing * 1.5;
 
     for (let i = 0; i < chars.length; i++) {
       const c = chars[i];
