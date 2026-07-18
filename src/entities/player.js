@@ -462,39 +462,43 @@ export class Player {
       ctx.beginPath(); ctx.ellipse(w*(0.66-step*0.05), h*0.94, w*0.12, h*0.06, 0, 0, Math.PI*2);
       ctx.fill(); ctx.stroke();
 
-      // Head — big, round
+      // Both arms — small stubs at body sides
       ctx.fillStyle = C;
-      ctx.beginPath(); ctx.ellipse(w*0.54, h*0.36, w*0.38, h*0.28, 0, 0, Math.PI*2);
+      ctx.beginPath(); ctx.ellipse(w*0.78, h*0.64, w*0.08, h*0.06, 0.4, 0, Math.PI*2);
+      ctx.fill(); ctx.strokeStyle = OL; ctx.lineWidth = 1; ctx.stroke();
+      ctx.beginPath(); ctx.ellipse(w*0.24, h*0.64, w*0.08, h*0.06, -0.4, 0, Math.PI*2);
+      ctx.fill(); ctx.stroke();
+
+      // Head — big, gently rounded
+      ctx.fillStyle = C;
+      ctx.beginPath(); ctx.ellipse(w*0.54, h*0.34, w*0.39, h*0.27, 0, 0, Math.PI*2);
       ctx.fill(); ctx.strokeStyle = OL; ctx.lineWidth = 1.5; ctx.stroke();
 
-      // Arm stub
-      ctx.fillStyle = C;
-      ctx.beginPath(); ctx.ellipse(w*0.76, h*0.66, w*0.08, h*0.06, 0.4, 0, Math.PI*2);
-      ctx.fill(); ctx.strokeStyle = OL; ctx.lineWidth = 1; ctx.stroke();
+      // Eyes — IDENTICAL pair, soft white sclera (no heavy outline), blue iris
+      const eye = (ex) => {
+        ctx.fillStyle = '#fff';
+        ctx.beginPath(); ctx.ellipse(ex, h*0.30, 3.6, 4.6, 0, 0, Math.PI*2); ctx.fill();
+        ctx.fillStyle = '#2a6ad8';
+        ctx.beginPath(); ctx.ellipse(ex + 0.7, h*0.31, 2.3, 3.1, 0, 0, Math.PI*2); ctx.fill();
+        ctx.fillStyle = '#111';
+        ctx.beginPath(); ctx.ellipse(ex + 0.7, h*0.315, 1.3, 1.9, 0, 0, Math.PI*2); ctx.fill();
+        ctx.fillStyle = '#fff';
+        ctx.fillRect(ex - 0.6, h*0.272, 1.6, 1.6);
+      };
+      eye(w*0.40);
+      eye(w*0.68);
 
-      // Big friendly eyes
-      ctx.fillStyle = '#fff';
-      ctx.beginPath(); ctx.ellipse(w*0.68, h*0.32, 4.5, 5.5, 0, 0, Math.PI*2); ctx.fill();
-      ctx.strokeStyle = OL; ctx.lineWidth = 1; ctx.stroke();
-      ctx.fillStyle = '#2a6ad8';
-      ctx.beginPath(); ctx.ellipse(w*0.70, h*0.33, 2.6, 3.4, 0, 0, Math.PI*2); ctx.fill();
+      // Tiny nostrils
       ctx.fillStyle = '#111';
-      ctx.beginPath(); ctx.ellipse(w*0.70, h*0.335, 1.4, 2, 0, 0, Math.PI*2); ctx.fill();
-      ctx.fillStyle = '#fff'; ctx.fillRect(w*0.67, h*0.29, 2, 2);
-      ctx.fillStyle = '#fff';
-      ctx.beginPath(); ctx.ellipse(w*0.40, h*0.33, 4, 5, 0, 0, Math.PI*2); ctx.fill();
-      ctx.strokeStyle = OL; ctx.lineWidth = 1; ctx.stroke();
-      ctx.fillStyle = '#2a6ad8';
-      ctx.beginPath(); ctx.ellipse(w*0.41, h*0.34, 2.4, 3.2, 0, 0, Math.PI*2); ctx.fill();
-      ctx.fillStyle = '#111';
-      ctx.beginPath(); ctx.ellipse(w*0.41, h*0.345, 1.3, 1.9, 0, 0, Math.PI*2); ctx.fill();
+      ctx.fillRect(w*0.51, h*0.40, 1.3, 1.3);
+      ctx.fillRect(w*0.58, h*0.40, 1.3, 1.3);
 
-      // Nostrils + open smile
-      ctx.fillStyle = '#111';
-      ctx.fillRect(w*0.53, h*0.42, 1.5, 1.5);
-      ctx.fillRect(w*0.59, h*0.42, 1.5, 1.5);
-      ctx.fillStyle = '#8a2810';
-      ctx.beginPath(); ctx.arc(w*0.56, h*0.47, 5, 0.15, Math.PI - 0.15); ctx.fill();
+      // Wide happy smile
+      ctx.strokeStyle = '#111'; ctx.lineWidth = 1.6; ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(w*0.34, h*0.45);
+      ctx.quadraticCurveTo(w*0.54, h*0.525, w*0.76, h*0.44);
+      ctx.stroke();
 
     } else if (pw === POWER.BIG) {
       // ── CHARMELEON ── crimson, upright, single backward horn, fierce
