@@ -36,6 +36,8 @@ export class Player {
     this.char = 'eevee';
     this.isJumping = false;
     this.jumpFrames = 0;
+    this.underwater = false;   // set by game.js from level flag
+    this.paddleFrames = 0;     // remaining frames of current swim stroke
   }
 
   get big() { return this.power !== POWER.SMALL; }
@@ -116,7 +118,8 @@ export class Player {
     // FSM-accurate movement: friction always applied, then accel added
     this.vx *= FRICTION;
     if (Math.abs(this.vx) < 0.05) this.vx = 0;
-    const accel = input.run ? PLAYER_RUN_ACCEL : PLAYER_ACCEL;
+    // FSM: no sprinting underwater
+    const accel = (input.run && !this.underwater) ? PLAYER_RUN_ACCEL : PLAYER_ACCEL;
     if (input.left)  { this.vx -= accel; this.facing = -1; }
     if (input.right) { this.vx += accel; this.facing  =  1; }
     if (this.vx >  PLAYER_SPEED) this.vx =  PLAYER_SPEED;
@@ -138,28 +141,45 @@ export class Player {
       if (!blocked) { this.crouching = false; this.y = newY; this.h = PLAYER_BIG_H; }
     }
 
-    // FSM-accurate jump: continuous upward force applied each frame while holding jump
-    // dy = unitsize / pow(++jumplev, jumpmod - 0.0014 * |xvel|)
-    if (input.jumpPressed && this.onGround && !this.crouching) {
-      this.isJumping = true;
-      this.jumpFrames = 0;
-      this.vy = 0;
-      this.onGround = false;
-    }
-    if (this.isJumping) {
-      if (!input.jump || (this.onGround && this.jumpFrames > 0) || this.vy > 0) {
-        this.isJumping = false;
-      } else if (this.jumpFrames < JUMP_FRAMES_MAX) {
-        this.jumpFrames++;
-        const exponent = JUMP_MOD - 0.0014 * Math.abs(this.vx);
-        const dy = 4 / Math.pow(this.jumpFrames, exponent);
-        this.vy -= dy;
-        if (this.vy < JUMP_MAX_VY) this.vy = JUMP_MAX_VY;
+    if (this.underwater) {
+      // FSM swimming: each jump press is a paddle stroke — yvel held at
+      // unitsize * -0.84 for up to 14 frames (triggers.js timer*14 clear),
+      // allowed any time in the water, not only when resting.
+      if (input.jumpPressed && !this.crouching) {
+        this.paddleFrames = 14;
+        this.onGround = false;
+      }
+      if (this.paddleFrames > 0 && input.jump) {
+        this.vy = -3.36;   // unitsize * -0.84
+        this.paddleFrames--;
+      } else {
+        this.paddleFrames = 0;
+      }
+      this.isJumping = this.paddleFrames > 0;
+    } else {
+      // FSM-accurate jump: continuous upward force applied each frame while holding jump
+      // dy = unitsize / pow(++jumplev, jumpmod - 0.0014 * |xvel|)
+      if (input.jumpPressed && this.onGround && !this.crouching) {
+        this.isJumping = true;
+        this.jumpFrames = 0;
+        this.vy = 0;
+        this.onGround = false;
+      }
+      if (this.isJumping) {
+        if (!input.jump || (this.onGround && this.jumpFrames > 0) || this.vy > 0) {
+          this.isJumping = false;
+        } else if (this.jumpFrames < JUMP_FRAMES_MAX) {
+          this.jumpFrames++;
+          const exponent = JUMP_MOD - 0.0014 * Math.abs(this.vx);
+          const dy = 4 / Math.pow(this.jumpFrames, exponent);
+          this.vy -= dy;
+          if (this.vy < JUMP_MAX_VY) this.vy = JUMP_MAX_VY;
+        }
       }
     }
 
-    // Gravity
-    this.vy += GRAVITY;
+    // Gravity — FSM: underwater gravity is gravity / 2.8
+    this.vy += this.underwater ? GRAVITY / 2.8 : GRAVITY;
     if (this.vy > MAX_FALL_SPEED) this.vy = MAX_FALL_SPEED;
 
     // Shoot flamethrower
@@ -171,6 +191,12 @@ export class Player {
     const res = resolveCollisions(this, solids);
     this.onGround = res.onGround;
     if (this.onGround) this.isJumping = false;
+
+    // FSM WaterBlock — invisible barrier stops swimming above the surface
+    if (this.underwater && this.y < 8) {
+      this.y = 8;
+      if (this.vy < 0) this.vy = 0;
+    }
 
     for (const block of res.hitBelow) {
       if (block.onBump) block.onBump(game);

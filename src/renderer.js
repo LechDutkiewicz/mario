@@ -188,6 +188,27 @@ export class Renderer {
       return;  // skip hills and clouds
     }
 
+    if (this.currentSetting === 'underwater') {
+      // Deep blue water gradient with a shimmering surface line
+      const grad = ctx.createLinearGradient(0, 0, 0, CANVAS_HEIGHT);
+      grad.addColorStop(0, '#2870c0');
+      grad.addColorStop(1, '#0a2860');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+      ctx.fillStyle = 'rgba(255,255,255,0.3)';
+      ctx.fillRect(0, 0, CANVAS_WIDTH, 4);
+      // Faint light rays
+      ctx.fillStyle = 'rgba(255,255,255,0.05)';
+      for (let i = 0; i < 4; i++) {
+        const rx = ((i * 340 - camX * 0.2) % (CANVAS_WIDTH + 200)) - 100;
+        ctx.beginPath();
+        ctx.moveTo(rx, 0); ctx.lineTo(rx + 60, 0);
+        ctx.lineTo(rx + 160, CANVAS_HEIGHT); ctx.lineTo(rx + 40, CANVAS_HEIGHT);
+        ctx.closePath(); ctx.fill();
+      }
+      return;
+    }
+
     if (this.currentSetting === 'castle') {
       ctx.fillStyle = '#1a0a0a';
       ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);

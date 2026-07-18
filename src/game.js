@@ -286,6 +286,21 @@ export class Game {
     const solids = lvl.solids;
     const p      = this.player;
 
+    // Underwater physics flag (FSM: map.underwater) + player bubbles every 96 frames
+    p.underwater = !!lvl.underwater;
+    if (p.underwater && !p.dead) {
+      this._bubbleTimer = (this._bubbleTimer || 0) + 1;
+      if (this._bubbleTimer >= 96) {
+        this._bubbleTimer = 0;
+        if (!this._bubbles) this._bubbles = [];
+        this._bubbles.push({ x: p.x + (p.facing > 0 ? p.w : 0), y: p.y + 4, life: 140 });
+      }
+    }
+    if (this._bubbles) {
+      for (const b of this._bubbles) { b.y -= 0.7; b.x += Math.sin(b.life * 0.15) * 0.4; b.life--; }
+      this._bubbles = this._bubbles.filter(b => b.life > 0 && b.y > 4);
+    }
+
     // Moving platforms: update first so solids are current, then carry player
     if (lvl.movingPlatforms) {
       for (const mp of lvl.movingPlatforms) {
@@ -952,6 +967,18 @@ export class Game {
     if (lvl.pokeShopX != null)   this._drawPokeShopBuilding(lvl.pokeShopX);
     else if (lvl.pokeCenterX != null) this._drawPokeCenterBuilding(lvl.pokeCenterX);
     this.player.draw(r, this.cam);
+
+    // Underwater bubbles rising from the player
+    if (this._bubbles && this._bubbles.length) {
+      const bctx = this.ctx;
+      bctx.strokeStyle = 'rgba(220,240,255,0.7)';
+      bctx.lineWidth = 1.2;
+      for (const b of this._bubbles) {
+        bctx.beginPath();
+        bctx.arc(Math.floor(b.x - this.cam.x), Math.floor(b.y), 3, 0, Math.PI * 2);
+        bctx.stroke();
+      }
+    }
 
     // During pipe entry, redraw the pipe cap on top of the player so they appear to sink in
     if (this._pipeEntry?.pipe) {

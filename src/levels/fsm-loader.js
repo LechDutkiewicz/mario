@@ -421,12 +421,13 @@ export function loadFSMLevel(jsonData, areaIndex = 0) {
   }
   const levelWidth = maxX + 800;
 
-  const setting = area.setting === 'Underworld' ? 'underground'
+  const setting = area.underwater || area.setting === 'Underwater' ? 'underwater'
+                : area.setting === 'Underworld' ? 'underground'
                 : area.setting === 'Castle'     ? 'castle'
                 : 'overworld';
 
   // Underground areas and warp zones don't get a flag/Pokemon Center
-  const suppressFlag = setting === 'underground' || out.noFlagPole;
+  const suppressFlag = setting === 'underground' || setting === 'underwater' || out.noFlagPole;
   if (!suppressFlag && !out.flagPole) out.flagPole = new FlagPole(maxX - 300);
   const pokeCenterX = out.flagPole ? out.flagPole.x + 5 * T : null;
 
@@ -450,6 +451,7 @@ export function loadFSMLevel(jsonData, areaIndex = 0) {
     flagPole:        out.flagPole || null,
     pokeCenterX,
     setting,
+    underwater:      setting === 'underwater',
     get solids() { return [...this.platforms, ...this.qblocks, ...this.movingPlatforms]; },
     width:           levelWidth,
   };
