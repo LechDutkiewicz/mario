@@ -1082,31 +1082,53 @@ export class Player {
       ctx.fillStyle = '#fff'; ctx.fillRect(w*0.82, h*0.34, 2, 2);
 
     } else if (pw === POWER.BIG) {
-      // Ivysaur — larger, bud with peeking petals, leaves
-      const SKIN = '#6aac58'; const DARK = '#3a7030'; const SPOT = '#4a8440'; const BUDG = '#2a6828'; const BUD = '#c050a0'; const BUD2 = '#e070c0'; const CREAM = '#d8e8b0';
+      // Ivysaur — larger, closed pink tulip bud on splayed leaves
+      const SKIN = '#6aac58'; const DARK = '#3a7030'; const SPOT = '#4a8440'; const CREAM = '#d8e8b0';
+      const bx = w*0.27, byT = h*0.30;   // bud base center
 
-      // Leaf pair flanking the bud
-      ctx.fillStyle = '#2a7828';
-      ctx.beginPath(); ctx.ellipse(w*0.14, h*0.24, w*0.14, h*0.07, -0.6, 0, Math.PI*2);
-      ctx.fill(); ctx.strokeStyle=OL; ctx.lineWidth=1.2; ctx.stroke();
-      ctx.beginPath(); ctx.ellipse(w*0.38, h*0.2, w*0.14, h*0.07, 0.4, 0, Math.PI*2);
-      ctx.fill(); ctx.strokeStyle=OL; ctx.lineWidth=1.2; ctx.stroke();
+      // Splayed leaves under the bud — 4 pointed fronds radiating out
+      const leaf = (ang, len, wid) => {
+        const tx = bx + Math.cos(ang)*len, ty = byT + Math.sin(ang)*len;
+        const px = Math.cos(ang + Math.PI/2), py = Math.sin(ang + Math.PI/2);
+        ctx.fillStyle = '#2a7828';
+        ctx.beginPath();
+        ctx.moveTo(bx, byT);
+        ctx.quadraticCurveTo(bx + px*wid + Math.cos(ang)*len*0.45, byT + py*wid + Math.sin(ang)*len*0.45, tx, ty);
+        ctx.quadraticCurveTo(bx - px*wid + Math.cos(ang)*len*0.45, byT - py*wid + Math.sin(ang)*len*0.45, bx, byT);
+        ctx.closePath(); ctx.fill();
+        ctx.strokeStyle = OL; ctx.lineWidth = 1; ctx.stroke();
+        // Center vein
+        ctx.strokeStyle = '#68b858'; ctx.lineWidth = 0.8;
+        ctx.beginPath(); ctx.moveTo(bx, byT); ctx.lineTo(tx, ty); ctx.stroke();
+      };
+      leaf(Math.PI * 0.95, w*0.30, w*0.09);   // left
+      leaf(Math.PI * 0.70, w*0.26, w*0.08);   // upper-left
+      leaf(Math.PI * 0.28, w*0.28, w*0.08);   // upper-right
+      leaf(Math.PI * 0.05, w*0.30, w*0.09);   // right
 
-      // Bud/flower base
-      ctx.fillStyle = BUDG;
-      ctx.beginPath(); ctx.ellipse(w*0.28, h*0.26, w*0.18, h*0.18, 0, 0, Math.PI*2);
-      ctx.fill(); ctx.strokeStyle=OL; ctx.lineWidth=1.5; ctx.stroke();
-      ctx.fillStyle = BUD;
-      ctx.beginPath(); ctx.ellipse(w*0.28, h*0.19, w*0.12, h*0.12, 0, 0, Math.PI*2);
-      ctx.fill(); ctx.strokeStyle=OL; ctx.lineWidth=1.2; ctx.stroke();
-      ctx.fillStyle = BUD2;
-      ctx.beginPath(); ctx.ellipse(w*0.28, h*0.15, w*0.07, h*0.07, 0, 0, Math.PI*2); ctx.fill();
-      // Petal tips
-      for (let i=0; i<4; i++) {
-        const a = (i/4)*Math.PI*2 - Math.PI/2;
-        ctx.fillStyle = i%2===0 ? '#e060b0' : '#f080d0';
-        ctx.beginPath(); ctx.ellipse(w*0.28+Math.cos(a)*w*0.11, h*0.14+Math.sin(a)*h*0.05, 3+flick*0.3, 4+flick*0.2, a, 0, Math.PI*2); ctx.fill();
-      }
+      // Closed tulip bud — three pointed petals converging upward
+      const petal = (cxp, tipX, tipY, wid, fill) => {
+        ctx.fillStyle = fill;
+        ctx.beginPath();
+        ctx.moveTo(cxp - wid, byT);
+        ctx.quadraticCurveTo(cxp - wid*1.1, byT - h*0.10, tipX, tipY);
+        ctx.quadraticCurveTo(cxp + wid*1.1, byT - h*0.10, cxp + wid, byT);
+        ctx.closePath(); ctx.fill();
+        ctx.strokeStyle = OL; ctx.lineWidth = 1.1; ctx.stroke();
+      };
+      // Side petals lean outward, center petal on top — sway with flick
+      petal(bx - w*0.07, bx - w*0.13, h*0.10 + flick*0.4, w*0.075, '#c8489c');
+      petal(bx + w*0.07, bx + w*0.13, h*0.10 + flick*0.4, w*0.075, '#c8489c');
+      petal(bx,          bx,          h*0.055 - flick*0.4, w*0.085, '#e868bc');
+      // Green calyx cup wrapping the bud base
+      ctx.fillStyle = '#2a6828';
+      ctx.beginPath();
+      ctx.moveTo(bx - w*0.15, byT - h*0.02);
+      ctx.quadraticCurveTo(bx, byT + h*0.09, bx + w*0.15, byT - h*0.02);
+      ctx.lineTo(bx + w*0.11, byT + h*0.06);
+      ctx.quadraticCurveTo(bx, byT + h*0.12, bx - w*0.11, byT + h*0.06);
+      ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = OL; ctx.lineWidth = 1.2; ctx.stroke();
 
       // Hind legs
       ctx.fillStyle = SKIN;
@@ -1141,44 +1163,75 @@ export class Player {
       ctx.fill(); ctx.strokeStyle=OL; ctx.lineWidth=1; ctx.stroke();
       ctx.beginPath(); ctx.ellipse(w*0.88, h*0.23, w*0.07, h*0.08, 0.3, 0, Math.PI*2);
       ctx.fill(); ctx.strokeStyle=OL; ctx.lineWidth=1; ctx.stroke();
-      ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.ellipse(w*0.82, h*0.36, 5, 6, 0, 0, Math.PI*2); ctx.fill();
-      ctx.fillStyle = '#7a1a20'; ctx.beginPath(); ctx.ellipse(w*0.83, h*0.37, 2.5, 3, 0, 0, Math.PI*2); ctx.fill();
-      ctx.fillStyle = '#fff'; ctx.fillRect(w*0.82, h*0.33, 2, 2);
+      ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.ellipse(w*0.82, h*0.365, 4, 5, 0, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = '#7a1a20'; ctx.beginPath(); ctx.ellipse(w*0.83, h*0.375, 2.2, 2.8, 0, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = '#fff'; ctx.fillRect(w*0.82, h*0.345, 1.8, 1.8);
 
     } else {
-      // Venusaur — huge flower, heavy body
-      const SKIN = '#5a9848'; const DARK = '#3a6830'; const SPOT = '#4a8040'; const LEAFG = '#2a6828'; const PETAL = '#e03020'; const PETAL2 = '#f04828'; const CENTER = '#f8c840'; const CREAM = '#c8e0a0';
+      // Venusaur — huge open flower on a trunk, heavy body
+      const SKIN = '#5a9848'; const DARK = '#3a6830'; const SPOT = '#4a8040'; const CREAM = '#c8e0a0';
 
-      // Flower — the dominant feature, left/top of sprite
-      const fx = w*0.3, fy = h*0.16;
-      // Outer petals (6, alternating shades)
-      for (let i=0; i<6; i++) {
+      const fx = w*0.30, fy = h*0.17;   // flower center
+
+      // Big green fronds under the flower — radiating pointed leaves
+      const frond = (ang, len, wid) => {
+        const ox = fx, oy = fy + h*0.10;
+        const tx = ox + Math.cos(ang)*len, ty = oy + Math.sin(ang)*len;
+        const px = Math.cos(ang + Math.PI/2), py = Math.sin(ang + Math.PI/2);
+        ctx.fillStyle = '#2a6828';
+        ctx.beginPath();
+        ctx.moveTo(ox, oy);
+        ctx.quadraticCurveTo(ox + px*wid + Math.cos(ang)*len*0.45, oy + py*wid + Math.sin(ang)*len*0.45, tx, ty);
+        ctx.quadraticCurveTo(ox - px*wid + Math.cos(ang)*len*0.45, oy - py*wid + Math.sin(ang)*len*0.45, ox, oy);
+        ctx.closePath(); ctx.fill();
+        ctx.strokeStyle = OL; ctx.lineWidth = 1; ctx.stroke();
+        ctx.strokeStyle = '#5aa848'; ctx.lineWidth = 0.8;
+        ctx.beginPath(); ctx.moveTo(ox, oy); ctx.lineTo(tx, ty); ctx.stroke();
+      };
+      frond(Math.PI * 0.94, w*0.44, w*0.11);
+      frond(Math.PI * 0.62, w*0.34, w*0.10);
+      frond(Math.PI * 0.35, w*0.34, w*0.10);
+      frond(Math.PI * 0.04, w*0.44, w*0.11);
+
+      // Brown trunk supporting the flower
+      ctx.fillStyle = '#8a5a28';
+      ctx.beginPath();
+      ctx.moveTo(fx - w*0.09, fy + h*0.16);
+      ctx.lineTo(fx - w*0.06, fy + h*0.04);
+      ctx.lineTo(fx + w*0.06, fy + h*0.04);
+      ctx.lineTo(fx + w*0.09, fy + h*0.16);
+      ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = OL; ctx.lineWidth = 1.2; ctx.stroke();
+
+      // Open flower — 6 large pointed petals, sway with flick
+      const fpetal = (ang, shade) => {
+        const len = w*0.38 + flick*0.4, wid = w*0.14;
+        const tx = fx + Math.cos(ang)*len, ty = fy + Math.sin(ang)*len*0.85;
+        const px = Math.cos(ang + Math.PI/2), py = Math.sin(ang + Math.PI/2);
+        ctx.fillStyle = shade;
+        ctx.beginPath();
+        ctx.moveTo(fx, fy);
+        ctx.quadraticCurveTo(fx + px*wid + Math.cos(ang)*len*0.4, fy + py*wid + Math.sin(ang)*len*0.35, tx, ty);
+        ctx.quadraticCurveTo(fx - px*wid + Math.cos(ang)*len*0.4, fy - py*wid + Math.sin(ang)*len*0.35, fx, fy);
+        ctx.closePath(); ctx.fill();
+        ctx.strokeStyle = OL; ctx.lineWidth = 1.1; ctx.stroke();
+        // Petal ridge line
+        ctx.strokeStyle = 'rgba(255,255,255,0.35)'; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(fx + Math.cos(ang)*len*0.25, fy + Math.sin(ang)*len*0.22);
+        ctx.lineTo(tx - Math.cos(ang)*3, ty - Math.sin(ang)*3); ctx.stroke();
+      };
+      for (let i = 0; i < 6; i++) {
         const a = (i/6)*Math.PI*2 - Math.PI/2;
-        const pr = w*0.24;
-        ctx.fillStyle = i%2===0 ? PETAL : PETAL2;
-        ctx.beginPath(); ctx.ellipse(fx+Math.cos(a)*pr, fy+Math.sin(a)*pr*0.9, w*0.1+flick*0.4, h*0.08+flick*0.2, a, 0, Math.PI*2);
-        ctx.fill(); ctx.strokeStyle=OL; ctx.lineWidth=1; ctx.stroke();
+        fpetal(a, i % 2 === 0 ? '#e84868' : '#f06888');
       }
-      // Inner petals (4, pink)
-      for (let i=0; i<4; i++) {
-        const a = (i/4)*Math.PI*2;
-        ctx.fillStyle = '#f888a8';
-        ctx.beginPath(); ctx.ellipse(fx+Math.cos(a)*w*0.13, fy+Math.sin(a)*h*0.06, w*0.07, h*0.055, a, 0, Math.PI*2); ctx.fill();
-      }
-      // Center
-      ctx.fillStyle = CENTER; ctx.beginPath(); ctx.arc(fx, fy, w*0.1, 0, Math.PI*2); ctx.fill(); ctx.strokeStyle=OL; ctx.lineWidth=1.2; ctx.stroke();
-      ctx.fillStyle = '#c09000'; ctx.beginPath(); ctx.arc(fx, fy, w*0.05, 0, Math.PI*2); ctx.fill();
-
-      // Leaf pairs
-      ctx.fillStyle = LEAFG;
-      ctx.beginPath(); ctx.ellipse(w*0.14, h*0.3, w*0.12, h*0.06, -0.6, 0, Math.PI*2);
-      ctx.fill(); ctx.strokeStyle=OL; ctx.lineWidth=1; ctx.stroke();
-      ctx.beginPath(); ctx.ellipse(w*0.4, h*0.26, w*0.12, h*0.06, 0.4, 0, Math.PI*2);
-      ctx.fill(); ctx.strokeStyle=OL; ctx.lineWidth=1; ctx.stroke();
-      // Stalk/base
-      ctx.fillStyle = DARK;
-      ctx.beginPath(); ctx.ellipse(fx, h*0.36, w*0.16, h*0.1, 0, 0, Math.PI*2);
-      ctx.fill(); ctx.strokeStyle=OL; ctx.lineWidth=1.5; ctx.stroke();
+      // Flower center — golden with dots
+      ctx.fillStyle = '#f8c840';
+      ctx.beginPath(); ctx.arc(fx, fy, w*0.10, 0, Math.PI*2); ctx.fill();
+      ctx.strokeStyle = OL; ctx.lineWidth = 1.2; ctx.stroke();
+      ctx.fillStyle = '#c09000';
+      ctx.beginPath(); ctx.arc(fx - w*0.03, fy - h*0.012, 1.5, 0, Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.arc(fx + w*0.035, fy + h*0.008, 1.5, 0, Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.arc(fx, fy + h*0.02, 1.3, 0, Math.PI*2); ctx.fill();
 
       // Hind legs
       ctx.fillStyle = SKIN;
@@ -1187,15 +1240,16 @@ export class Player {
       ctx.beginPath(); ctx.ellipse(w*(0.32-step*0.03), h*0.86, w*0.11, h*0.12, 0, 0, Math.PI*2);
       ctx.fill(); ctx.strokeStyle=OL; ctx.lineWidth=1.5; ctx.stroke();
 
-      // Body
+      // Body — bulkier and lower than Ivysaur's
       ctx.fillStyle = SKIN;
-      ctx.beginPath(); ctx.ellipse(w*0.5, h*0.63, w*0.42, h*0.27, 0, 0, Math.PI*2);
+      ctx.beginPath(); ctx.ellipse(w*0.5, h*0.66, w*0.47, h*0.26, 0, 0, Math.PI*2);
       ctx.fill(); ctx.strokeStyle=OL; ctx.lineWidth=1.5; ctx.stroke();
       ctx.fillStyle = CREAM;
-      ctx.beginPath(); ctx.ellipse(w*0.64, h*0.65, w*0.2, h*0.18, 0.2, 0, Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(w*0.64, h*0.68, w*0.22, h*0.17, 0.2, 0, Math.PI*2); ctx.fill();
       ctx.fillStyle = SPOT;
-      ctx.beginPath(); ctx.ellipse(w*0.3, h*0.7, w*0.07, h*0.055, -0.3, 0, Math.PI*2); ctx.fill();
-      ctx.beginPath(); ctx.ellipse(w*0.52, h*0.76, w*0.06, h*0.05, 0, 0, Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(w*0.28, h*0.72, w*0.08, h*0.055, -0.3, 0, Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(w*0.5, h*0.78, w*0.06, h*0.05, 0, 0, Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(w*0.2, h*0.58, w*0.06, h*0.05, 0.3, 0, Math.PI*2); ctx.fill();
 
       // Front legs
       ctx.fillStyle = SKIN;
@@ -1213,9 +1267,12 @@ export class Player {
       ctx.fill(); ctx.strokeStyle=OL; ctx.lineWidth=1; ctx.stroke();
       ctx.beginPath(); ctx.ellipse(w*0.9, h*0.24, w*0.07, h*0.09, 0.3, 0, Math.PI*2);
       ctx.fill(); ctx.strokeStyle=OL; ctx.lineWidth=1; ctx.stroke();
-      ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.ellipse(w*0.84, h*0.38, 5.5, 6.5, 0, 0, Math.PI*2); ctx.fill();
-      ctx.fillStyle = '#8b1010'; ctx.beginPath(); ctx.ellipse(w*0.85, h*0.39, 3, 3.5, 0, 0, Math.PI*2); ctx.fill();
-      ctx.fillStyle = '#fff'; ctx.fillRect(w*0.84, h*0.35, 2, 2);
+      ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.ellipse(w*0.84, h*0.385, 4, 4.8, 0, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = '#8b1010'; ctx.beginPath(); ctx.ellipse(w*0.85, h*0.395, 2.2, 2.8, 0, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = '#fff'; ctx.fillRect(w*0.84, h*0.36, 1.8, 1.8);
+      // Fierce brow
+      ctx.strokeStyle = DARK; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(w*0.76, h*0.315); ctx.lineTo(w*0.90, h*0.335); ctx.stroke();
     }
   }
 

@@ -856,20 +856,8 @@ export class Game {
 
     const lvl = this.level;
     // Draw horizontal pipe piece connecting to entrance pipe in area 0
-    if (lvl.entrancePipeX !== undefined) {
-      const ctx2 = this.ctx;
-      const hpx = Math.floor(lvl.entrancePipeX - this.cam.x);
-      const hpy = Math.floor(GROUND_Y - TILE * 1.5);
-      const hpw = TILE * 1.5;
-      const hph = TILE * 1.5;
-      ctx2.fillStyle = '#2ecc40';
-      ctx2.fillRect(hpx - hpw, hpy, hpw, hph);
-      ctx2.fillStyle = '#27ae35';
-      ctx2.fillRect(hpx - hpw, hpy, hpw, 6);
-      ctx2.fillRect(hpx - hpw, hpy + hph - 6, hpw, 6);
-      ctx2.fillStyle = '#1a7a28';
-      ctx2.fillRect(hpx - 4, hpy - 4, 8, hph + 8); // joint between H and V pipe
-    }
+    // (drawn again over the player later, so the player disappears inside)
+    if (lvl.entrancePipeX !== undefined) this._drawEntranceHPipe(lvl);
     // Draw castle small buildings (appear behind platforms)
     for (const cs of (lvl.castleSmalls || [])) {
       this._drawCastleSmall(r.ctx, Math.floor(cs.x - this.cam.x), cs.y);
@@ -973,6 +961,8 @@ export class Game {
     if (this._pipeEntry?.hPipe) {
       this._drawHPipeCap(this._pipeEntry.hPipe);
     }
+    // Entrance H-pipe always covers the player, so the auto-walk ends inside the pipe
+    if (lvl.entrancePipeX !== undefined) this._drawEntranceHPipe(lvl);
 
     this._drawHUD();
 
@@ -1303,6 +1293,24 @@ export class Game {
     ctx.fillStyle = '#b0e0ff';
     ctx.fillText('Press ENTER to play again', CANVAS_WIDTH / 2, 420);
     ctx.textAlign = 'left';
+  }
+
+  _drawEntranceHPipe(lvl) {
+    const ctx2 = this.ctx;
+    const hpx = Math.floor(lvl.entrancePipeX - this.cam.x);
+    const hpy = Math.floor(GROUND_Y - TILE * 1.5);
+    const hpw = TILE * 1.5;
+    const hph = TILE * 1.5;
+    ctx2.fillStyle = '#2ecc40';
+    ctx2.fillRect(hpx - hpw, hpy, hpw, hph);
+    ctx2.fillStyle = '#27ae35';
+    ctx2.fillRect(hpx - hpw, hpy, hpw, 6);
+    ctx2.fillRect(hpx - hpw, hpy + hph - 6, hpw, 6);
+    // Dark entry hole on the left face
+    ctx2.fillStyle = '#0c3a12';
+    ctx2.fillRect(hpx - hpw, hpy + 6, 8, hph - 12);
+    ctx2.fillStyle = '#1a7a28';
+    ctx2.fillRect(hpx - 4, hpy - 4, 8, hph + 8); // joint between H and V pipe
   }
 
   _drawHPipeCap(hp) {
