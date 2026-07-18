@@ -226,7 +226,7 @@ export class Game {
       return;
     }
     if (this.state === STATE.CHAR_SELECT) {
-      const chars = ['eevee', 'bulbasaur', 'piplup'];
+      const chars = ['eevee', 'bulbasaur', 'pichu'];
       if (input.justPressed('ArrowLeft')) this.charSelectIdx = (this.charSelectIdx + chars.length - 1) % chars.length;
       if (input.justPressed('ArrowRight')) this.charSelectIdx = (this.charSelectIdx + 1) % chars.length;
       if (input.justPressed('Enter') || input.justPressed('Space')) {
@@ -1014,7 +1014,7 @@ export class Game {
     const chars = [
       { name: 'EEVEE',     evolves: 'UMBREON / FLAREON',   color: '#c8864a' },
       { name: 'BULBASAUR', evolves: 'IVYSAUR / VENUSAUR',  color: '#68a858' },
-      { name: 'PIPLUP',    evolves: 'PRINPLUP / EMPOLEON', color: '#2860c8' },
+      { name: 'PICHU',     evolves: 'PIKACHU / RAICHU',    color: '#f8d030' },
     ];
     const boxW = 170, boxH = 230, spacing = 190;
     const startX = CANVAS_WIDTH / 2 - spacing * 1;
@@ -1078,12 +1078,14 @@ export class Game {
       charmander: ['CHARMANDER', 'CHARMELEON', 'CHARIZARD'],
       bulbasaur:  ['BULBASAUR', 'IVYSAUR', 'VENUSAUR'],
       piplup:     ['PIPLUP', 'PRINPLUP', 'EMPOLEON'],
+      pichu:      ['PICHU', 'PIKACHU', 'RAICHU'],
     };
     const charColors = {
       eevee:      ['#fff', '#f0c040', '#ff6600'],
       charmander: ['#f07840', '#e05528', '#cc3300'],
       bulbasaur:  ['#88c878', '#5a9850', '#2a9030'],
       piplup:     ['#60a8e8', '#2860c8', '#0a1840'],
+      pichu:      ['#f8e470', '#f8d030', '#e07820'],
     };
     const char = this.player.char || 'eevee';
     const label = (charNames[char] || charNames.eevee)[pw];

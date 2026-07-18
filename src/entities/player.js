@@ -748,6 +748,271 @@ export class Player {
     }
   }
 
+  _drawPichu(ctx, w, h) {
+    const pw   = this.power;
+    const step = Math.abs(this.vx) > 0.3 ? Math.floor(this.animTimer / 8) % 2 : 0;
+    const OL   = '#111';
+
+    if (pw === POWER.SMALL) {
+      // ── PICHU ── tiny pale-yellow mouse, oversized diamond ears
+      const Y = '#f8e470', BLACK = '#222', CHEEK = '#f080a0';
+
+      // Tail — small black stub triangle at lower back
+      ctx.fillStyle = BLACK;
+      ctx.beginPath();
+      ctx.moveTo(w*0.18, h*0.66);
+      ctx.lineTo(w*0.00, h*0.56);
+      ctx.lineTo(w*0.16, h*0.54);
+      ctx.closePath(); ctx.fill();
+
+      // Body — small, below the big head
+      ctx.fillStyle = Y;
+      ctx.beginPath(); ctx.ellipse(w*0.5, h*0.72, w*0.32, h*0.24, 0, 0, Math.PI*2);
+      ctx.fill(); ctx.strokeStyle = OL; ctx.lineWidth = 1.5; ctx.stroke();
+
+      // Feet
+      ctx.fillStyle = Y;
+      ctx.beginPath(); ctx.ellipse(w*(0.36+step*0.04), h*0.93, w*0.11, h*0.06, 0, 0, Math.PI*2);
+      ctx.fill(); ctx.strokeStyle = OL; ctx.lineWidth = 1; ctx.stroke();
+      ctx.beginPath(); ctx.ellipse(w*(0.64-step*0.04), h*0.93, w*0.11, h*0.06, 0, 0, Math.PI*2);
+      ctx.fill(); ctx.stroke();
+
+      // Ears — big diamonds, upper halves black
+      // left ear
+      ctx.fillStyle = BLACK;
+      ctx.beginPath();
+      ctx.moveTo(w*0.30, h*0.16);
+      ctx.lineTo(w*0.02, h*0.00);
+      ctx.lineTo(w*0.22, h*0.30);
+      ctx.closePath(); ctx.fill(); ctx.strokeStyle = OL; ctx.lineWidth = 1.2; ctx.stroke();
+      // right ear
+      ctx.beginPath();
+      ctx.moveTo(w*0.68, h*0.14);
+      ctx.lineTo(w*0.98, h*0.00);
+      ctx.lineTo(w*0.80, h*0.28);
+      ctx.closePath(); ctx.fill(); ctx.stroke();
+
+      // Head — big relative to body
+      ctx.fillStyle = Y;
+      ctx.beginPath(); ctx.ellipse(w*0.52, h*0.38, w*0.40, h*0.28, 0, 0, Math.PI*2);
+      ctx.fill(); ctx.strokeStyle = OL; ctx.lineWidth = 1.5; ctx.stroke();
+
+      // Black neck collar (Pichu's chest marking)
+      ctx.strokeStyle = BLACK; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.arc(w*0.52, h*0.50, w*0.24, 0.35, Math.PI - 0.35); ctx.stroke();
+
+      // Pink cheeks
+      ctx.fillStyle = CHEEK;
+      ctx.beginPath(); ctx.ellipse(w*0.82, h*0.44, 4, 3.5, 0, 0, Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(w*0.24, h*0.46, 4, 3.5, 0, 0, Math.PI*2); ctx.fill();
+
+      // Eyes — big black with shine
+      ctx.fillStyle = '#000';
+      ctx.beginPath(); ctx.ellipse(w*0.66, h*0.35, 3.5, 4.5, 0, 0, Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(w*0.40, h*0.36, 3.5, 4.5, 0, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(w*0.64, h*0.31, 2, 2);
+      ctx.fillRect(w*0.38, h*0.32, 2, 2);
+
+      // Tiny nose + smile
+      ctx.fillStyle = '#000';
+      ctx.fillRect(w*0.52, h*0.42, 2, 1.5);
+      ctx.strokeStyle = '#000'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.arc(w*0.53, h*0.44, 4, 0.3, Math.PI - 0.3); ctx.stroke();
+
+    } else if (pw === POWER.BIG) {
+      // ── PIKACHU ── classic yellow, red cheeks, lightning-bolt tail
+      const Y = '#f8d030', BROWN = '#a05a10', CHEEK = '#e03020', BLACK = '#222';
+
+      // Tail — angular lightning bolt behind, on the left
+      ctx.fillStyle = Y;
+      ctx.beginPath();
+      ctx.moveTo(w*0.28, h*0.56);            // base at lower back
+      ctx.lineTo(w*0.10, h*0.50);
+      ctx.lineTo(w*0.22, h*0.42);
+      ctx.lineTo(w*0.02, h*0.34);
+      ctx.lineTo(w*0.16, h*0.26);
+      ctx.lineTo(w*(-0.06), h*0.16);
+      ctx.lineTo(w*0.30, h*0.12);            // wide flat top of the bolt
+      ctx.lineTo(w*0.16, h*0.24);
+      ctx.lineTo(w*0.34, h*0.32);
+      ctx.lineTo(w*0.20, h*0.40);
+      ctx.lineTo(w*0.36, h*0.48);
+      ctx.closePath();
+      ctx.fill(); ctx.strokeStyle = OL; ctx.lineWidth = 1.3; ctx.stroke();
+      // Brown base of tail
+      ctx.fillStyle = BROWN;
+      ctx.beginPath();
+      ctx.moveTo(w*0.28, h*0.56);
+      ctx.lineTo(w*0.36, h*0.48);
+      ctx.lineTo(w*0.40, h*0.56);
+      ctx.closePath(); ctx.fill();
+
+      // Body — upright oval
+      ctx.fillStyle = Y;
+      ctx.beginPath(); ctx.ellipse(w*0.5, h*0.66, w*0.34, h*0.28, 0, 0, Math.PI*2);
+      ctx.fill(); ctx.strokeStyle = OL; ctx.lineWidth = 1.5; ctx.stroke();
+
+      // Brown back stripes
+      ctx.strokeStyle = BROWN; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.arc(w*0.34, h*0.58, w*0.16, Math.PI*1.15, Math.PI*1.7); ctx.stroke();
+      ctx.beginPath(); ctx.arc(w*0.34, h*0.66, w*0.16, Math.PI*1.15, Math.PI*1.7); ctx.stroke();
+
+      // Feet
+      ctx.fillStyle = Y;
+      ctx.beginPath(); ctx.ellipse(w*(0.36+step*0.05), h*0.94, w*0.13, h*0.05, 0, 0, Math.PI*2);
+      ctx.fill(); ctx.strokeStyle = OL; ctx.lineWidth = 1; ctx.stroke();
+      ctx.beginPath(); ctx.ellipse(w*(0.66-step*0.05), h*0.94, w*0.13, h*0.05, 0, 0, Math.PI*2);
+      ctx.fill(); ctx.stroke();
+
+      // Arms — short stubs
+      ctx.fillStyle = Y;
+      ctx.beginPath(); ctx.ellipse(w*0.80, h*0.62, w*0.08, h*0.05, 0.5, 0, Math.PI*2);
+      ctx.fill(); ctx.strokeStyle = OL; ctx.lineWidth = 1; ctx.stroke();
+
+      // Ears — long, pointed, black tips
+      // left ear
+      ctx.fillStyle = Y;
+      ctx.beginPath();
+      ctx.moveTo(w*0.32, h*0.20);
+      ctx.lineTo(w*0.12, h*0.00);
+      ctx.lineTo(w*0.44, h*0.14);
+      ctx.closePath(); ctx.fill(); ctx.strokeStyle = OL; ctx.lineWidth = 1.2; ctx.stroke();
+      ctx.fillStyle = BLACK;
+      ctx.beginPath();
+      ctx.moveTo(w*0.12, h*0.00);
+      ctx.lineTo(w*0.22, h*0.095);
+      ctx.lineTo(w*0.28, h*0.045);
+      ctx.closePath(); ctx.fill();
+      // right ear
+      ctx.fillStyle = Y;
+      ctx.beginPath();
+      ctx.moveTo(w*0.66, h*0.19);
+      ctx.lineTo(w*0.90, h*0.00);
+      ctx.lineTo(w*0.78, h*0.16);
+      ctx.closePath(); ctx.fill(); ctx.strokeStyle = OL; ctx.lineWidth = 1.2; ctx.stroke();
+      ctx.fillStyle = BLACK;
+      ctx.beginPath();
+      ctx.moveTo(w*0.90, h*0.00);
+      ctx.lineTo(w*0.80, h*0.085);
+      ctx.lineTo(w*0.86, h*0.06);
+      ctx.closePath(); ctx.fill();
+
+      // Head
+      ctx.fillStyle = Y;
+      ctx.beginPath(); ctx.ellipse(w*0.54, h*0.30, w*0.32, h*0.18, 0, 0, Math.PI*2);
+      ctx.fill(); ctx.strokeStyle = OL; ctx.lineWidth = 1.5; ctx.stroke();
+
+      // Red cheeks
+      ctx.fillStyle = CHEEK;
+      ctx.beginPath(); ctx.ellipse(w*0.80, h*0.35, 4.5, 4, 0, 0, Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(w*0.30, h*0.36, 4.5, 4, 0, 0, Math.PI*2); ctx.fill();
+
+      // Eyes
+      ctx.fillStyle = '#000';
+      ctx.beginPath(); ctx.ellipse(w*0.68, h*0.27, 3, 4, 0, 0, Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(w*0.44, h*0.28, 3, 4, 0, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(w*0.665, h*0.245, 2, 2);
+      ctx.fillRect(w*0.425, h*0.255, 2, 2);
+
+      // Nose + mouth
+      ctx.fillStyle = '#000';
+      ctx.fillRect(w*0.55, h*0.33, 2, 1.5);
+      ctx.strokeStyle = '#000'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.arc(w*0.56, h*0.345, 4, 0.3, Math.PI - 0.3); ctx.stroke();
+
+    } else {
+      // ── RAICHU ── orange, cream belly, long thin tail with big bolt tip
+      const OR = '#f09030', CREAM = '#f8e0b0', CHEEK = '#f8d838', BROWN = '#7a4a10';
+
+      // Tail — thin dark curve sweeping up-left, bolt shape at tip
+      ctx.strokeStyle = BROWN; ctx.lineWidth = 3.5; ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(w*0.26, h*0.62);
+      ctx.bezierCurveTo(w*0.00, h*0.56, w*(-0.10), h*0.36, w*0.02, h*0.20);
+      ctx.stroke();
+      // Bolt at tail tip — angular arrow-like polygon
+      ctx.fillStyle = CHEEK;
+      ctx.beginPath();
+      ctx.moveTo(w*0.02, h*0.22);
+      ctx.lineTo(w*(-0.12), h*0.14);
+      ctx.lineTo(w*(-0.02), h*0.12);
+      ctx.lineTo(w*(-0.10), h*0.02);
+      ctx.lineTo(w*0.10, h*0.08);
+      ctx.lineTo(w*0.02, h*0.10);
+      ctx.lineTo(w*0.12, h*0.18);
+      ctx.closePath();
+      ctx.fill(); ctx.strokeStyle = OL; ctx.lineWidth = 1.2; ctx.stroke();
+
+      // Body
+      ctx.fillStyle = OR;
+      ctx.beginPath(); ctx.ellipse(w*0.5, h*0.64, w*0.36, h*0.30, 0, 0, Math.PI*2);
+      ctx.fill(); ctx.strokeStyle = OL; ctx.lineWidth = 1.5; ctx.stroke();
+      // Cream belly
+      ctx.fillStyle = CREAM;
+      ctx.beginPath(); ctx.ellipse(w*0.56, h*0.68, w*0.22, h*0.20, 0.05, 0, Math.PI*2); ctx.fill();
+
+      // Feet
+      ctx.fillStyle = OR;
+      ctx.beginPath(); ctx.ellipse(w*(0.34+step*0.05), h*0.95, w*0.14, h*0.05, 0, 0, Math.PI*2);
+      ctx.fill(); ctx.strokeStyle = OL; ctx.lineWidth = 1; ctx.stroke();
+      ctx.beginPath(); ctx.ellipse(w*(0.66-step*0.05), h*0.95, w*0.14, h*0.05, 0, 0, Math.PI*2);
+      ctx.fill(); ctx.stroke();
+
+      // Arms
+      ctx.fillStyle = OR;
+      ctx.beginPath(); ctx.ellipse(w*0.82, h*0.58, w*0.08, h*0.055, 0.5, 0, Math.PI*2);
+      ctx.fill(); ctx.strokeStyle = OL; ctx.lineWidth = 1; ctx.stroke();
+
+      // Ears — long, angled outward, curled tips (dark with yellow inner)
+      // left ear
+      ctx.fillStyle = BROWN;
+      ctx.beginPath();
+      ctx.moveTo(w*0.34, h*0.16);
+      ctx.lineTo(w*0.04, h*0.02);
+      ctx.lineTo(w*0.14, h*0.14);
+      ctx.lineTo(w*0.30, h*0.24);
+      ctx.closePath(); ctx.fill(); ctx.strokeStyle = OL; ctx.lineWidth = 1.2; ctx.stroke();
+      ctx.fillStyle = CHEEK;
+      ctx.beginPath(); ctx.ellipse(w*0.10, h*0.055, 3, 2.5, -0.5, 0, Math.PI*2); ctx.fill();
+      // right ear
+      ctx.fillStyle = BROWN;
+      ctx.beginPath();
+      ctx.moveTo(w*0.66, h*0.15);
+      ctx.lineTo(w*0.96, h*0.01);
+      ctx.lineTo(w*0.86, h*0.13);
+      ctx.lineTo(w*0.72, h*0.23);
+      ctx.closePath(); ctx.fill(); ctx.strokeStyle = OL; ctx.lineWidth = 1.2; ctx.stroke();
+      ctx.fillStyle = CHEEK;
+      ctx.beginPath(); ctx.ellipse(w*0.90, h*0.045, 3, 2.5, 0.5, 0, Math.PI*2); ctx.fill();
+
+      // Head
+      ctx.fillStyle = OR;
+      ctx.beginPath(); ctx.ellipse(w*0.54, h*0.28, w*0.30, h*0.17, 0, 0, Math.PI*2);
+      ctx.fill(); ctx.strokeStyle = OL; ctx.lineWidth = 1.5; ctx.stroke();
+
+      // Yellow cheeks
+      ctx.fillStyle = CHEEK;
+      ctx.beginPath(); ctx.ellipse(w*0.79, h*0.33, 4.5, 4, 0, 0, Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(w*0.30, h*0.34, 4.5, 4, 0, 0, Math.PI*2); ctx.fill();
+
+      // Eyes
+      ctx.fillStyle = '#000';
+      ctx.beginPath(); ctx.ellipse(w*0.67, h*0.25, 3, 4, 0, 0, Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(w*0.44, h*0.26, 3, 4, 0, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(w*0.655, h*0.225, 2, 2);
+      ctx.fillRect(w*0.425, h*0.235, 2, 2);
+
+      // Nose + mouth
+      ctx.fillStyle = '#000';
+      ctx.fillRect(w*0.55, h*0.305, 2, 1.5);
+      ctx.strokeStyle = '#000'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.arc(w*0.56, h*0.32, 4.5, 0.3, Math.PI - 0.3); ctx.stroke();
+    }
+  }
+
   _drawBulbasaur(ctx, w, h) {
     const pw = this.power;
     const step = Math.abs(this.vx) > 0.3 ? Math.floor(this.animTimer / 8) % 2 : 0;
@@ -990,6 +1255,11 @@ export class Player {
     }
     if (this.char === 'piplup') {
       this._drawPiplup(ctx, w, h);
+      ctx.restore();
+      return;
+    }
+    if (this.char === 'pichu') {
+      this._drawPichu(ctx, w, h);
       ctx.restore();
       return;
     }
