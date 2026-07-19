@@ -157,6 +157,15 @@ export class CastleBoss {
         game.bossShots.push(new BossShot(this.x - 32, this.y + 16, -2.52, 0, this.windupTarget));
       }
     }
+
+    // FSM hard mode (worlds 6+): the boss also throws hammers/bones
+    if (this.hard) {
+      this.hammerTimer = (this.hammerTimer ?? 60) - 1;
+      if (this.hammerTimer <= 0) {
+        this.hammerTimer = 100;
+        game.spawnBone(this.x + this.w / 2, this.y, this.lookleft ? -1 : 1);
+      }
+    }
   }
 
   updateBridge() {

@@ -16,10 +16,19 @@ export class PipePlant {
   get y() { return this.pipeTopY - this.h + this.offsetY; }
   get stompable() { return false; }
 
-  update() {
+  update(player) {
     this.animTimer++;
     this.timer--;
     if (this.state === 'hidden' && this.timer <= 0) {
+      // FSM movePirhanaRestart: don't emerge while the player's center is
+      // within pipe ± 32px (re-checked every 7 frames)
+      if (player) {
+        const pMid = player.x + player.w / 2;
+        if (pMid > this.pipeX - 32 && pMid < this.pipeX + 64 + 32) {
+          this.timer = 7;
+          return;
+        }
+      }
       this.state = 'emerging';
       this.timer = 60;
     } else if (this.state === 'emerging') {
@@ -30,7 +39,7 @@ export class PipePlant {
       this.timer = 60;
     } else if (this.state === 'retreating') {
       this.offsetY = Math.min(this.h, this.offsetY + 0.5);
-      if (this.offsetY >= this.h) { this.state = 'hidden'; this.timer = 150; }
+      if (this.offsetY >= this.h) { this.state = 'hidden'; this.timer = 35; }  // FSM pause
     }
   }
 

@@ -102,10 +102,15 @@ function processThing(e, out) {
 
     case 'Koopa': {
       if (e.jumping && e.floating && e.begin !== undefined && e.end !== undefined) {
-        // Paratroopa — flies vertically between begin and end
+        // Paratroopa — flies vertically between begin and end (FSM raw range)
         const flyMinY = uy(e.end);   // end = higher y in FSM → lower screen y (top)
-        const flyMaxY = Math.min(uy(e.begin), GY - 40);
+        const flyMaxY = uy(e.begin);
         out.enemies.push(new Enemy(sx, 0, 'squirtle', false, true, flyMinY, flyMaxY));
+      } else if (e.jumping) {
+        // Jumping Paratroopa (FSM moveJumping) — hops along the ground
+        const hopKoopa = new Enemy(sx, GY - (y - 8) * 4, 'squirtle', !!e.smart);
+        hopKoopa.hopper = true;
+        out.enemies.push(hopKoopa);
       } else {
         const feetY = GY - (y - 8) * 4;
         out.enemies.push(new Enemy(sx, feetY, 'squirtle', !!e.smart));
@@ -195,6 +200,10 @@ function processThing(e, out) {
       break;
 
     case 'ScrollBlocker':
+      out.scrollBlockers = out.scrollBlockers || [];
+      out.scrollBlockers.push(ux(x));
+      break;
+
     case 'ScrollEnabler':
     case 'Vine':
     case 'DecorativeBack':
@@ -326,6 +335,7 @@ function processMacro(e, out) {
       const bossStartX = bridgeX + 276;
       out.castleBoss = new CastleBoss(bossStartX, FLOOR_Y, bridgeX, bridgeX + BRIDGE_W - T);
       out.castleBoss.setBridgeCoords(bridgeX, BRIDGE_W, FLOOR_Y);
+      out.castleBoss.hard = !!e.hard;   // FSM: hard bosses also throw hammers
 
       // Ultra Ball right past the bridge end (FSM: CastleAxe at xloc + 104u = bridge end)
       const ballX = floorX + T * 0.5;
@@ -371,15 +381,16 @@ function processMacro(e, out) {
       const bx = ux(e.x || 0);
       const by = GY - (e.y || 24) * 4;
       const bw = ux(e.width || 16);
-      out.platforms.push(new Platform(bx, by, bw, 10, '#8b5e2a'));
+      const bridge = new Platform(bx, by, bw, 10, '#8b5e2a');
+      bridge.isBridge = true;   // draws planks + railing
+      out.platforms.push(bridge);
       break;
     }
 
-    // Decorative / purely visual / unsupported
     case 'CastleSmall':
     case 'CastleLarge': {
       if (!out.castleSmalls) out.castleSmalls = [];
-      out.castleSmalls.push({ x: ux(x), y: GY });
+      out.castleSmalls.push({ x: ux(x), y: GY, big: e.macro === 'CastleLarge' });
       break;
     }
 
@@ -393,14 +404,25 @@ function processMacro(e, out) {
       out.cheepZone.end = ux(x);
       break;
 
-    case 'Pattern':
+    // Background scenery patterns (clouds / fences / bushes) — stored for
+    // the renderer to draw light approximations of the FSM layouts
+    case 'Pattern': {
+      out.patterns = out.patterns || [];
+      out.patterns.push({ name: e.pattern, x: ux(x), repeat: e.repeat || 1 });
+      break;
+    }
+
+    // Water/lava hazard filling a floor gap (castles) — deadly on contact
+    case 'Water': {
+      out.lavaZones = out.lavaZones || [];
+      out.lavaZones.push({ x: ux(x), w: ux(e.width || 8) });
+      break;
+    }
+
     case 'PipeCorner':
     case 'CastleWall':
-    case 'Water':
     case 'ScrollBlocker':
     case 'ScrollEnabler':
-    case 'BackFence':
-    case 'BackRegular':
       break;
 
     default:
@@ -462,6 +484,9 @@ export function loadFSMLevel(jsonData, areaIndex = 0) {
     movingPlatforms: out.movingPlatforms,
     hPipeExits:      out.hPipeExits || [],
     cheepZone:       out.cheepZone || null,
+    scrollBlockers:  out.scrollBlockers || [],
+    patterns:        out.patterns || [],
+    lavaZones:       out.lavaZones || [],
     time:            jsonData.time ?? 300,
     boss:            null,
     castleSmalls:    out.castleSmalls || [],

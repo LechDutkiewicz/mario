@@ -12,6 +12,19 @@ export class Platform {
   draw(r, cam) {
     const sx = Math.floor(this.x - cam.x);
     const sy = Math.floor(this.y);
+    if (this.isBridge) {
+      const ctx = r.ctx;
+      // Planks
+      ctx.fillStyle = '#8b5e2a';
+      ctx.fillRect(sx, sy, this.w, this.h);
+      ctx.fillStyle = '#a8763a';
+      for (let px = 0; px < this.w; px += 16) ctx.fillRect(sx + px + 1, sy + 2, 14, this.h - 4);
+      // Green railing on top (SMB bridge look)
+      ctx.fillStyle = '#2e9e40';
+      ctx.fillRect(sx, sy - 8, this.w, 3);
+      for (let px = 4; px < this.w; px += 16) ctx.fillRect(sx + px, sy - 8, 3, 8);
+      return;
+    }
     if (this.color === COLORS.ground || this.color === '#7a4a1e') {
       r.drawGround(sx, sy, this.w, this.h);
     } else {
@@ -107,7 +120,18 @@ export class BrickBlock {
 
   onBump(game) {
     if (this.bump > 0) return;
-    // Bricks with contents dispense them instead of breaking
+    // Multi-coin brick (FSM): dispenses a coin per bump for 245 frames
+    // after the first hit, then becomes spent
+    if (this.contents === 'coin' || this.contents === 'pokeball') {
+      if (!this.used) {
+        game.collectBlockCoin(this.x + this.w / 2 - 10, this.y - 4);
+        if (this.coinWindow == null) this.coinWindow = 245;
+        if (this.coinWindow <= 0) this.used = true;
+      }
+      this.bump = 8;
+      return;
+    }
+    // Bricks with other contents dispense them instead of breaking
     if (this.contents) {
       if (!this.used) {
         this.used = true;
@@ -127,6 +151,7 @@ export class BrickBlock {
 
   update() {
     if (this.bump > 0) this.bump--;
+    if (this.coinWindow != null && this.coinWindow > 0) this.coinWindow--;
   }
 
   draw(r, cam) {

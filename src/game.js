@@ -80,6 +80,8 @@ export class Game {
     this.bossShots  = [];
     this.powerups   = [];
     this._castleBossComplete = false; this._bridgeRemoved = false; this._catchCamLock = false; this._pipeEntry = null; this._lavaAnim = 0;
+    // SMB-style black intro card: "WORLD X-Y" + lives (skippable with jump)
+    this.levelIntroTimer = 110;
     if (fullReset) {
       this.score          = 0;
       this.lives          = 3;
@@ -107,11 +109,54 @@ export class Game {
     this.fireballs.push(new Fireball(x, player.y + player.h * 0.4, player.facing, element));
   }
 
-  collectBlockCoin(x, y) {
+  // Central coin gain — FSM: every 100 coins grants a 1-Up
+  _gainCoin() {
     this.coinsCollected++;
     this.score += SCORE_POKEBALL;
+    if (this.coinsCollected % 100 === 0) {
+      this.lives++;
+      this.scorePopups.push({ x: this.player.x, y: this.player.y - 10, score: '1-UP', vy: -1.5, life: 60 });
+    }
+  }
+
+  collectBlockCoin(x, y) {
+    this._gainCoin();
     this.level.coins.push(Coin.pop(x, y));
     this.music.playCollect();
+  }
+
+  // Block bumped from below — FSM characterTouchesUp: enemies standing on
+  // the block die (killFlip), items on it hop
+  onBlockBumped(block) {
+    block.onBump(this);
+    for (const e of this.level.enemies) {
+      if (e.dead || e.dying) continue;
+      if (Math.abs((e.y + e.h) - block.y) < 6 &&
+          e.x + e.w > block.x && e.x < block.x + block.w) {
+        e.kill();
+        this.score += SCORE_STOMP;
+        this._spawnScorePopup(e.x + e.w / 2, e.y, SCORE_STOMP);
+      }
+    }
+    for (const pu of this.powerups) {
+      if (!pu.dead && Math.abs((pu.y + pu.h) - block.y) < 6 &&
+          pu.x + pu.w > block.x && pu.x < block.x + block.w) {
+        pu.vy = -6;   // item hop
+      }
+    }
+  }
+
+  // FSM findScore ladder for consecutive stomps / shell kill chains
+  _chainScore(level, x, y) {
+    const ladder = [100, 200, 400, 500, 800, 1000, 2000, 4000, 5000, 8000];
+    if (level < ladder.length) {
+      const pts = ladder[level];
+      this.score += pts;
+      this._spawnScorePopup(x, y, pts);
+    } else {
+      this.lives++;
+      this.scorePopups.push({ x, y, score: '1-UP', vy: -1.5, life: 60 });
+    }
   }
 
   spawnPowerUp(x, y, kind) {
@@ -317,6 +362,13 @@ export class Game {
     const solids = lvl.solids;
     const p      = this.player;
 
+    // Black "WORLD X-Y" intro card — gameplay frozen until it ends
+    if (this.levelIntroTimer > 0) {
+      this.levelIntroTimer--;
+      if (input.jumpPressed || input.justPressed('Enter')) this.levelIntroTimer = 0;
+      return;
+    }
+
     // Music theme follows the level setting; star power overrides everything
     this.music.setTheme(p.starTimer > 0                ? 'star'
                       : lvl.setting === 'underwater'   ? 'underwater'
@@ -377,6 +429,17 @@ export class Game {
       }
     }
 
+    // ── Lava/water hazard zones (castle floor gaps) — deadly on contact ──
+    if (lvl.lavaZones && lvl.lavaZones.length && !p.dead) {
+      for (const lz of lvl.lavaZones) {
+        if (p.x + p.w > lz.x && p.x < lz.x + lz.w && p.y + p.h > GROUND_Y + 6) {
+          this.music.stop();
+          p.die();
+          break;
+        }
+      }
+    }
+
     // ── Sky bonus area: falling off the clouds returns to the overworld ──
     if (lvl.isSky && !p.dead && p.y > 700 && this.areaTransTimer === 0) {
       this._pendingSpawnX = lvl.skyReturnX;
@@ -420,7 +483,8 @@ export class Game {
         p.vy = 0;
         p.vx *= 0.7;        // FSM: hard to slide off
         if (s.phase >= 8) {
-          p.vy = input.jump ? -13.5 : -8.5;
+          // FSM: launch is ~-8; the held jump-force machine below adds the rest
+          p.vy = -8.5;
           p.onGround = false;
           // FSM: after the spring releases, the regular jump-hold force keeps
           // adding on top of the launch — that's what clears the tall wall
@@ -464,6 +528,16 @@ export class Game {
     p.update(pipeBlockedInput || activeInput, solids, this);
 
     this.cam.follow(p, lvl.width);
+    // FSM ScrollBlocker: camera cannot reveal past a blocker the player
+    // hasn't crossed yet
+    for (const bx of (lvl.scrollBlockers || [])) {
+      if (p.x < bx && this.cam.x > bx - CANVAS_WIDTH) this.cam.x = bx - CANVAS_WIDTH;
+    }
+    // SMB one-way scroll: the player cannot walk off the left screen edge
+    if (!p.dead && p.x < this.cam.x) {
+      p.x = this.cam.x;
+      if (p.vx < 0) p.vx = 0;
+    }
 
     for (const q of lvl.qblocks) q.update();
 
@@ -472,8 +546,7 @@ export class Game {
       c.update();
       if (!c.dead && !c.popping && aabb(p, c)) {
         c.dead = true;
-        this.coinsCollected++;
-        this.score += SCORE_POKEBALL;
+        this._gainCoin();
         this.music.playCollect();
       }
     }
@@ -508,13 +581,13 @@ export class Game {
       e.update(solids, p, this);
       if (e.dead && !e.dying) continue;
 
-      // Sliding shell kills other enemies
+      // Sliding shell kills other enemies — FSM: escalating chain scoring
       if (e.type === 'squirtle' && e.shellSliding && !e.dead) {
         for (const other of lvl.enemies) {
           if (other !== e && !other.dead && !other.dying && !other.inShell && aabb(e, other)) {
             other.kill();
-            this.score += SCORE_STOMP;
-            this._spawnScorePopup(other.x + other.w / 2, other.y, SCORE_STOMP);
+            e.enemyhitcount = e.enemyhitcount || 0;
+            this._chainScore(e.enemyhitcount++, other.x + other.w / 2, other.y);
           }
         }
       }
@@ -553,10 +626,10 @@ export class Game {
             // Stomp sliding shell → stop it, no points
             e.squash();
           } else {
-            // Normal stomp: enter shell (squirtle) or flatten (others)
+            // Normal stomp — FSM: consecutive mid-air stomps escalate the ladder
             e.squash();
-            this.score += SCORE_STOMP;
-            this._spawnScorePopup(e.x + e.w / 2, e.y, SCORE_STOMP);
+            p.stompChain = p.stompChain || 0;
+            this._chainScore(p.stompChain++, e.x + e.w / 2, e.y);
           }
         } else if (!stomping) {
           if (e.type === 'squirtle' && e.inShell && !e.shellSliding) {
@@ -658,7 +731,7 @@ export class Game {
 
     // Pipe plants (Victreebel)
     for (const pl of lvl.plants || []) {
-      pl.update();
+      pl.update(p);
       for (const fb of this.fireballs) {
         if (!fb.dead && pl.isVisible() && aabb(fb, pl)) {
           fb.dead = true;
@@ -775,6 +848,11 @@ export class Game {
         p.x = fp.x + 2;
         p.vx = 0;
         p.vy = 2;
+        // FSM scorePlayerFlag — points tiered by grab height (SMB 100..5000)
+        const grabH = GROUND_Y - (p.y + p.h);
+        const pts = grabH < 32 ? 100 : grabH < 112 ? 400 : grabH < 160 ? 800 : grabH < 248 ? 2000 : 5000;
+        this.score += pts;
+        this._spawnScorePopup(fp.x, p.y, pts);
       }
       if (p.poleSliding) {
         p.vy = Math.min(p.vy + 0.15, 4);
@@ -1007,14 +1085,37 @@ export class Game {
     if (this.state === STATE.CHAR_SELECT) { this._drawCharSelect(); return; }
     if (this.state === STATE.LEADERBOARD) { this._drawLeaderboard(); return; }
     if (this.state === STATE.ENDING) { this._drawEnding(); return; }
+    if (this.levelIntroTimer > 0) { this._drawLevelIntro(); return; }
 
     const lvl = this.level;
     // Draw horizontal pipe piece connecting to entrance pipe in area 0
     // (drawn again over the player later, so the player disappears inside)
     if (lvl.entrancePipeX !== undefined) this._drawEntranceHPipe(lvl);
-    // Draw castle small buildings (appear behind platforms)
+    // Background scenery patterns (light approximations of FSM layouts)
+    for (const pat of (lvl.patterns || [])) this._drawPattern(pat);
+
+    // Lava/water hazards filling castle floor gaps
+    for (const lz of (lvl.lavaZones || [])) {
+      const ctx2 = this.ctx;
+      const lx = Math.floor(lz.x - this.cam.x);
+      if (lx + lz.w < 0 || lx > CANVAS_WIDTH) continue;
+      ctx2.fillStyle = '#cc2200';
+      ctx2.fillRect(lx, GROUND_Y + 8, lz.w, CANVAS_HEIGHT - GROUND_Y - 8);
+      ctx2.fillStyle = '#ff4400';
+      for (let i = 0; i < Math.ceil(lz.w / TILE); i++) {
+        const wx = lx + i * TILE;
+        const wave = Math.sin((wx + this._lavaAnim * 2) * 0.04) * 3;
+        ctx2.beginPath();
+        ctx2.moveTo(wx, GROUND_Y + 8 + wave);
+        ctx2.lineTo(wx + TILE / 2, GROUND_Y + 2 + wave);
+        ctx2.lineTo(wx + TILE, GROUND_Y + 8 + wave);
+        ctx2.fill();
+      }
+    }
+
+    // Draw castle buildings (appear behind platforms)
     for (const cs of (lvl.castleSmalls || [])) {
-      this._drawCastleSmall(r.ctx, Math.floor(cs.x - this.cam.x), cs.y);
+      this._drawCastleSmall(r.ctx, Math.floor(cs.x - this.cam.x), cs.y, cs.big);
     }
     // Vine growing from a bumped block
     if (this._vine) {
@@ -1556,6 +1657,78 @@ export class Game {
     ctx.beginPath(); ctx.arc(cx - 3, top + 11, 2.5, 0.2, Math.PI * 0.8); ctx.stroke();
   }
 
+  // Light approximations of FSM background patterns (clouds/bushes/fences).
+  // Each pattern spans ~384px (BackFence 512) and repeats `repeat` times.
+  _drawPattern(pat) {
+    const ctx = this.ctx;
+    const spanW = pat.name === 'BackFence' ? 512 : 384;
+    const cloud = (cx, cy) => {
+      ctx.fillStyle = 'rgba(255,255,255,0.85)';
+      ctx.beginPath();
+      ctx.arc(cx, cy, 13, 0, Math.PI * 2);
+      ctx.arc(cx + 16, cy - 5, 15, 0, Math.PI * 2);
+      ctx.arc(cx + 34, cy, 13, 0, Math.PI * 2);
+      ctx.fill();
+    };
+    const bush = (bx) => {
+      ctx.fillStyle = '#3aa845';
+      ctx.beginPath();
+      ctx.arc(bx, GROUND_Y - 10, 14, Math.PI, 0);
+      ctx.arc(bx + 20, GROUND_Y - 14, 17, Math.PI, 0);
+      ctx.arc(bx + 42, GROUND_Y - 10, 14, Math.PI, 0);
+      ctx.fill();
+      ctx.fillRect(bx - 14, GROUND_Y - 10, 70, 10);
+    };
+    const fence = (fx, len) => {
+      ctx.fillStyle = '#c8b060';
+      ctx.fillRect(fx, GROUND_Y - 22, len, 4);
+      for (let px = 0; px < len; px += 14) ctx.fillRect(fx + px, GROUND_Y - 30, 5, 30);
+    };
+    for (let rp = 0; rp < pat.repeat; rp++) {
+      const ox = Math.floor(pat.x + rp * spanW - this.cam.x * 0.999);
+      if (ox + spanW < -50 || ox > CANVAS_WIDTH + 50) continue;
+      switch (pat.name) {
+        case 'BackCloud':
+          cloud(ox + 60, 140); cloud(ox + 230, 100); cloud(ox + 330, 170);
+          break;
+        case 'BackFence':
+          cloud(ox + 90, 120); fence(ox + 40, 100); bush(ox + 220); fence(ox + 360, 120);
+          break;
+        case 'BackFenceMin':
+          fence(ox + 60, 120); cloud(ox + 240, 130);
+          break;
+        default:   // BackRegular — clouds + bushes
+          cloud(ox + 80, 120); bush(ox + 40); cloud(ox + 260, 160); bush(ox + 260);
+      }
+    }
+  }
+
+  // Black SMB-style card shown before each level: WORLD X-Y and lives count
+  _drawLevelIntro() {
+    const ctx = this.ctx;
+    ctx.fillStyle = '#000';
+    ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+    let worldLabel;
+    if (this.world === 1)      worldLabel = `1-${this.world1Level + 1}`;
+    else if (this.world === 2) worldLabel = `2-${this.world2Level + 1}`;
+    else                       worldLabel = '3-1';
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 36px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText(`WORLD ${worldLabel}`, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 60);
+    // Heart × lives
+    ctx.font = 'bold 30px monospace';
+    ctx.fillStyle = '#e23b3b';
+    ctx.fillText('❤', CANVAS_WIDTH / 2 - 44, CANVAS_HEIGHT / 2 + 20);
+    ctx.fillStyle = '#fff';
+    ctx.fillText(`× ${this.lives}`, CANVAS_WIDTH / 2 + 20, CANVAS_HEIGHT / 2 + 20);
+    const charName = (this.selectedChar || 'eevee').toUpperCase();
+    ctx.font = 'bold 18px monospace';
+    ctx.fillStyle = '#999';
+    ctx.fillText(charName, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 70);
+    ctx.textAlign = 'left';
+  }
+
   _drawEntranceHPipe(lvl) {
     const ctx2 = this.ctx;
     const hpx = Math.floor(lvl.entrancePipeX - this.cam.x);
@@ -1780,8 +1953,17 @@ export class Game {
     ctx.textAlign = 'left';
   }
 
-  _drawCastleSmall(ctx, sx, groundY) {
+  _drawCastleSmall(ctx, sx, groundY, big = false) {
     // Pokémon Shop — pixel-art style blue octagonal building with Pokéball logo and SHOP sign
+    // big = FSM CastleLarge: drawn at 1.5x scale
+    if (big) {
+      ctx.save();
+      ctx.translate(sx, groundY);
+      ctx.scale(1.5, 1.5);
+      this._drawCastleSmall(ctx, 0, 0);
+      ctx.restore();
+      return;
+    }
     const T = TILE;
     const W = T * 4;   // 128px
     const H = T * 4;   // 128px

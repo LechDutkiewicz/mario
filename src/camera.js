@@ -8,8 +8,11 @@ export class Camera {
 
   follow(target, levelWidth) {
     const desired = target.x + target.w / 2 - CANVAS_WIDTH * 0.4;
-    this.x += (desired - this.x) * 0.12;
-    if (this.x < 0) this.x = 0;
-    if (this.x > levelWidth - CANVAS_WIDTH) this.x = levelWidth - CANVAS_WIDTH;
+    let nx = this.x + (desired - this.x) * 0.12;
+    // SMB/FSM: the screen NEVER scrolls left (one-way scroll)
+    if (nx < this.x) nx = this.x;
+    if (nx < 0) nx = 0;
+    if (nx > levelWidth - CANVAS_WIDTH) nx = levelWidth - CANVAS_WIDTH;
+    this.x = nx;
   }
 }

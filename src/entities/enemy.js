@@ -14,8 +14,11 @@ export class Enemy {
     this.w = 30;
     this.h = type === 'koffing' ? 32 : 26;
     this.y = flying ? flyMinY : y - this.h;
-    this.vx = type === 'koffing' ? -0.8 : type === 'squirtle' ? -1.3 : -1.1;
+    // FSM: Goomba and Koopa both walk at 0.21 * unitsize = 0.84
+    this.vx = type === 'koffing' ? -0.8 : -0.84;
     this.vy = 0;
+    this.shellCounter = 0;    // FSM moveShell: peek at 350, revive at 490
+    this.hopper = false;      // jumping Paratroopa (moveJumping)
     // FSM Blooper: speed=unitsized2 (right cap 2), speedinv=-unitsized4 (start/left cap -1)
     if (type === 'blooper') { this.w = 26; this.h = 26; this.vx = -1; this.vy = 0; this.y = y - this.h; this.counter = 0; this.squeeze = 0; }
     // FSM CheepCheep: red (smart) xvel -1, yvel -1/6; normal xvel -2/3, yvel -1/8
@@ -25,7 +28,8 @@ export class Enemy {
       this.vy = smart ? -4 / 24 : -0.125;
       this.cheepInit = true;
     }
-    if (type === 'podoboo') { this.w = 20; this.h = 20; this.vx = 0; this.baseY = y - this.h; this.y = y - this.h; this.vy = 0; this.jumpTimer = Math.floor(Math.random() * 80) + 30; this.isJumping = false; }
+    // FSM Podoboo: betweentime 70, launch -maxyvel (-7), gravity / 2.1
+    if (type === 'podoboo') { this.w = 20; this.h = 20; this.vx = 0; this.baseY = y - this.h; this.y = y - this.h; this.vy = 0; this.jumpTimer = Math.floor(Math.random() * 70) + 30; this.isJumping = false; }
     // FSM Lakitu → Zubat: hovers, orbits the player, drops Pineco eggs every 140f
     if (type === 'zubat') { this.w = 30; this.h = 26; this.vx = 0; this.vy = 0; this.y = Math.min(y - this.h, 240); this.counter = 0; this.throwTimer = 140; }
     // FSM HammerBro → Cubone: slides on a sine, throws bone bursts, hops
@@ -57,19 +61,22 @@ export class Enemy {
       if (this.shellSliding) {
         this.shellSliding = false;
         this.vx = 0;
+        this.shellCounter = 0;
       } else if (!this.inShell) {
         this.inShell = true;
         this.vx = 0;
+        this.shellCounter = 0;
       }
       return;
     }
-    this.squashTimer = 30;
+    this.squashTimer = 21;   // FSM DeadGoomba lives 21 frames
     this.vx = 0;
   }
 
   kickShell(dir) {
     this.shellSliding = true;
-    this.vx = dir * 9;
+    this.shellCounter = 0;
+    this.vx = dir * 8;       // FSM shell slide speed: unitsize * 2
   }
 
   kill() {
@@ -94,6 +101,14 @@ export class Enemy {
       if (this.vy > MAX_FALL_SPEED) this.vy = MAX_FALL_SPEED;
       resolveCollisions(this, solids);
       this.vx = 0;
+      // FSM moveShell: shell starts peeking at 350 and revives at 490
+      this.animTimer++;
+      this.shellCounter++;
+      if (this.shellCounter >= 490) {
+        this.inShell = false;
+        this.shellCounter = 0;
+        this.vx = player.x < this.x ? 0.84 : -0.84;   // walk away from the player
+      }
       return;
     }
     if (this.type === 'squirtle' && this.inShell && this.shellSliding) {
@@ -161,17 +176,33 @@ export class Enemy {
         if (Math.abs(this.x - player.x) < 620) this.active = true;
         else return;
       }
-      this.counter += 0.007;
-      const targetX = player.x + player.vx + Math.sin(Math.PI * this.counter) * 117;
-      const maxStep = 3.8;   // FSM: player.maxspeed * 0.7
+      // FSM moveLakitu: when the player sprints right, slide IN FRONT of them
+      // at maxspeed*1.4; otherwise orbit on the ±117px sine at maxspeed*0.7
+      let targetX, maxStep;
+      if (player.vx > 0.5) {
+        targetX = player.x + player.w + 128 + player.vx;
+        maxStep = 7.56;   // player.maxspeed * 1.4
+        this.counter = 0;
+      } else {
+        this.counter += 0.007;
+        targetX = player.x + player.vx + Math.sin(Math.PI * this.counter) * 117;
+        maxStep = 3.8;    // player.maxspeed * 0.7
+      }
       const dx = targetX - this.x;
       this.x += Math.max(-maxStep, Math.min(maxStep, dx * 0.05));
       this.y += Math.sin(this.animTimer * 0.05) * 0.4;   // gentle hover bob
+      // FSM throwSpiny: hide for 21 frames, THEN drop the egg
+      if (this.hiding > 0) {
+        this.hiding--;
+        if (this.hiding === 0 && game) {
+          const egg = new Enemy(this.x + this.w / 2 - 11, this.y + this.h, 'pinecoegg');
+          game.level.enemies.push(egg);
+        }
+      }
       this.throwTimer--;
-      if (this.throwTimer <= 0 && game) {
+      if (this.throwTimer <= 0) {
         this.throwTimer = 140;
-        const egg = new Enemy(this.x + this.w / 2 - 11, this.y + this.h, 'pinecoegg');
-        game.level.enemies.push(egg);
+        this.hiding = 21;
       }
       return;
     }
@@ -186,19 +217,35 @@ export class Enemy {
       if (this.vy > MAX_FALL_SPEED) this.vy = MAX_FALL_SPEED;
       this.counter += 0.007;
       this.vx = Math.sin(Math.PI * this.counter) / 2.1;
-      resolveCollisions(this, solids);
-      // Hop every 140 frames
+      // FSM jumpHammerBro: falling-through window disables solid collision
+      if (this.dropThrough > 0) {
+        this.dropThrough--;
+        this.x += this.vx;
+        this.y += this.vy;
+      } else {
+        resolveCollisions(this, solids);
+      }
+      // FSM: every 140 frames — jump up (-8.4) or randomly drop down through
+      // the platform (only when standing above ground level)
       this.hopTimer--;
       if (this.hopTimer <= 0) {
         this.hopTimer = 140;
-        if (this.vy === 0) this.vy = -5;
+        if (this.vy === 0) {
+          const onPlatformHigh = this.y + this.h < GROUND_Y - 8;
+          if (onPlatformHigh && Math.random() < 0.5) {
+            this.vy = -2.8;          // small hop off the edge (unitsize * -0.7)
+            this.dropThrough = 42;   // 42-frame no-collide window
+          } else {
+            this.vy = -8.4;          // unitsize * -2.1
+          }
+        }
       }
-      // Bone bursts: 3 bones ~35f apart, then a longer pause
+      // FSM throwHammer: burst of 7 bones at 7-frame gaps, then a 70-frame pause
       this.boneTimer--;
       if (this.boneTimer <= 0 && game) {
         this.boneBurst--;
-        this.boneTimer = this.boneBurst > 0 ? 35 : 90;
-        if (this.boneBurst <= 0) this.boneBurst = 3;
+        this.boneTimer = this.boneBurst > 0 ? 7 : 70;
+        if (this.boneBurst <= 0) this.boneBurst = 7;
         const dir = player.x < this.x ? -1 : 1;
         game.spawnBone(this.x + this.w / 2, this.y + 4, dir);
       }
@@ -287,25 +334,38 @@ export class Enemy {
         this.y += this.vy;
         return;
       }
+      // FSM: constant ascent at -maxyvel (-7) for jumpheight (256px), then
+      // gravity/2.1 takes over and it arcs back down into the lava
       if (this.jumpTimer > 0) { this.jumpTimer--; return; }
-      if (!this.isJumping) { this.isJumping = true; this.vy = -16; }
-      this.vy += 0.4;
-      this.y += this.vy;
-      if (this.y >= this.baseY) {
+      if (!this.isJumping) { this.isJumping = true; this.vy = -7; this.podoRising = true; }
+      if (this.podoRising) {
+        this.y += this.vy;
+        if (this.baseY - this.y >= 256) this.podoRising = false;
+      } else {
+        this.vy += GRAVITY / 2.1;
+        this.y += this.vy;
+      }
+      if (!this.podoRising && this.y >= this.baseY) {
         this.y = this.baseY;
         this.vy = 0;
         this.isJumping = false;
-        this.jumpTimer = 80;
+        this.jumpTimer = 70;      // FSM betweentime
       }
       return;
     }
 
-    // Ekans / Squirtle — walks on ground
-    this.vy += GRAVITY;
+    // Ekans / Squirtle — walks on ground (hopping Paratroopa: gravity / 2.8)
+    this.vy += this.hopper ? GRAVITY / 2.8 : GRAVITY;
     if (this.vy > MAX_FALL_SPEED) this.vy = MAX_FALL_SPEED;
     const prevVx = this.vx;
     const res = resolveCollisions(this, solids);
-    const sp = this.type === 'squirtle' ? 1.3 : this.type === 'pineco' ? 0.84 : 1.1;
+    // FSM: Goomba, Koopa and Spiny all walk at 0.84 (0.21 * unitsize)
+    const sp = 0.84;
+
+    // Jumping Paratroopa (FSM moveJumping): hops whenever it lands
+    if (this.hopper && res.onGround) {
+      this.vy = -4.68;   // unitsize * -1.17
+    }
 
     // If wall was hit (hitSide), reverse direction
     if (res.hitSide && prevVx !== 0) {
@@ -488,6 +548,10 @@ export class Enemy {
 
     if (this.inShell) {
       // Curled-up ball with brick-pattern plates
+      // FSM: from frame 350 the shell "peeks" — wiggle warns it's waking up
+      if (!this.shellSliding && this.shellCounter > 350) {
+        x += Math.sin(this.animTimer * 0.8) * 1.5;
+      }
       const cy2 = y + h - 13;
       ctx.fillStyle = SAND;
       ctx.beginPath(); ctx.arc(x + w / 2, cy2, 13, 0, Math.PI * 2); ctx.fill();

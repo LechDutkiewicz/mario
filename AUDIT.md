@@ -21,20 +21,20 @@ Legenda: `[ ]` do zrobienia · `[x]` zrobione · `[~]` świadomie inaczej (decyz
 
 ## P2 — Mechaniki mocno wpływające na "czucie" SMB
 
-- [ ] **Kamera scrolluje w lewo** — w SMB/FSM scroll jest jednokierunkowy
+- [x] **Kamera scrolluje w lewo** — w SMB/FSM scroll jest jednokierunkowy
   (ekran nigdy nie cofa się; gracz zatrzymuje się na lewej krawędzi ekranu).
-- [ ] **Skorupa (Sandshrew) nie budzi się** — FSM: po 350 klatkach "wierci się",
+- [x] **Skorupa (Sandshrew) nie budzi się** — FSM: po 350 klatkach "wierci się",
   po 490 wstaje żywy wróg. U nas skorupa jest wieczna.
-- [ ] **Arbok wychodzi z rury nawet gdy gracz stoi obok** — FSM blokuje
+- [x] **Arbok wychodzi z rury nawet gdy gracz stoi obok** — FSM blokuje
   wyjście gdy środek gracza jest w strefie rura ±32px (sprawdzane co 7 klatek).
   Dodatkowo pauza między cyklami: FSM 35 klatek, u nas 150.
-- [ ] **Brak wielokrotnych monet z bloku** — FSM: blok z monetami wydaje
+- [x] **Brak wielokrotnych monet z bloku** — FSM: blok z monetami wydaje
   monety przy kolejnych uderzeniach przez 245 klatek od pierwszego, potem
   gaśnie. U nas zawsze jedna moneta.
-- [ ] **Podbicie bloku nie zabija wroga stojącego na nim** — klasyk SMB
+- [x] **Podbicie bloku nie zabija wroga stojącego na nim** — klasyk SMB
   (characterTouchesUp → killFlip wrogów na bloku, podskok przedmiotów).
-- [ ] **Brak 100 monet → 1-Up** (licznik BALLS rośnie w nieskończoność).
-- [ ] **Punktacja niezgodna:**
+- [x] **Brak 100 monet → 1-Up** (licznik BALLS rośnie w nieskończoność).
+- [x] **Punktacja niezgodna** (moneta 200, flaga wg wysokości, łańcuchy do 1-UP; czas→punkty i fajerwerki nie dotyczą — limit czasu usunięty):
   - moneta 100 zamiast **200**,
   - flaga: 0 pkt zamiast progów wg wysokości chwytu (100/400/800/2000/5000),
   - brak eskalacji łańcucha stomp/skorupa (100→200→…→8000→1-UP),
@@ -43,26 +43,26 @@ Legenda: `[ ]` do zrobienia · `[x]` zrobione · `[~]` świadomie inaczej (decyz
 
 ## P3 — Parametry i warianty zachowań do dostrojenia
 
-- [ ] Prędkości: Goomba/Koopa **0.84** px/f (u nas 1.1/1.3); squash 21 klatek
+- [x] Prędkości: Goomba/Koopa **0.84** px/f (u nas 1.1/1.3); squash 21 klatek
   (u nas 30); skorupa 8 px/f (u nas 9).
-- [ ] Cubone/HammerBro: FSM rzuca **serią 7 kości co 7 klatek**, pauza 70
+- [x] Cubone/HammerBro: FSM rzuca **serią 7 kości co 7 klatek**, pauza 70
   (u nas 3 co 35, pauza 90); skok -8.4 lub losowo **zeskok w dół przez
   platformę** (42 klatki no-collide) — u nas pojedynczy hop -5.
-- [ ] Trampolina: wybicie proporcjonalne do siły uderzenia
+- [x] Trampolina: wybicie -8.5 + maszyna skoku przy trzymaniu (netto jak FSM). Oryginalny zapis: wybicie proporcjonalne do siły uderzenia
   (tension = yvel×0.77, wybicie = tension×-0.98, min 8) — u nas sztywne
   -8.5/-13.5 z bonusem za skok.
-- [ ] Paratroopa wariant "hopping" (jumping bez floating: skacze po ziemi,
+- [x] Paratroopa wariant "hopping" (jumping bez floating: skacze po ziemi,
   jumpheight 4.68, gravity/2.8) — u nas tylko pionowy lot.
-- [ ] Zubat/Lakitu: brak trybu "wyprzedza sprintującego gracza"
+- [x] Zubat/Lakitu: brak trybu "wyprzedza sprintującego gracza"
   (slide do player.right+32, prędkość maxspeed×1.4); FSM chowa się 21 klatek
   przed zrzutem jaja (u nas zrzut natychmiast).
-- [ ] Podoboo/Slugma: FSM interwał 70, gravity/2.1, start -maxyvel (-7)
+- [x] Podoboo/Slugma: FSM interwał 70 + stały wznos 256px, potem grawitacja. Oryginalny zapis: FSM interwał 70, gravity/2.1, start -maxyvel (-7)
   — u nas 80, 0.4, -16.
-- [ ] Makro `Water` (lawa/woda w dziurach zamków 1-4/2-4) — pominięte;
+- [x] Makro `Water` (lawa/woda w dziurach zamków 1-4/2-4) — pominięte;
   w FSM to zabójcza przeszkoda wypełniająca luki podłogi.
-- [ ] ScrollBlocker/ScrollEnabler (1-2) — blokada scrollowania sekcji.
-- [ ] Paratroopa: clamp `flyMaxY ≥ 40px nad ziemią` zmienia zakres lotu vs JSON.
-- [ ] Tarcie: FSM odejmuje dodatkowo decel 0.0007 (ruch) / 0.035 (bezruch)
+- [x] ScrollBlocker/ScrollEnabler (1-2) — blokada scrollowania sekcji.
+- [x] Paratroopa: clamp `flyMaxY ≥ 40px nad ziemią` zmienia zakres lotu vs JSON.
+- [x] Tarcie: FSM odejmuje dodatkowo decel 0.0007 (ruch) / 0.035 (bezruch)
   po mnożniku 0.98 — u nas tylko mnożnik (bezwładność ciut dłuższa).
 
 ### Decyzje designowe (świadome odejścia od oryginału)
@@ -78,16 +78,16 @@ Legenda: `[ ]` do zrobienia · `[x]` zrobione · `[~]` świadomie inaczej (decyz
 
 ## P4 — Prezentacja / polish
 
-- [ ] Czarny ekran "WORLD X-Y × żyć" przed każdą planszą.
-- [ ] Tła `Pattern` (BackRegular/BackCloud/BackFence) — chmury, płotki,
+- [x] Czarny ekran "WORLD X-Y × żyć" przed każdą planszą.
+- [x] Tła `Pattern` (lekkie aproksymacje: chmury/krzaki/płotki per wzór) (BackRegular/BackCloud/BackFence) — chmury, płotki,
   krzaki z oryginalnych układów (u nas własne proceduralne tło).
 - [x] Muzyka gwiazdki — szybki motyw 'star' przełącza się automatycznie
   na czas nietykalności i wraca po niej.
-- [ ] Bowser hard-mode rzuca młotkami (światy 6+) — nasz boss nie.
-- [ ] Ceiling na sztywnej wysokości (ignoruje y z JSON-a); Bridge bez lin
+- [x] Bowser hard-mode rzuca młotkami — mechanizm gotowy (flaga hard), aktywuje się w przyszłych światach 6+.
+- [~] Ceiling na sztywnej wysokości (FSM też używa stałego ceillev — OK); Bridge z deskami i poręczą [x]; Coral bez width (JSON go nie używa — OK); CastleLarge rysowane 1.5x [x]. Oryginalny zapis: Ceiling na sztywnej wysokości (ignoruje y z JSON-a); Bridge bez lin
   i słupków; Coral ignoruje `width`; CastleLarge rysowane jak CastleSmall.
-- [ ] DecorativeBack/Dot/CustomText (napisy tytułowe 1-1) — pominięte.
-- [ ] `locations`/`entry`/`exit` z JSON-ów nieczytane — routing obszarów
+- [~] DecorativeBack/Dot/CustomText (napisy "SUPER MARIO BROS" w 1-1) — pomijamy celowo (reskin Pokémon ma własne menu).
+- [~] `locations`/`entry`/`exit` z JSON-ów nieczytane — akceptujemy architekturę (routing w world1/world2.js) — routing obszarów
   zahardkodowany w world1.js/world2.js (działa, ale nie wynika z danych).
 - [~] Meta: zamiast zamku z flagą — Pokémon Center/Shop (reskin zamierzony).
 - [~] Fire Stone nieruchomy jak FireFlower; Rare Candy ruchome jak Mushroom

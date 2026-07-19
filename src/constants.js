@@ -75,7 +75,7 @@ export const COLORS = {
   eeveeEye:   '#2a1a0a',
 };
 
-export const SCORE_POKEBALL = 100;
+export const SCORE_POKEBALL = 200;  // FSM: coins are worth 200
 export const SCORE_STOMP    = 200;
 export const SCORE_FIRE     = 200;
 export const SCORE_BOSS     = 5000;

@@ -119,13 +119,18 @@ export class Player {
 
     // FSM-accurate movement: friction always applied, then accel added
     this.vx *= FRICTION;
-    if (Math.abs(this.vx) < 0.05) this.vx = 0;
     // FSM: no sprinting underwater
     const accel = (input.run && !this.underwater) ? PLAYER_RUN_ACCEL : PLAYER_ACCEL;
+    const moving = input.left || input.right;
     if (input.left)  { this.vx -= accel; this.facing = -1; }
     if (input.right) { this.vx += accel; this.facing  =  1; }
     if (this.vx >  PLAYER_SPEED) this.vx =  PLAYER_SPEED;
     if (this.vx < -PLAYER_SPEED) this.vx = -PLAYER_SPEED;
+    // FSM movePlayer: additive decel — 0.0007 while a key is held, 0.035 idle
+    const decel = moving && !this.crouching ? 0.0007 : 0.035;
+    if (this.vx > decel)       this.vx -= decel;
+    else if (this.vx < -decel) this.vx += decel;
+    else                       this.vx = 0;
 
     // Crouch (big only, on ground)
     const wantCrouch = input.down && this.big && this.onGround;
@@ -192,7 +197,10 @@ export class Player {
 
     const res = resolveCollisions(this, solids);
     this.onGround = res.onGround;
-    if (this.onGround) this.isJumping = false;
+    if (this.onGround) {
+      this.isJumping = false;
+      this.stompChain = 0;   // FSM jumpcount: consecutive-stomp ladder resets on landing
+    }
 
     // FSM WaterBlock — the player cannot swim above the water surface.
     // FSM screen: floor at 416px with a 64px solid band at the top; our
@@ -204,7 +212,7 @@ export class Player {
     }
 
     for (const block of res.hitBelow) {
-      if (block.onBump) block.onBump(game);
+      if (block.onBump) game.onBlockBumped(block);
     }
 
     // Wider proximity bump check for Q-blocks when jumping up
@@ -216,7 +224,7 @@ export class Player {
         if (Math.abs(playerTop - blockBottom) < 10 &&
             this.x + this.w > s.x + 4 &&
             this.x < s.x + s.w - 4) {
-          s.onBump(game);
+          game.onBlockBumped(s);
         }
       }
     }
