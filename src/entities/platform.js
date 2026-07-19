@@ -184,6 +184,15 @@ export class BrickBlock {
     ctx.fillRect(x + (T - 6) / 2 + 5, y + 14, (T - 6) / 2 - 1, 8);
     ctx.strokeStyle = '#8b4513'; ctx.lineWidth = 1;
     ctx.strokeRect(x + 0.5, y + 0.5, T - 1, T - 1);
+    // Explorer mode: bricks hiding contents get a golden dashed hint
+    if (r.showHidden && this.contents && !this.used) {
+      ctx.save();
+      ctx.setLineDash([6, 5]);
+      ctx.strokeStyle = 'rgba(255,215,60,0.9)';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(x + 3, y + 3, T - 6, T - 6);
+      ctx.restore();
+    }
   }
 }
 

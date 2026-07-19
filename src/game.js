@@ -518,6 +518,15 @@ export class Game {
           p.x += mp.velX;
           p.y += mp.velY;
         }
+        // FSM collideTransport: once boarded, the ride moves right forever
+        if (mp.transportRide) {
+          if (onTop && !mp.engaged) mp.engaged = true;
+          if (mp.engaged) {
+            mp.x += 1.5;
+            mp.velX = 1.5;
+            if (onTop) p.x += 1.5;
+          }
+        }
         // FSM moveFalling: sinks while stood on (+0.5/frame), freefalls past
         // yvel 11.2; velocity resets when the player steps off
         if (mp.falling) {
