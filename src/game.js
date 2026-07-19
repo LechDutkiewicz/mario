@@ -13,6 +13,7 @@ import { Enemy }    from './entities/enemy.js';
 import { buildWorld1 } from './levels/world1.js';
 import { buildWorld2 } from './levels/world2.js';
 import { buildWorld3 } from './levels/world3.js';
+import { buildWorld4 } from './levels/world4.js';
 import { aabb }     from './physics.js';
 
 // Pokémon type of each playable line — controls which evolution stone
@@ -50,11 +51,14 @@ export class Game {
     this.world2SubArea = 0;
     this.world3Level   = 0;
     this.world3SubArea = 0;
+    this.world4Level   = 0;
+    this.world4SubArea = 0;
     this.areaTransTimer = 0;
     this._pendingArea = -1;
     this._pendingWorld1SubArea = -1;
     this._pendingWorld2SubArea = -1;
     this._pendingWorld3SubArea = -1;
+    this._pendingWorld4SubArea = -1;
     this.area0AutoWalk = false; // player auto-walks into entrance pipe
     this._pipeEntry = null;    // { timer, dx, dy, callback } — pipe entry animation
     this.scorePopups = [];
@@ -67,8 +71,9 @@ export class Game {
 
   resetLevel(fullReset, resetPower = fullReset) {
     const savedPower = resetPower ? POWER.SMALL : (this.player ? this.player.power : POWER.SMALL);
-    if (fullReset) { this.world2Area = 0; this.world2Level = 0; this.world2SubArea = 0; this.world1Level = 0; this.world1SubArea = 0; this.world3Level = 0; this.world3SubArea = 0; }
-    this.level   = this.world === 3 ? buildWorld3(this.world3Level, this.world3SubArea)
+    if (fullReset) { this.world2Area = 0; this.world2Level = 0; this.world2SubArea = 0; this.world1Level = 0; this.world1SubArea = 0; this.world3Level = 0; this.world3SubArea = 0; this.world4Level = 0; this.world4SubArea = 0; }
+    this.level   = this.world === 4 ? buildWorld4(this.world4Level, this.world4SubArea)
+                 : this.world === 3 ? buildWorld3(this.world3Level, this.world3SubArea)
                  : this.world === 2 ? buildWorld2(this.world2Level, this.world2SubArea)
                  : buildWorld1(this.world1Level, this.world1SubArea);
     this.area0AutoWalk = (this.world === 2 && !!this.level?.entrancePipeX)
@@ -458,6 +463,13 @@ export class Game {
       }
     }
 
+    // ── FSM zoneDisableLakitu: past this point the Zubat flies away ──
+    if (lvl.lakituStopX && p.x > lvl.lakituStopX) {
+      for (const e of lvl.enemies) {
+        if (e.type === 'zubat' && !e.fleeing) e.fleeing = true;
+      }
+    }
+
     // ── Lava/water hazard zones (castle floor gaps) — deadly on contact ──
     if (lvl.lavaZones && lvl.lavaZones.length && !p.dead) {
       for (const lz of lvl.lavaZones) {
@@ -831,6 +843,8 @@ export class Game {
                 this._handleWorld1PipeEntry(pl);
               } else if (this.world === 3) {
                 this._handleWorld3PipeEntry(pl);
+              } else if (this.world === 4) {
+                this._handleWorld4PipeEntry(pl);
               }
             };
             this._pipeEntry = { timer: 28, dx: 0, dy: 2.5, pipe: pl, callback };
@@ -862,6 +876,7 @@ export class Game {
             if (this.world === 1) { this._handleWorld1PipeEntry({ transportId: tid }); }
             else if (this.world === 2) { this._handleWorld2PipeEntry({ transportId: tid }); }
             else if (this.world === 3) { this._handleWorld3PipeEntry({ transportId: tid }); }
+            else if (this.world === 4) { this._handleWorld4PipeEntry({ transportId: tid }); }
           } };
           break;
         }
@@ -881,6 +896,9 @@ export class Game {
         } else if (this._pendingWorld3SubArea >= 0) {
           this._doWorld3SubAreaTransition(this._pendingWorld3SubArea);
           this._pendingWorld3SubArea = -1;
+        } else if (this._pendingWorld4SubArea >= 0) {
+          this._doWorld4SubAreaTransition(this._pendingWorld4SubArea);
+          this._pendingWorld4SubArea = -1;
         } else if (this._pendingArea >= 0) {
           this._doAreaTransition(this._pendingArea);
           this._pendingArea = -1;
@@ -991,11 +1009,19 @@ export class Game {
             this.resetLevel(false);
             this.music.start();
           } else {
-            // Whole game complete — the Pikachu grand finale
-            this._endingTimer = 0;
-            this.state = STATE.ENDING;
-            return;
+            // World 3 complete → world 4
+            this.world = 4;
+            this.world4Level = 0;
+            this.world4SubArea = 0;
+            this._checkpoint = null;
+            this.resetLevel(false);
+            this.music.start();
           }
+        } else if (this.world === 4) {
+          // Only 4-1 exists so far — then the Pikachu grand finale
+          this._endingTimer = 0;
+          this.state = STATE.ENDING;
+          return;
         } else {
           this.state = STATE.WIN;
         }
@@ -1119,6 +1145,48 @@ export class Game {
     this._vine = null;
   }
 
+  _startWorld4SubAreaTransition(subArea) {
+    this._pendingWorld4SubArea = subArea;
+    this.areaTransTimer = 40;
+  }
+
+  _handleWorld4PipeEntry(pipe) {
+    const tid = pipe.transportId;
+    if (this.world4Level === 0) {
+      // 4-1: transport 2 → underworld; transport 1 (underworld exit) → overworld
+      if (tid === 1 || this.world4SubArea === 1) this._startWorld4SubAreaTransition(0);
+      else this._startWorld4SubAreaTransition(1);
+    }
+  }
+
+  _doWorld4SubAreaTransition(subArea) {
+    const prevPower = this.player.power;
+    const prevSubArea = this.world4SubArea;
+    this.world4SubArea = subArea;
+    this.level = buildWorld4(this.world4Level, subArea);
+    this.r.currentSetting = this.level.setting || 'overworld';
+
+    let spawnX = 80, spawnY = GROUND_Y - 60;
+    if (subArea === 0 && prevSubArea !== 0 && this.level.exitSpawn) {
+      spawnX = this.level.exitSpawn.x;
+      spawnY = this.level.exitSpawn.y;
+    }
+    if (this._pendingSpawnX != null) { spawnX = this._pendingSpawnX; spawnY = GROUND_Y - 200; this._pendingSpawnX = null; }
+
+    this.player = new Player(spawnX, spawnY);
+    this.player.power = prevPower;
+    this.player.char = this.selectedChar || 'eevee';
+    this.player._applySize();
+    this.cam.x = Math.max(0, spawnX - 200);
+    this.fireballs = []; this.bossShots = []; this.powerups = [];
+    this._pipeEntry = null;
+    this._castleBossComplete = false;
+    this._bridgeRemoved = false;
+    this._catchCamLock = false;
+    this._debris = [];
+    this._vine = null;
+  }
+
   _handleWorld1PipeEntry(pipe) {
     const lvl = this.level;
     // Pipe with transportId: N means "go to FSM area N" (0-indexed, or N=2 → area 1 for 1-1)
@@ -1190,11 +1258,14 @@ export class Game {
   _mainSubArea() {
     if (this.world === 1) return this.world1Level === 3 ? null : this.world1Level === 1 ? 1 : 0;
     if (this.world === 2) return this.world2Level === 3 ? null : this.world2Level === 1 ? 1 : 0;
-    return this.world3Level === 3 ? null : 0;
+    if (this.world === 3) return this.world3Level === 3 ? null : 0;
+    return 0;
   }
 
   _curLevelIdx() {
-    return this.world === 1 ? this.world1Level : this.world === 2 ? this.world2Level : this.world3Level;
+    return this.world === 1 ? this.world1Level
+         : this.world === 2 ? this.world2Level
+         : this.world === 3 ? this.world3Level : this.world4Level;
   }
 
   // Find a safe ground x at/after the requested spot (avoid respawning in a pit)
@@ -1544,7 +1615,8 @@ export class Game {
     let worldLabel;
     if (this.world === 1)      worldLabel = `1-${this.world1Level + 1}`;
     else if (this.world === 2) worldLabel = `2-${this.world2Level + 1}`;
-    else                       worldLabel = `3-${this.world3Level + 1}`;
+    else if (this.world === 3) worldLabel = `3-${this.world3Level + 1}`;
+    else                       worldLabel = `4-${this.world4Level + 1}`;
     const areaIdx = this.level ? (this.level.areaIndex ?? this.world2Area ?? 0) : 0;
     ctx.fillStyle = '#fff';
     ctx.font = 'bold 20px monospace';
@@ -1619,8 +1691,10 @@ export class Game {
     if (world === 1) { this.world1Level = level; this.world1SubArea = 0; }
     if (world === 2) { this.world2Area = level; this.world2Level = level; this.world2SubArea = 0; }
     if (world === 3) { this.world3Level = level; this.world3SubArea = 0; }
+    if (world === 4) { this.world4Level = level; this.world4SubArea = 0; }
     this._checkpoint = null;
-    this.level = world === 3 ? buildWorld3(level, 0)
+    this.level = world === 4 ? buildWorld4(level, 0)
+               : world === 3 ? buildWorld3(level, 0)
                : world === 2 ? buildWorld2(level, 0)
                : buildWorld1(level, 0);
     this.r.currentSetting = this.level.setting || 'overworld';
@@ -1656,6 +1730,7 @@ export class Game {
         levels.push({ label: `${w}-${l + 1}`, world: w, level: l });
       }
     }
+    levels.push({ label: '4-1', world: 4, level: 0 });
     const cols = 4, bw = 140, bh = 48, gy = 130;
     const gap = 20;
     const gx = Math.floor((CANVAS_WIDTH - (cols * bw + (cols - 1) * gap)) / 2);
@@ -1864,7 +1939,8 @@ export class Game {
     let worldLabel;
     if (this.world === 1)      worldLabel = `1-${this.world1Level + 1}`;
     else if (this.world === 2) worldLabel = `2-${this.world2Level + 1}`;
-    else                       worldLabel = `3-${this.world3Level + 1}`;
+    else if (this.world === 3) worldLabel = `3-${this.world3Level + 1}`;
+    else                       worldLabel = `4-${this.world4Level + 1}`;
     ctx.fillStyle = '#fff';
     ctx.font = 'bold 36px monospace';
     ctx.textAlign = 'center';

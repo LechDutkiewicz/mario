@@ -172,6 +172,13 @@ export class Enemy {
     // Zubat (FSM Lakitu): hovers above, orbits the player on a ±117px sine,
     // drops a Pineco egg every 140 frames
     if (this.type === 'zubat') {
+      // FSM zoneDisableLakitu — flies away off the top of the screen
+      if (this.fleeing) {
+        this.y -= 3;
+        this.x -= 2;
+        if (this.y < -80) this.dead = true;
+        return;
+      }
       if (!this.active) {
         if (Math.abs(this.x - player.x) < 620) this.active = true;
         else return;
