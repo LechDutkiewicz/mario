@@ -23,6 +23,7 @@ export class Input {
     return [
       'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown',
       'Space', 'AltLeft', 'KeyP', 'Enter', 'ShiftLeft', 'Escape',
+      'Tab', 'KeyM',
     ].includes(code);
   }
 

@@ -46,6 +46,7 @@ export class Game {
     this.world1SubArea = 0; // area within 1-2 (0=overworld, 1=underground, 2=exit)
     this.selectedChar = 'eevee';
     this.charSelectIdx = 0;
+    this.debugMode = false;   // TAB: unlocks level select + reveals hidden blocks
     this.world2Area = 0;   // current area index within world 2
     this.world2Level   = 0;
     this.world2SubArea = 0;
@@ -301,6 +302,22 @@ export class Game {
   // ----------------------------------------------------------------
   update() {
     const input = this.input;
+
+    // TAB — developer/parent mode: unlocks the level-select menu and outlines
+    // hidden blocks with a subtle dashed border
+    if (input.justPressed('Tab')) {
+      this.debugMode = !this.debugMode;
+      this.r.showHidden = this.debugMode;
+      this._showMsg(this.debugMode ? 'TRYB ODKRYWCY: ON' : 'TRYB ODKRYWCY: OFF', 70);
+    }
+    // M — music on/off (in the pause menu M means "quit to menu" instead)
+    if (input.justPressed('KeyM') && this.state !== STATE.PAUSED && this.state !== STATE.MENU) {
+      this.music.enabled = !this.music.enabled;
+      if (this.music.enabled) this.music.start();
+      else this.music.stop();
+      this._showMsg(this.music.enabled ? 'MUZYKA: ON' : 'MUZYKA: OFF', 70);
+    }
+
 
     // ESC during gameplay → pause; ESC from other non-menu states → menu
     if (input.escape) {
@@ -1623,18 +1640,22 @@ export class Game {
     ctx.strokeText(`WORLD ${worldLabel}  AREA ${areaIdx}`, CANVAS_WIDTH - 234, 88);
     ctx.fillText(`WORLD ${worldLabel}  AREA ${areaIdx}`,   CANVAS_WIDTH - 234, 88);
 
-    // LEVELS button (top-left, below char name)
-    const bx = 14, by = 76, bw = 76, bh = 22;
-    ctx.fillStyle = 'rgba(0,0,0,0.55)';
-    ctx.fillRect(bx, by, bw, bh);
-    ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5;
-    ctx.strokeRect(bx, by, bw, bh);
-    ctx.fillStyle = '#ffd23b';
-    ctx.font = 'bold 14px monospace';
-    ctx.textAlign = 'center';
-    ctx.fillText('LEVELS', bx + bw / 2, by + 15);
-    ctx.textAlign = 'left';
-    this._levelsBtnRect = { x: bx, y: by, w: bw, h: bh };
+    // LEVELS button (top-left, below char name) — visible only after TAB
+    if (this.debugMode) {
+      const bx = 14, by = 76, bw = 76, bh = 22;
+      ctx.fillStyle = 'rgba(0,0,0,0.55)';
+      ctx.fillRect(bx, by, bw, bh);
+      ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5;
+      ctx.strokeRect(bx, by, bw, bh);
+      ctx.fillStyle = '#ffd23b';
+      ctx.font = 'bold 14px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText('LEVELS', bx + bw / 2, by + 15);
+      ctx.textAlign = 'left';
+      this._levelsBtnRect = { x: bx, y: by, w: bw, h: bh };
+    } else {
+      this._levelsBtnRect = null;
+    }
   }
 
   _heart(x, y, full) {
@@ -1668,7 +1689,7 @@ export class Game {
   handleClick(mx, my) {
     // LEVELS button in HUD
     const btn = this._levelsBtnRect;
-    if (btn && this.state === STATE.PLAYING &&
+    if (btn && this.debugMode && this.state === STATE.PLAYING &&
         mx >= btn.x && mx < btn.x + btn.w && my >= btn.y && my < btn.y + btn.h) {
       this.state = STATE.LEVEL_SELECT;
       return;
@@ -2509,44 +2530,96 @@ export class Game {
     ctx.font = 'bold 26px monospace';
     ctx.fillText('Press ENTER or SPACE to START', CANVAS_WIDTH / 2, 268);
 
-    // Top scores panel  (bottom portion of screen)
-    const board = this._cachedBoard || [];
-    const panelY = 310;
-    ctx.fillStyle = 'rgba(0,0,0,0.55)';
-    ctx.fillRect(60, panelY, CANVAS_WIDTH - 120, 240);
-    ctx.strokeStyle = '#ffd23b'; ctx.lineWidth = 2;
-    ctx.strokeRect(60, panelY, CANVAS_WIDTH - 120, 240);
+    // Two panels: controls (left) + top scores (right)
+    const panelY = 310, panelH = 240;
+    const ctrlX = 40, ctrlW = 345;
+    const scX = 415, scW = 345;
 
+    // ── Controls panel with drawn keyboard keys ──
+    ctx.fillStyle = 'rgba(0,0,0,0.55)';
+    ctx.fillRect(ctrlX, panelY, ctrlW, panelH);
+    ctx.strokeStyle = '#ffd23b'; ctx.lineWidth = 2;
+    ctx.strokeRect(ctrlX, panelY, ctrlW, panelH);
     ctx.fillStyle = '#ffd23b';
     ctx.font = 'bold 20px monospace';
-    ctx.fillText('TOP SCORES', CANVAS_WIDTH / 2, panelY + 28);
+    ctx.fillText('STEROWANIE', ctrlX + ctrlW / 2, panelY + 28);
+
+    const rows = [
+      { keys: ['←', '→'],   label: 'RUCH' },
+      { keys: ['↑', 'SPACJA'], label: 'SKOK' },
+      { keys: ['↓'],        label: 'KUCANIE / RURA' },
+      { keys: ['SHIFT'],    label: 'BIEG' },
+      { keys: ['ALT'],      label: 'STRZAŁ' },
+      { keys: ['M'],        label: 'MUZYKA ON/OFF' },
+    ];
+    let ry = panelY + 52;
+    for (const row of rows) {
+      let kx = ctrlX + 16;
+      for (const k of row.keys) {
+        const kw = k.length > 1 ? 22 + k.length * 9 : 28;
+        this._drawKeycap(ctx, kx, ry, kw, k);
+        kx += kw + 6;
+      }
+      ctx.fillStyle = '#fff';
+      ctx.font = 'bold 15px monospace';
+      ctx.textAlign = 'left';
+      ctx.fillText(row.label, ctrlX + 155, ry + 17);
+      ctx.textAlign = 'center';
+      ry += 31;
+    }
+
+    // ── Top scores panel ──
+    const board = this._cachedBoard || [];
+    ctx.fillStyle = 'rgba(0,0,0,0.55)';
+    ctx.fillRect(scX, panelY, scW, panelH);
+    ctx.strokeStyle = '#ffd23b'; ctx.lineWidth = 2;
+    ctx.strokeRect(scX, panelY, scW, panelH);
+    ctx.fillStyle = '#ffd23b';
+    ctx.font = 'bold 20px monospace';
+    ctx.fillText('TOP SCORES', scX + scW / 2, panelY + 28);
 
     if (board.length === 0 && !this._leaderboardLoading) {
-      ctx.fillStyle = '#aaa'; ctx.font = '17px monospace';
-      ctx.fillText('No scores yet — play a game first!', CANVAS_WIDTH / 2, panelY + 80);
+      ctx.fillStyle = '#aaa'; ctx.font = '15px monospace';
+      ctx.fillText('No scores yet —', scX + scW / 2, panelY + 80);
+      ctx.fillText('play a game first!', scX + scW / 2, panelY + 102);
     } else if (this._leaderboardLoading) {
-      ctx.fillStyle = '#aaa'; ctx.font = '17px monospace';
-      ctx.fillText('Loading scores...', CANVAS_WIDTH / 2, panelY + 80);
+      ctx.fillStyle = '#aaa'; ctx.font = '15px monospace';
+      ctx.fillText('Loading scores...', scX + scW / 2, panelY + 80);
     } else {
       const top5 = board.slice(0, 5);
-      ctx.font = 'bold 16px monospace';
+      ctx.font = 'bold 15px monospace';
       top5.forEach((e, i) => {
-        const rowY = panelY + 56 + i * 36;
+        const rowY = panelY + 58 + i * 34;
         ctx.fillStyle = i === 0 ? '#ffd23b' : i === 1 ? '#c8c8c8' : '#cd7f32';
+        ctx.textAlign = 'left';
+        ctx.fillText(`${i + 1}. ${(e.name || '???').slice(0, 10)}`, scX + 20, rowY);
         ctx.textAlign = 'right';
-        ctx.fillText(`${i + 1}.`, CANVAS_WIDTH / 2 - 220, rowY);
         ctx.fillStyle = '#fff';
-        ctx.textAlign = 'left';
-        ctx.fillText((e.name || '???').slice(0, 10), CANVAS_WIDTH / 2 - 205, rowY);
-        ctx.textAlign = 'right';
-        ctx.fillText(String(e.score || 0).padStart(7, '0'), CANVAS_WIDTH / 2 + 220, rowY);
-        ctx.fillStyle = 'rgba(200,200,200,0.5)';
-        ctx.font = '12px monospace';
-        ctx.textAlign = 'left';
-        ctx.fillText(this._fmtDate(e.date), CANVAS_WIDTH / 2 + 228, rowY);
-        ctx.font = 'bold 16px monospace';
+        ctx.fillText(String(e.score || 0).padStart(7, '0'), scX + scW - 20, rowY);
       });
+      ctx.textAlign = 'center';
     }
     ctx.textAlign = 'left'; ctx.shadowBlur = 0;
+  }
+
+  // Drawn keyboard keycap — light plastic cap with a darker base edge
+  _drawKeycap(ctx, x, y, w, label) {
+    const h = 24;
+    // Base (bottom edge)
+    ctx.fillStyle = '#8a8a92';
+    ctx.fillRect(x, y + 3, w, h);
+    // Cap
+    ctx.fillStyle = '#ececf0';
+    ctx.fillRect(x, y, w, h);
+    ctx.strokeStyle = '#26262c'; ctx.lineWidth = 1.5;
+    ctx.strokeRect(x, y, w, h);
+    // Top shine
+    ctx.fillStyle = 'rgba(255,255,255,0.7)';
+    ctx.fillRect(x + 2, y + 2, w - 4, 4);
+    // Label
+    ctx.fillStyle = '#26262c';
+    ctx.font = `bold ${label.length > 1 ? 11 : 15}px monospace`;
+    ctx.textAlign = 'center';
+    ctx.fillText(label, x + w / 2, y + (label.length > 1 ? 16 : 18));
   }
 }

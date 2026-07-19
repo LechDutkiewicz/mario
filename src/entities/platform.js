@@ -68,7 +68,20 @@ export class QuestionBlock {
   }
 
   draw(r, cam) {
-    if (this.hidden) return;  // invisible until hit
+    if (this.hidden) {
+      // Debug/parent mode: hint at the secret with a subtle dashed outline
+      if (!r.showHidden) return;
+      const ctx = r.ctx;
+      const x = Math.floor(this.x - cam.x);
+      const y = Math.floor(this.y);
+      ctx.save();
+      ctx.setLineDash([6, 5]);
+      ctx.strokeStyle = 'rgba(255,255,255,0.55)';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(x + 3, y + 3, this.w - 6, this.h - 6);
+      ctx.restore();
+      return;
+    }
     const ctx = r.ctx;
     const x = Math.floor(this.x - cam.x);
     const yOff = this.bump > 0 ? -Math.sin((this.bump / 8) * Math.PI) * 8 : 0;

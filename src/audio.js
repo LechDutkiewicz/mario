@@ -98,6 +98,7 @@ export class Music {
     this.t       = 0;
     this.tid     = null;
     this.theme   = 'overworld';
+    this.enabled = true;   // M key toggles this
   }
 
   // Switch theme (by level setting); restarts the loop if the theme changed
@@ -120,6 +121,7 @@ export class Music {
   }
 
   start() {
+    if (!this.enabled) return;
     if (this.running) return;
     this.running = true;
     this.idx = 0;
