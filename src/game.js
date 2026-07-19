@@ -1596,17 +1596,16 @@ export class Game {
     }
   }
 
-  _jumpToLevel(world, level, sub = 0) {
+  _jumpToLevel(world, level) {
     const savedPower = this.player ? this.player.power : POWER.SMALL;
     this.world = world;
-    this.world1Level = level;
-    this.world1SubArea = sub;
-    this.world2Area = level;
-    this.world2Level = level;
-    this.world2SubArea = 0;
-    this.level = world === 2 ? buildWorld2(level, 0)
-               : world === 1 ? buildWorld1(level, sub)
-               : buildWorld3();
+    if (world === 1) { this.world1Level = level; this.world1SubArea = 0; }
+    if (world === 2) { this.world2Area = level; this.world2Level = level; this.world2SubArea = 0; }
+    if (world === 3) { this.world3Level = level; this.world3SubArea = 0; }
+    this._checkpoint = null;
+    this.level = world === 3 ? buildWorld3(level, 0)
+               : world === 2 ? buildWorld2(level, 0)
+               : buildWorld1(level, 0);
     this.r.currentSetting = this.level.setting || 'overworld';
     this.player = new Player(80, GROUND_Y - 60);
     this.player.power = savedPower;
@@ -1614,9 +1613,10 @@ export class Game {
     this.player._applySize();
     this.cam.x = 0;
     this.fireballs = []; this.bossShots = []; this.powerups = []; this._castleBossComplete = false; this._bridgeRemoved = false; this._catchCamLock = false; this._pipeEntry = null;
-    this._debris = []; this.scorePopups = [];
+    this._debris = []; this.scorePopups = []; this._vine = null;
     this.area0AutoWalk = (world === 2 && !!this.level?.entrancePipeX)
-                      || (world === 1 && level === 1 && sub === 0);
+                      || (world === 1 && level === 1);
+    this.levelIntroTimer = 110;
   }
 
   _drawLevelSelect() {
@@ -1632,20 +1632,16 @@ export class Game {
     ctx.fillStyle = '#aaa';
     ctx.fillText('Click a level  |  P or ESC to close', CANVAS_WIDTH / 2, 88);
 
-    const levels = [
-      { label: '1-1', world: 1, level: 0, sub: 0 },
-      { label: '1-2a', world: 1, level: 1, sub: 0 },
-      { label: '1-2b', world: 1, level: 1, sub: 1 },
-      { label: '1-2c', world: 1, level: 1, sub: 2 },
-      { label: '1-3', world: 1, level: 2, sub: 0 },
-      { label: '1-4', world: 1, level: 3, sub: 0 },
-      { label: '2-1', world: 2, level: 0 },
-      { label: '2-2', world: 2, level: 1 },
-      { label: '2-3', world: 2, level: 2 },
-      { label: '2-4', world: 2, level: 3 },
-    ];
-    const cols = 4, bw = 140, bh = 48, gx = 30, gy = 130;
+    // One button per level — 4 per row, one world per row
+    const levels = [];
+    for (let w = 1; w <= 3; w++) {
+      for (let l = 0; l < 4; l++) {
+        levels.push({ label: `${w}-${l + 1}`, world: w, level: l });
+      }
+    }
+    const cols = 4, bw = 140, bh = 48, gy = 130;
     const gap = 20;
+    const gx = Math.floor((CANVAS_WIDTH - (cols * bw + (cols - 1) * gap)) / 2);
     this._levelSelectBtns = [];
     levels.forEach((lv, i) => {
       const col = i % cols, row = Math.floor(i / cols);
