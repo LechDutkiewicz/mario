@@ -87,6 +87,7 @@ export class Game {
       this.lives          = 3;
       this.coinsCollected = 0;
       this.worldClearTimer = 0;
+      this._checkpoint    = null;
     }
     this.scorePopups = this.scorePopups || [];
   }
@@ -425,6 +426,26 @@ export class Game {
         if (p.y < v.targetTop + 30 && this.world === 2 && this.world2Level === 0) {
           this._vine = null;
           this._startWorld2SubAreaTransition(2);   // sky bonus area
+        }
+      }
+    }
+
+    // ── Halfway checkpoint (main play areas only, not castles/bonus zones) ──
+    {
+      const mainSub = this._mainSubArea();
+      const curSub = this.world === 1 ? this.world1SubArea
+                   : this.world === 2 ? this.world2SubArea : 0;
+      if (mainSub != null && curSub === mainSub && !p.dead &&
+          (!this._checkpoint || this._checkpoint.world !== this.world ||
+           this._checkpoint.level !== this._curLevelIdx())) {
+        if (p.x > lvl.width * 0.5) {
+          this._checkpoint = {
+            world: this.world,
+            level: this._curLevelIdx(),
+            sub: curSub,
+            x: this._safeGroundX(lvl, lvl.width * 0.5),
+          };
+          this._showMsg('CHECKPOINT!', 60);
         }
       }
     }
@@ -904,26 +925,35 @@ export class Game {
           // Advance to next sub-level within world 1
           this.world1Level++;
           this.world1SubArea = 0;
+          this._checkpoint = null;
           this.resetLevel(false);
           this.music.start();
         } else if (this.world === 1 && this.world1Level === 3) {
-          // All of world 1 done — show Pikachu ending
-          this._endingTimer = 0;
-          this.state = STATE.ENDING;
-          return;
+          // World 1 complete → world 2 (the game continues!)
+          this.world = 2;
+          this.world2Level = 0;
+          this.world2SubArea = 0;
+          this._checkpoint = null;
+          this.resetLevel(false);
+          this.music.start();
         } else if (this.world === 2) {
           if (this.world2Level < 3) {
             this.world2Level++;
             this.world2SubArea = 0;
+            this._checkpoint = null;
             this.resetLevel(false);
             this.music.start();
           } else {
             this.world = 3;
+            this._checkpoint = null;
             this.resetLevel(false);
             this.music.start();
           }
         } else if (this.world === 3) {
-          this.state = STATE.WIN;
+          // Whole game complete — the Pikachu grand finale
+          this._endingTimer = 0;
+          this.state = STATE.ENDING;
+          return;
         } else {
           this.state = STATE.WIN;
         }
@@ -966,8 +996,10 @@ export class Game {
     const tid = pipe.transportId;
     const lvl = this.world2Level;
     if (lvl === 0) {
-      // 2-1: transport 4 → underground
-      this._startWorld2SubAreaTransition(1);
+      // 2-1: transport 4 → underground; transport 2 (underground exit) → back
+      // to the overworld (previously this looped back into the underground!)
+      if (tid === 2 || this.world2SubArea === 1) this._startWorld2SubAreaTransition(0);
+      else this._startWorld2SubAreaTransition(1);
     } else if (lvl === 1) {
       // 2-2: transport 1 → underwater, transport 2 → exit
       if (tid === 1) this._startWorld2SubAreaTransition(1);
@@ -977,15 +1009,19 @@ export class Game {
 
   _doWorld2SubAreaTransition(subArea) {
     const prevPower = this.player.power;
+    const prevSubArea = this.world2SubArea;
     this.world2SubArea = subArea;
     this.level = buildWorld2(this.world2Level, subArea);
     this.r.currentSetting = this.level.setting || 'overworld';
 
-    let spawnX = 80;
-    if (subArea === 0 && this.level.exitOverworldX) spawnX = this.level.exitOverworldX;
-    if (this._pendingSpawnX != null) { spawnX = this._pendingSpawnX; this._pendingSpawnX = null; }
+    let spawnX = 80, spawnY = GROUND_Y - 60;
+    if (subArea === 0 && prevSubArea !== 0 && this.level.exitSpawn) {
+      spawnX = this.level.exitSpawn.x;
+      spawnY = this.level.exitSpawn.y;
+    }
+    if (this._pendingSpawnX != null) { spawnX = this._pendingSpawnX; spawnY = GROUND_Y - 200; this._pendingSpawnX = null; }
 
-    this.player = new Player(spawnX, GROUND_Y - 60);
+    this.player = new Player(spawnX, spawnY);
     this.player.power = prevPower;
     this.player.char = this.selectedChar || 'eevee';
     this.player._applySize();
@@ -1035,12 +1071,13 @@ export class Game {
     this.level = buildWorld1(this.world1Level, toSubArea);
     this.r.currentSetting = this.level.setting || 'overworld';
 
-    // Determine spawn X: if returning to overworld from underground, use exitOverworldX
-    let spawnX = 80;
-    if (toSubArea === 0 && this.level.exitOverworldX) {
-      spawnX = this.level.exitOverworldX;
+    // Returning to the overworld from a bonus area: emerge on the exit pipe
+    let spawnX = 80, spawnY = GROUND_Y - 60;
+    if (toSubArea === 0 && prevSubArea !== 0 && this.level.exitSpawn) {
+      spawnX = this.level.exitSpawn.x;
+      spawnY = this.level.exitSpawn.y;
     }
-    this.player = new Player(spawnX, GROUND_Y - 60);
+    this.player = new Player(spawnX, spawnY);
     this.player.power = savedPower;
     this.player.char = this.selectedChar || 'eevee';
     this.player._applySize();
@@ -1064,13 +1101,46 @@ export class Game {
     this._debris = [];
   }
 
+  // Which sub-area is the "main" play area of the current level (checkpoints
+  // live only there); null = no checkpoint (castles)
+  _mainSubArea() {
+    if (this.world === 1) return this.world1Level === 3 ? null : this.world1Level === 1 ? 1 : 0;
+    if (this.world === 2) return this.world2Level === 3 ? null : this.world2Level === 1 ? 1 : 0;
+    return 0;
+  }
+
+  _curLevelIdx() {
+    return this.world === 1 ? this.world1Level : this.world === 2 ? this.world2Level : 0;
+  }
+
+  // Find a safe ground x at/after the requested spot (avoid respawning in a pit)
+  _safeGroundX(lvl, x) {
+    let nextStart = null;
+    for (const s of lvl.platforms) {
+      if (s.y !== GROUND_Y) continue;
+      if (x >= s.x && x <= s.x + s.w - 60) return x;
+      if (s.x > x && (nextStart == null || s.x < nextStart)) nextStart = s.x;
+    }
+    return nextStart != null ? nextStart + 30 : x;
+  }
+
   _loseLife() {
     this.lives--;
     if (this.lives <= 0) {
       this.state = STATE.GAME_OVER;
       this.music.stop();
+      return;
+    }
+    // Halfway checkpoint: respawn there instead of the level start
+    const cp = this._checkpoint;
+    if (cp && cp.world === this.world && cp.level === this._curLevelIdx()) {
+      if (this.world === 1) this.world1SubArea = cp.sub;
+      if (this.world === 2) this.world2SubArea = cp.sub;
+      this.resetLevel(false, true);   // power resets to SMALL as on any death
+      this.player.x = cp.x;
+      this.player.y = GROUND_Y - 200; // drop in from above
+      this.cam.x = Math.max(0, cp.x - 200);
     } else {
-      // On death, reset power to SMALL
       this.resetLevel(false, true);
     }
   }

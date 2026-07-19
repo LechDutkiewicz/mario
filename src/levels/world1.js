@@ -26,8 +26,12 @@ function _buildLevel1_1(subArea = 0) {
   const lvl = loadFSMLevel(world11Data, fsmArea);
   lvl.areaIndex = fsmArea;
   lvl.subArea   = subArea;
-  // Underground exit: player emerges near the pipe at x:1304 in overworld (1304*4 = 5216px)
-  if (subArea === 1) lvl.exitOverworldX = 5216;
+  if (subArea === 0) {
+    // Returning from the underground bonus: emerge ON the entrance:1 pipe
+    // at x:1304 (5216px, 2 tiles tall) — flag lives on the OVERWORLD level,
+    // because the transition reads it from the freshly built target level
+    lvl.exitSpawn = { x: 5220, y: GROUND_Y - 64 - 64 };
+  }
   return lvl;
 }
 

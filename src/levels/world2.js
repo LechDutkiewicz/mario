@@ -2,6 +2,7 @@
 // WORLD 2 — 4 levels: 2-1, 2-2, 2-3, 2-4
 // ============================================================
 import { loadFSMLevel } from './fsm-loader.js';
+import { GROUND_Y } from '../constants.js';
 import { world21Data } from './data/world2-1.js';
 import { world22Data } from './data/world2-2.js';
 import { world23Data } from './data/world2-3.js';
@@ -21,9 +22,7 @@ export function buildWorld2(levelIndex = 0, subArea = 0) {
 function _build21(subArea) {
   if (subArea === 1) {
     // Underground: area index 2 in 2-1 JSON
-    const lvl = loadFSMLevel(world21Data, 2);
-    lvl.exitOverworldX = 5120;
-    return lvl;
+    return loadFSMLevel(world21Data, 2);
   }
   if (subArea === 2) {
     // Sky bonus area (vine climb) — area index 1 in 2-1 JSON
@@ -39,6 +38,9 @@ function _build21(subArea) {
   for (const p of lvl.platforms) {
     if (p.transportId === 4) p.leadsToArea = 1;
   }
+  // Returning from the underground: emerge ON the entrance:2 pipe at x:920
+  // (3680px, 2 tiles tall)
+  lvl.exitSpawn = { x: 3684, y: GROUND_Y - 64 - 64 };
   return lvl;
 }
 
