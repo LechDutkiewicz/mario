@@ -150,6 +150,11 @@ function processThing(e, out) {
         const topY  = Math.min(by, ey);
         const range = Math.abs(by - ey);
         out.movingPlatforms.push(new MovingPlatform(sx, topY, w, T / 2, 'y', 1.0, range));
+      } else if (e.falling) {
+        // FSM moveFalling — sinks under the player, freefalls past a threshold
+        const fp = new MovingPlatform(sx, uy(y), w, T / 2, 'x', 0, 0);
+        fp.falling = true;
+        out.movingPlatforms.push(fp);
       } else {
         // Plain Platform (no sliding/floating range) — static stepping stone
         out.movingPlatforms.push(new MovingPlatform(sx, uy(y), w, T / 2, 'x', 0, 0));

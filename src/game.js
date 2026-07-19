@@ -480,6 +480,7 @@ export class Game {
     // Moving platforms: update first so solids are current, then carry player
     if (lvl.movingPlatforms) {
       for (const mp of lvl.movingPlatforms) {
+        if (mp.dead) continue;
         mp.update();
         // Carry player if standing on this platform
         const onTop = p.y + p.h >= mp.y - 2 && p.y + p.h <= mp.y + 8 &&
@@ -487,6 +488,22 @@ export class Game {
         if (onTop) {
           p.x += mp.velX;
           p.y += mp.velY;
+        }
+        // FSM moveFalling: sinks while stood on (+0.5/frame), freefalls past
+        // yvel 11.2; velocity resets when the player steps off
+        if (mp.falling) {
+          if (mp.freefall) {
+            mp.fallVy += 0.5;
+            mp.y += mp.fallVy;
+          } else if (onTop && !p.dead) {
+            mp.fallVy = (mp.fallVy || 0) + 0.5;
+            mp.y += mp.fallVy;
+            p.y += mp.fallVy;
+            if (mp.fallVy >= 11.2) mp.freefall = true;
+          } else {
+            mp.fallVy = 0;
+          }
+          if (mp.y > 760) mp.dead = true;
         }
       }
     }

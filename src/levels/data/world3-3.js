@@ -32,7 +32,7 @@ export const world33Data = {
         { "thing": "Koopa", "x": 432, "y": 28, "smart": true },
         { "macro": "Tree", "x": 440, "y": 80, "width": 32 },
         { "macro": "Fill", "thing": "Coin", "x": 449, "y": 87, "xnum": 2, "xwidth": 8 },
-        { "thing": "Platform", "x": 482, "y": 56, "width": 24 },
+        { "thing": "Platform", "x": 482, "y": 56, "width": 24, "falling": true },
 
         { "macro": "Tree", "x": 520, "width": 128 },
         { "macro": "Tree", "x": 520, "y": 48, "width": 24 },
@@ -49,10 +49,10 @@ export const world33Data = {
         { "thing": "Platform", "x": 740, "y": 62, "width": 24, "floating": true, "begin": 24, "end": 76 },
         { "macro": "Tree", "x": 672, "y": 16, "width": 32 },
 
-        { "thing": "Platform", "x": 752, "y": 32, "width": 24 },
-        { "thing": "Platform", "x": 768, "y": 64, "width": 24 },
+        { "thing": "Platform", "x": 752, "y": 32, "width": 24, "falling": true },
+        { "thing": "Platform", "x": 768, "y": 64, "width": 24, "falling": true },
         { "macro": "Tree", "x": 776, "y": 32, "width": 24 },
-        { "thing": "Platform", "x": 824, "y": 16, "width": 24 },
+        { "thing": "Platform", "x": 824, "y": 16, "width": 24, "falling": true },
         { "macro": "Tree", "x": 832, "y": 64, "width": 32 },
         { "macro": "Fill", "thing": "Coin", "x": 841, "y": 71, "xnum": 2, "xwidth": 8 },
         { "macro": "Tree", "x": 856, "y": 16, "width": 40 },
