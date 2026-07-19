@@ -614,7 +614,9 @@ export class Game {
           this._spawnScorePopup(e.x + e.w / 2, e.y, SCORE_STOMP);
           continue;
         }
-        const stomping = p.vy > 0 && (p.y + p.h) - e.y < 22;
+        // FSM: stomp uses RELATIVE velocity — a fish rising into the player
+        // from below counts as a stomp (the player falls relative to it)
+        const stomping = p.vy > (e.vy || 0) && (p.y + p.h) - e.y < 22;
         if (stomping && e.stompable && !stompedThisFrame) {
           stompedThisFrame = true;
           p.vy = -8;
@@ -627,7 +629,8 @@ export class Game {
             e.squash();
           } else {
             // Normal stomp — FSM: consecutive mid-air stomps escalate the ladder
-            e.squash();
+            if (e.type === 'cheepjump') e.kill();   // stomped fish drops dead (SMB)
+            else e.squash();
             p.stompChain = p.stompChain || 0;
             this._chainScore(p.stompChain++, e.x + e.w / 2, e.y);
           }
