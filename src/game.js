@@ -317,9 +317,10 @@ export class Game {
     const solids = lvl.solids;
     const p      = this.player;
 
-    // Music theme follows the level setting (castle for x-4, underwater for water areas)
-    this.music.setTheme(lvl.setting === 'underwater' ? 'underwater'
-                      : lvl.setting === 'castle'     ? 'castle'
+    // Music theme follows the level setting; star power overrides everything
+    this.music.setTheme(p.starTimer > 0                ? 'star'
+                      : lvl.setting === 'underwater'   ? 'underwater'
+                      : lvl.setting === 'castle'       ? 'castle'
                       : 'overworld');
 
     // Underwater physics flag (FSM: map.underwater) + player bubbles every 96 frames
@@ -337,26 +338,11 @@ export class Game {
       this._bubbles = this._bubbles.filter(b => b.life > 0 && b.y > 190);
     }
 
-    // ── Level time limit (SMB: one unit ≈ 0.4s = 24 frames) ──
+    // Per-level state reset (no time limit — removed by design, too stressful
+    // for young players; see AUDIT.md)
     if (this._timeLevel !== lvl) {
       this._timeLevel = lvl;
-      this.timeLeft = lvl.time || 300;
-      this._timeTick = 0;
       this._vine = null;
-    }
-    if (!p.dead && !this.walkToPC && this.walkToPCTimer === 0 &&
-        this.worldClearTimer === 0 && !this._castleBossComplete) {
-      this._timeTick++;
-      if (this._timeTick >= 24) {
-        this._timeTick = 0;
-        this.timeLeft--;
-        if (this.timeLeft <= 0) {
-          this.timeLeft = 0;
-          this._showMsg('TIME UP!', 90);
-          this.music.stop();
-          p.die();
-        }
-      }
     }
 
     // ── Leaping Magikarps over the bridges (FSM startCheepSpawn, every 21f) ──
@@ -365,9 +351,11 @@ export class Game {
       this._cheepTick = (this._cheepTick || 0) + 1;
       if (this._cheepTick >= 21) {
         this._cheepTick = 0;
-        const karp = new Enemy(p.x + 60 + Math.random() * 420, 640, 'cheepjump');
-        karp.vx = -(0.5 + Math.random() * 2.2);
-        karp.vy = -(8.8 + Math.random() * 2.6);   // FSM: unitsize * -2.33 ± spread
+        // FSM: spawn below the screen anywhere across the view, constant
+        // ascent yvel -2.33u, rightward xvel 0..maxspeed (we halve for fairness)
+        const karp = new Enemy(this.cam.x + Math.random() * CANVAS_WIDTH, 640, 'cheepjump');
+        karp.vx = Math.random() * 2.7;
+        karp.vy = -9.32;   // unitsize * -2.33
         lvl.enemies.push(karp);
       }
     }
@@ -434,6 +422,12 @@ export class Game {
         if (s.phase >= 8) {
           p.vy = input.jump ? -13.5 : -8.5;
           p.onGround = false;
+          // FSM: after the spring releases, the regular jump-hold force keeps
+          // adding on top of the launch — that's what clears the tall wall
+          if (input.jump) {
+            p.isJumping = true;
+            p.jumpFrames = 1;
+          }
           this._spring = null;
         }
       } else if (this._spring && this._spring.pl === pl) {
@@ -1266,14 +1260,6 @@ export class Game {
     ctx.font = 'bold 20px monospace';
     ctx.strokeText('BALLS ' + this.coinsCollected, CANVAS_WIDTH - 234, 62);
     ctx.fillText('BALLS ' + this.coinsCollected,   CANVAS_WIDTH - 234, 62);
-    // Time remaining — flashes red when low
-    if (this.timeLeft != null) {
-      const timeStr = 'TIME ' + Math.max(0, this.timeLeft);
-      ctx.strokeText(timeStr, CANVAS_WIDTH - 234, 92);
-      ctx.fillStyle = this.timeLeft <= 50 && Math.floor((this._lavaAnim || 0) / 15) % 2 ? '#ff4040' : '#fff';
-      ctx.fillText(timeStr, CANVAS_WIDTH - 234, 92);
-      ctx.fillStyle = '#fff';
-    }
 
     const pw    = this.player.power;
     const charNames = {

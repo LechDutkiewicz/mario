@@ -10,13 +10,10 @@ Legenda: `[ ]` do zrobienia · `[x]` zrobione · `[~]` świadomie inaczej (decyz
 
 ## P1 — Twarde bugi (zmieniają geometrię/kolizje poziomów)
 
-- [ ] **Makro `Fill` gubi `width`/`height` dzieci** (fsm-loader: przekazuje tylko
-  thing/x/y/contents/hidden). Ściany budowane Fill-em z wysokich Stone'ów
-  stają się pojedynczymi kaflami — np. ściana w 2-1 (Fill Stone height 80),
-  filary w 2-2 (yheight 32, width 40), mur w 2-4. Kolizje różnią się od FSM.
-- [ ] **`Fill` czyta `ywidth`, a JSON-y używają `yheight`** — pionowe odstępy
-  wielorzędowych Fill-ów są złe (monety w 1-1 nachodzą na siebie; rzędy
-  Stone w 2-1/2-2/2-4 ułożone co 8 jednostek zamiast 16/32).
+- [x] **Makro `Fill` gubi `width`/`height` dzieci** — naprawione: Fill przekazuje
+  wymiary; mur przy trampolinie w 2-1 (2×320px) znowu istnieje.
+- [x] **`Fill` czyta `ywidth`, a JSON-y używają `yheight`** — naprawione
+  (yheight z fallbackiem na ywidth).
 - [ ] **Świat 3 to ponownie wczytane dane 2-1** (world3.js → world21Data).
   Prawdziwy FSM World 3-1 ("Overworld Night": HammerBros, trampolina,
   pnącze, mostki nad wodą, podziemie i nocna strefa chmur) nie istnieje
@@ -68,12 +65,24 @@ Legenda: `[ ]` do zrobienia · `[x]` zrobione · `[~]` świadomie inaczej (decyz
 - [ ] Tarcie: FSM odejmuje dodatkowo decel 0.0007 (ruch) / 0.035 (bezruch)
   po mnożniku 0.98 — u nas tylko mnożnik (bezwładność ciut dłuższa).
 
+### Decyzje designowe (świadome odejścia od oryginału)
+
+- [~] **Limit czasu usunięty na stałe** — był zaimplementowany 1:1 (24 klatki
+  na jednostkę, TIME UP = śmierć), wycofany decyzją projektu: za duży stres
+  dla młodszych graczy.
+- [x] Skaczące Magikarpy w 2-3 — poprawione na wierny wzór FSM: stały lot
+  w górę bez grawitacji aż pod górę ekranu, potem łuk z grawitacją; kierunek
+  w prawo (0..2.7 px/kl), spawn na całej szerokości ekranu.
+- [x] Trampolina — wybicie z trzymanym skokiem włącza maszynę skoku
+  (ciągła siła jak w FSM po sprężynie), co pozwala przeskoczyć mur w 2-1.
+
 ## P4 — Prezentacja / polish
 
 - [ ] Czarny ekran "WORLD X-Y × żyć" przed każdą planszą.
 - [ ] Tła `Pattern` (BackRegular/BackCloud/BackFence) — chmury, płotki,
   krzaki z oryginalnych układów (u nas własne proceduralne tło).
-- [ ] Muzyka gwiazdki (osobny motyw na czas nietykalności, powrót po).
+- [x] Muzyka gwiazdki — szybki motyw 'star' przełącza się automatycznie
+  na czas nietykalności i wraca po niej.
 - [ ] Bowser hard-mode rzuca młotkami (światy 6+) — nasz boss nie.
 - [ ] Ceiling na sztywnej wysokości (ignoruje y z JSON-a); Bridge bez lin
   i słupków; Coral ignoruje `width`; CastleLarge rysowane jak CastleSmall.

@@ -34,8 +34,8 @@ export class Enemy {
     if (type === 'pineco') { this.w = 24; this.h = 22; this.vx = -0.84; this.y = y - this.h; }
     // Spiny egg — falls from Zubat, becomes a walking Pineco on landing
     if (type === 'pinecoegg') { this.w = 22; this.h = 22; this.vx = 0; this.vy = -8.4; this.y = y; }
-    // Leaping Magikarp (FSM startCheepSpawn) — arcs out of the water
-    if (type === 'cheepjump') { this.w = 26; this.h = 20; this.y = y; this.active = true; }
+    // Leaping Magikarp (FSM startCheepSpawn) — rockets up, then arcs down
+    if (type === 'cheepjump') { this.w = 26; this.h = 20; this.y = y; this.active = true; this.rising = true; }
     this.dead = false;
     this.squashTimer = 0;
     this.animTimer = Math.floor(Math.random() * 60);
@@ -218,11 +218,17 @@ export class Enemy {
       return;
     }
 
-    // Leaping Magikarp — ballistic arc, no collisions
+    // Leaping Magikarp — FSM: rises at constant speed (no gravity) until near
+    // the top of the screen (ceilmax), only then arcs down with gravity
     if (this.type === 'cheepjump') {
-      this.vy += 0.286;   // FSM moveCheepJumping: unitsize / 14
+      if (this.rising && this.y > 150) {
+        this.y += this.vy;          // constant rocket ascent
+      } else {
+        this.rising = false;
+        this.vy += 0.286;           // FSM moveCheepJumping: unitsize / 14
+        this.y += this.vy;
+      }
       this.x += this.vx;
-      this.y += this.vy;
       if (this.y > 800) this.dead = true;
       return;
     }

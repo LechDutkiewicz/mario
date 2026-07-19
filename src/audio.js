@@ -75,10 +75,19 @@ const WATER_MELODY = [
   [N.A4, 4, N.D3],  [N.G4, 2, N.G2],
 ];
 
+// Star theme — fast driving ostinato (SMB invincibility feel)
+const STAR_MELODY = [
+  [N.G4, 1, N.G2], [N.C5, 1, 0],  [N.E5, 1, N.G2], [N.C5, 1, 0],
+  [N.G4, 1, N.C3], [N.C5, 1, 0],  [N.E5, 1, N.C3], [N.C5, 1, 0],
+  [N.A4, 1, N.D3], [N.D5, 1, 0],  [N2.F5, 1, N.D3], [N.D5, 1, 0],
+  [N.A4, 1, N.G2], [N.D5, 1, 0],  [N2.F5, 1, N.G2], [N.D5, 1, 0],
+];
+
 const THEMES = {
   overworld:  { melody: MELODY,        wave: 'square',   vol: 0.055, bassWave: 'triangle', bassVol: 0.08 },
   underwater: { melody: WATER_MELODY,  wave: 'triangle', vol: 0.10,  bassWave: 'sine',     bassVol: 0.09 },
   castle:     { melody: CASTLE_MELODY, wave: 'square',   vol: 0.05,  bassWave: 'sawtooth', bassVol: 0.045 },
+  star:       { melody: STAR_MELODY,   wave: 'square',   vol: 0.07,  bassWave: 'triangle', bassVol: 0.10 },
 };
 
 export class Music {

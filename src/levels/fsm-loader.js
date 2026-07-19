@@ -244,12 +244,17 @@ function processMacro(e, out) {
     case 'Fill': {
       const xnum = e.xnum || 1;
       const ynum = e.ynum || 1;
+      // Vertical step: JSON uses 'yheight' (FSM naming), fall back to ywidth
+      const ystep = (e.yheight !== undefined) ? e.yheight : ywidth;
       for (let yi = 0; yi < ynum; yi++) {
         for (let xi = 0; xi < xnum; xi++) {
           processThing({
             thing:    e.thing,
             x:        x + xi * xwidth,
-            y:        y + yi * ywidth,
+            y:        y + yi * ystep,
+            // Forward the child's own dimensions (tall/wide Stones, Bricks)
+            width:    e.width,
+            height:   e.height,
             contents: e.contents,
             hidden:   e.hidden,
           }, out);
