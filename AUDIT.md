@@ -14,10 +14,11 @@ Legenda: `[ ]` do zrobienia · `[x]` zrobione · `[~]` świadomie inaczej (decyz
   wymiary; mur przy trampolinie w 2-1 (2×320px) znowu istnieje.
 - [x] **`Fill` czyta `ywidth`, a JSON-y używają `yheight`** — naprawione
   (yheight z fallbackiem na ywidth).
-- [ ] **Świat 3 to ponownie wczytane dane 2-1** (world3.js → world21Data).
-  Prawdziwy FSM World 3-1 ("Overworld Night": HammerBros, trampolina,
-  pnącze, mostki nad wodą, podziemie i nocna strefa chmur) nie istnieje
-  u nas w ogóle. Do zbudowania z danych FSM (brak plików world3-x).
+- [x] **Świat 3 zbudowany z danych FSM** — 4 poziomy (3-1 Overworld Night
+  z podziemiem i nocną strefą chmur, 3-2 nocny szpaler Koop, 3-3 platformy
+  na drzewach z windami, 3-4 zamek z 6 fire barami i lawą + boss).
+  Nocne tło z gwiazdami i księżycem. Aproksymacje: wagi (pushPreScale)
+  jako pływające platformy, moveFalling jako platformy statyczne.
 
 ## P2 — Mechaniki mocno wpływające na "czucie" SMB
 

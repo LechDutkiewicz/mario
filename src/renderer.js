@@ -188,6 +188,35 @@ export class Renderer {
       return;  // skip hills and clouds
     }
 
+    if (this.currentSetting === 'night') {
+      // Night sky — deep navy with stars and dark silhouette hills
+      ctx.fillStyle = '#101832';
+      ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+      ctx.fillStyle = 'rgba(255,255,255,0.8)';
+      for (let i = 0; i < 40; i++) {
+        // Deterministic star positions from index hash
+        const sx = ((i * 379 + 83) % (CANVAS_WIDTH + 200)) - 100 - ((camX * 0.1) % (CANVAS_WIDTH + 200));
+        const wx = ((sx % (CANVAS_WIDTH + 200)) + CANVAS_WIDTH + 200) % (CANVAS_WIDTH + 200) - 100;
+        const sy = (i * 151 + 37) % (GROUND_Y - 150);
+        const tw = (i * 7) % 3 ? 1.5 : 2.2;
+        ctx.fillRect(wx, sy, tw, tw);
+      }
+      // Moon
+      ctx.fillStyle = '#f0ecd8';
+      ctx.beginPath(); ctx.arc(CANVAS_WIDTH - 140, 90, 26, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#101832';
+      ctx.beginPath(); ctx.arc(CANVAS_WIDTH - 130, 82, 22, 0, Math.PI * 2); ctx.fill();
+      // Silhouette hills
+      ctx.fillStyle = '#1a2a48';
+      const hillPeriodN = 700;
+      for (let i = -1; i < Math.ceil(CANVAS_WIDTH / hillPeriodN) + 2; i++) {
+        const bx = i * hillPeriodN - ((camX * 0.3) % hillPeriodN);
+        this._hill(bx + 120, GROUND_Y, 110);
+        this._hill(bx + 380, GROUND_Y, 75);
+      }
+      return;
+    }
+
     if (this.currentSetting === 'underwater') {
       const SURFACE = 188;  // FSM WaterBlock mapped to our ground height (540-416+64)
       // Air band above the surface

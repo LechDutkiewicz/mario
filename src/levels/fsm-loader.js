@@ -151,7 +151,8 @@ function processThing(e, out) {
         const range = Math.abs(by - ey);
         out.movingPlatforms.push(new MovingPlatform(sx, topY, w, T / 2, 'y', 1.0, range));
       } else {
-        out.movingPlatforms.push(new MovingPlatform(sx, uy(y), w, T / 2, 'x', 1.0, ux(48)));
+        // Plain Platform (no sliding/floating range) — static stepping stone
+        out.movingPlatforms.push(new MovingPlatform(sx, uy(y), w, T / 2, 'x', 0, 0));
       }
       break;
     }
@@ -261,9 +262,10 @@ function processMacro(e, out) {
             thing:    e.thing,
             x:        x + xi * xwidth,
             y:        y + yi * ystep,
-            // Forward the child's own dimensions (tall/wide Stones, Bricks)
+            // Forward the child's own dimensions/flags (tall Stones, smart Koopas)
             width:    e.width,
             height:   e.height,
+            smart:    e.smart,
             contents: e.contents,
             hidden:   e.hidden,
           }, out);
