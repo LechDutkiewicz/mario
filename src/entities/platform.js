@@ -279,6 +279,13 @@ export class MovingPlatform {
   }
 
   update() {
+    // Static / falling / transport-ride platforms have no patrol range —
+    // leave their position alone (the oscillate clamp below would snap them
+    // back to startX every frame, freezing rides in place)
+    if (this.speed === 0 && this.range === 0) {
+      this.velX = 0; this.velY = 0;
+      return;
+    }
     const prev = this.axis === 'x' ? this.x : this.y;
     if (this.mode === 'conveyor') {
       // Move continuously in one direction, wrap when exceeding range
