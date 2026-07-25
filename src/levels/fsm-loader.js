@@ -9,7 +9,7 @@
 //   Ground    = GY (= 540)
 // ============================================================
 import { TILE, GROUND_Y, COLORS } from '../constants.js';
-import { Platform, QuestionBlock, PipeBlock, BrickBlock, MovingPlatform, TreePlatform, Springboard } from '../entities/platform.js';
+import { Platform, QuestionBlock, PipeBlock, BrickBlock, MovingPlatform, TreePlatform, Springboard, ShroomPlatform } from '../entities/platform.js';
 import { FlagPole } from '../entities/flagpole.js';
 import { Enemy } from '../entities/enemy.js';
 import { Coin } from '../entities/coin.js';
@@ -358,6 +358,13 @@ function processMacro(e, out) {
       out.pikachuX = floorX + FLOOR_W - T * 2;
 
       out.noFlagPole = true;
+      break;
+    }
+
+    case 'Shroom': {
+      // FSM ShroomTop — mushroom platform standing on a trunk
+      const w = ux(e.width || 24);
+      out.platforms.push(new ShroomPlatform(ux(x), GY - y * 4, w));
       break;
     }
 

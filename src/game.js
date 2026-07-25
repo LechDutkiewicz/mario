@@ -77,7 +77,7 @@ export class Game {
                  : this.world === 3 ? buildWorld3(this.world3Level, this.world3SubArea)
                  : this.world === 2 ? buildWorld2(this.world2Level, this.world2SubArea)
                  : buildWorld1(this.world1Level, this.world1SubArea);
-    this.area0AutoWalk = (this.world === 2 && !!this.level?.entrancePipeX)
+    this.area0AutoWalk = !!this.level?.entrancePipeX
                       || (this.world === 1 && this.world1Level === 1 && this.world1SubArea === 0);
     this.r.currentSetting = this.level.setting || 'overworld';
     this.player  = new Player(80, GROUND_Y - 60);
@@ -455,6 +455,9 @@ export class Game {
           } else if (this.world === 3 && this.world3Level === 0) {
             this._vine = null;
             this._startWorld3SubAreaTransition(2);   // sky night bonus
+          } else if (this.world === 4 && this.world4Level === 1) {
+            this._vine = null;
+            this._startWorld4SubAreaTransition(4);   // mushroom sky bonus
           }
         }
       }
@@ -502,6 +505,7 @@ export class Game {
     if (lvl.isSky && !p.dead && p.y > 700 && this.areaTransTimer === 0) {
       this._pendingSpawnX = lvl.skyReturnX;
       if (this.world === 3) this._startWorld3SubAreaTransition(0);
+      else if (this.world === 4) this._startWorld4SubAreaTransition(1);
       else this._startWorld2SubAreaTransition(0);
       p.y = 700; p.vy = 0;
     }
@@ -595,6 +599,8 @@ export class Game {
           this._startWorld1AreaTransition(1); // 1-2: overworld → underground
         } else if (this.world === 2) {
           this._startWorld2SubAreaTransition(1); // world 2 entrance → first sub-area
+        } else if (this.world === 4) {
+          this._startWorld4SubAreaTransition(1); // 4-2 entrance → underworld
         }
       }
       // Keep walking right until we hit the pipe
@@ -1044,10 +1050,18 @@ export class Game {
             this.music.start();
           }
         } else if (this.world === 4) {
-          // Only 4-1 exists so far — then the Pikachu grand finale
-          this._endingTimer = 0;
-          this.state = STATE.ENDING;
-          return;
+          if (this.world4Level < 3) {
+            this.world4Level++;
+            this.world4SubArea = 0;
+            this._checkpoint = null;
+            this.resetLevel(false);
+            this.music.start();
+          } else {
+            // Whole game complete — the Pikachu grand finale
+            this._endingTimer = 0;
+            this.state = STATE.ENDING;
+            return;
+          }
         } else {
           this.state = STATE.WIN;
         }
@@ -1182,6 +1196,13 @@ export class Game {
       // 4-1: transport 2 → underworld; transport 1 (underworld exit) → overworld
       if (tid === 1 || this.world4SubArea === 1) this._startWorld4SubAreaTransition(0);
       else this._startWorld4SubAreaTransition(1);
+    } else if (this.world4Level === 1) {
+      // 4-2: 1 → main underworld, 3 → side bonus, 2 → back from it, 4 → exit
+      if (this.world4SubArea === 2) this._startWorld4SubAreaTransition(1);
+      else if (tid === 1) this._startWorld4SubAreaTransition(1);
+      else if (tid === 3) this._startWorld4SubAreaTransition(2);
+      else if (tid === 2) this._startWorld4SubAreaTransition(1);
+      else if (tid === 4) this._startWorld4SubAreaTransition(3);
     }
   }
 
@@ -1285,6 +1306,7 @@ export class Game {
     if (this.world === 1) return this.world1Level === 3 ? null : this.world1Level === 1 ? 1 : 0;
     if (this.world === 2) return this.world2Level === 3 ? null : this.world2Level === 1 ? 1 : 0;
     if (this.world === 3) return this.world3Level === 3 ? null : 0;
+    if (this.world === 4) return this.world4Level === 3 ? null : this.world4Level === 1 ? 1 : 0;
     return 0;
   }
 
@@ -1760,7 +1782,7 @@ export class Game {
         levels.push({ label: `${w}-${l + 1}`, world: w, level: l });
       }
     }
-    levels.push({ label: '4-1', world: 4, level: 0 });
+    for (let l = 0; l < 4; l++) levels.push({ label: `4-${l + 1}`, world: 4, level: l });
     const cols = 4, bw = 140, bh = 48, gy = 130;
     const gap = 20;
     const gx = Math.floor((CANVAS_WIDTH - (cols * bw + (cols - 1) * gap)) / 2);

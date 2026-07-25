@@ -219,6 +219,48 @@ export class TreePlatform {
   }
 }
 
+// Mushroom platform (FSM ShroomTop) — red cap with white spots on a trunk
+export class ShroomPlatform {
+  constructor(x, y, w) {
+    this.x = x; this.y = y; this.w = w; this.h = TILE * 0.6;
+    this.dead = false;
+    this.kind = 'platform';
+  }
+
+  draw(r, cam) {
+    const ctx = r.ctx;
+    const sx = Math.floor(this.x - cam.x);
+    const sy = Math.floor(this.y);
+    const cx = sx + this.w / 2;
+    // Trunk down to the ground
+    ctx.fillStyle = '#c89050';
+    ctx.fillRect(cx - 9, sy + this.h - 2, 18, GROUND_Y - sy - this.h + 2);
+    ctx.fillStyle = '#a87038';
+    ctx.fillRect(cx + 3, sy + this.h - 2, 6, GROUND_Y - sy - this.h + 2);
+    // Cap — rounded red dome
+    ctx.fillStyle = '#e03828';
+    ctx.beginPath();
+    ctx.moveTo(sx, sy + this.h);
+    ctx.lineTo(sx, sy + 8);
+    ctx.quadraticCurveTo(sx, sy, sx + 12, sy);
+    ctx.lineTo(sx + this.w - 12, sy);
+    ctx.quadraticCurveTo(sx + this.w, sy, sx + this.w, sy + 8);
+    ctx.lineTo(sx + this.w, sy + this.h);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = '#111'; ctx.lineWidth = 1.5; ctx.stroke();
+    // White spots
+    ctx.fillStyle = '#f8f0e8';
+    for (let i = 0; i < Math.max(2, Math.floor(this.w / 44)); i++) {
+      const dx = sx + 16 + i * 44;
+      if (dx < sx + this.w - 10) { ctx.beginPath(); ctx.ellipse(dx, sy + 8, 6, 4.5, 0, 0, Math.PI * 2); ctx.fill(); }
+    }
+    // Bottom rim
+    ctx.fillStyle = '#f0d8b0';
+    ctx.fillRect(sx + 1, sy + this.h - 4, this.w - 2, 4);
+  }
+}
+
 // Moving platform — travels between two points horizontally or vertically
 export class MovingPlatform {
   // mode: 'oscillate' (default) — bounces back and forth
