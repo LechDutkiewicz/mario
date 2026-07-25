@@ -48,6 +48,11 @@ function _buildLevel1_2(subArea = 0) {
     lvl.hPipeExits    = [];
     lvl.entrancePipeX = 96 * 4; // 384px — vertical pipe player exits from underground
   }
+  if (subArea === 2) {
+    // Emerge ON the pipe at x:0 (2 tiles tall). The default x=80 spawn lands
+    // the player INSIDE the first staircase step (it starts at 64px).
+    lvl.exitSpawn = { x: 16, y: GROUND_Y - 128 };
+  }
   return lvl;
 }
 

@@ -38,7 +38,11 @@ function _build42(subArea) {
     return lvl;
   }
   if (subArea === 2) return loadFSMLevel(world42Data, 2);    // side underworld bonus
-  if (subArea === 3) return loadFSMLevel(world42Data, 3);    // overworld exit + flag
+  if (subArea === 3) {
+    const lvl = loadFSMLevel(world42Data, 3);                // overworld exit + flag
+    lvl.exitSpawn = { x: 16, y: GROUND_Y - 128 };            // emerge on the pipe
+    return lvl;
+  }
   if (subArea === 4) {
     const lvl = loadFSMLevel(world42Data, 4);                // mushroom sky bonus
     lvl.flagPole = null;

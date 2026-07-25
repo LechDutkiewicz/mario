@@ -1123,7 +1123,7 @@ export class Game {
     this.r.currentSetting = this.level.setting || 'overworld';
 
     let spawnX = 80, spawnY = GROUND_Y - 60;
-    if (subArea === 0 && prevSubArea !== 0 && this.level.exitSpawn) {
+    if (prevSubArea !== subArea && this.level.exitSpawn) {
       spawnX = this.level.exitSpawn.x;
       spawnY = this.level.exitSpawn.y;
     }
@@ -1165,7 +1165,7 @@ export class Game {
     this.r.currentSetting = this.level.setting || 'overworld';
 
     let spawnX = 80, spawnY = GROUND_Y - 60;
-    if (subArea === 0 && prevSubArea !== 0 && this.level.exitSpawn) {
+    if (prevSubArea !== subArea && this.level.exitSpawn) {
       spawnX = this.level.exitSpawn.x;
       spawnY = this.level.exitSpawn.y;
     }
@@ -1214,7 +1214,7 @@ export class Game {
     this.r.currentSetting = this.level.setting || 'overworld';
 
     let spawnX = 80, spawnY = GROUND_Y - 60;
-    if (subArea === 0 && prevSubArea !== 0 && this.level.exitSpawn) {
+    if (prevSubArea !== subArea && this.level.exitSpawn) {
       spawnX = this.level.exitSpawn.x;
       spawnY = this.level.exitSpawn.y;
     }
@@ -1272,7 +1272,7 @@ export class Game {
 
     // Returning to the overworld from a bonus area: emerge on the exit pipe
     let spawnX = 80, spawnY = GROUND_Y - 60;
-    if (toSubArea === 0 && prevSubArea !== 0 && this.level.exitSpawn) {
+    if (prevSubArea !== toSubArea && this.level.exitSpawn) {
       spawnX = this.level.exitSpawn.x;
       spawnY = this.level.exitSpawn.y;
     }

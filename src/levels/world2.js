@@ -51,8 +51,11 @@ function _build22(subArea) {
     return loadFSMLevel(world22Data, 1);
   }
   if (subArea === 2) {
-    // Overworld exit
-    return loadFSMLevel(world22Data, 2);
+    // Overworld exit — emerge ON the pipe at x:0 (default x=80 would spawn
+    // the player inside the first staircase step)
+    const lvl = loadFSMLevel(world22Data, 2);
+    lvl.exitSpawn = { x: 16, y: GROUND_Y - 128 };
+    return lvl;
   }
   // subArea 0: short overworld entrance
   const lvl = loadFSMLevel(world22Data, 0);
