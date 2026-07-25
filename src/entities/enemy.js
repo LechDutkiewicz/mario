@@ -135,7 +135,7 @@ export class Enemy {
 
     this.animTimer++;
 
-    if (!this.active) {
+    if (!this.active && this.type !== 'zubat') {
       if (Math.abs(this.x - player.x) < 520) this.active = true;
       else return;
     }
@@ -179,10 +179,16 @@ export class Enemy {
         if (this.y < -80) this.dead = true;
         return;
       }
-      if (!this.active) {
-        if (Math.abs(this.x - player.x) < 620) this.active = true;
-        else return;
+      // FSM moveLakituInit2 approach phase: when far away (e.g. after a
+      // checkpoint respawn) Lakitu flies back in from off-screen instead of
+      // idling forever out of range
+      const dxFar = player.x - this.x;
+      if (Math.abs(dxFar) > 700) {
+        this.x += Math.sign(dxFar) * 12;
+        this.y += Math.sin(this.animTimer * 0.05) * 0.4;
+        return;
       }
+      this.active = true;
       // FSM moveLakitu: when the player sprints right, slide IN FRONT of them
       // at maxspeed*1.4; otherwise orbit on the ±117px sine at maxspeed*0.7
       let targetX, maxStep;
