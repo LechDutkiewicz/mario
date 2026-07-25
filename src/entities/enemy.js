@@ -140,10 +140,10 @@ export class Enemy {
       else return;
     }
 
-    // Flying Paratroopa — oscillates vertically, ignores gravity
+    // Flying Paratroopa — FSM moveFloating: oscillates vertically ONLY
+    // (no horizontal drift), ignores gravity
     if (this.flying && !this.inShell) {
       this.y += 1.2 * this.flyDir;
-      this.x += this.vx;
       if (this.y >= this.flyMaxY) { this.y = this.flyMaxY; this.flyDir = -1; }
       if (this.y <= this.flyMinY) { this.y = this.flyMinY; this.flyDir  =  1; }
       return;

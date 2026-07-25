@@ -31,8 +31,7 @@ export const world43Data = {
         { "macro": "Shroom", "x": 352, "y": 32, "width": 24 },
 
         { "thing": "Coin", "x": 385, "y": 47 },
-        { "thing": "Platform", "x": 396, "y": 62, "width": 24, "floating": true, "begin": 30, "end": 80 },
-        { "thing": "Platform", "x": 452, "y": 62, "width": 24, "floating": true, "begin": 30, "end": 80 },
+        { "macro": "Scale", "x": 396, "y": 86, "width": 14, "platWidth": 24, "left": 4, "right": 10 },
         { "macro": "Shroom", "x": 408, "y": 40, "width": 24 },
         { "thing": "Platform", "x": 464, "y": 20, "width": 48, "floating": true, "begin": 32, "end": 88 },
         { "thing": "Platform", "x": 496, "y": 66, "width": 48, "floating": true, "begin": 32, "end": 88 },
@@ -48,14 +47,11 @@ export const world43Data = {
         { "macro": "Shroom", "x": 592, "y": 64, "width": 40 },
         { "thing": "Koopa", "x": 624, "y": 76, "smart": true },
 
-        { "thing": "Platform", "x": 652, "y": 62, "width": 24, "floating": true, "begin": 30, "end": 80 },
-        { "thing": "Platform", "x": 716, "y": 62, "width": 24, "floating": true, "begin": 30, "end": 80 },
-        { "thing": "Platform", "x": 740, "y": 62, "width": 24, "floating": true, "begin": 30, "end": 80 },
-        { "thing": "Platform", "x": 780, "y": 62, "width": 24, "floating": true, "begin": 30, "end": 80 },
+        { "macro": "Scale", "x": 652, "y": 86, "width": 16, "platWidth": 24, "left": 4, "right": 12 },
+        { "macro": "Scale", "x": 740, "y": 86, "width": 10, "platWidth": 24, "left": 4, "right": 12 },
         { "thing": "Coin", "x": 770, "y": 47 },
         { "macro": "Shroom", "x": 792, "y": 16, "width": 24 },
-        { "thing": "Platform", "x": 828, "y": 62, "width": 24, "floating": true, "begin": 30, "end": 80 },
-        { "thing": "Platform", "x": 876, "y": 62, "width": 24, "floating": true, "begin": 30, "end": 80 },
+        { "macro": "Scale", "x": 828, "y": 86, "width": 12, "platWidth": 24, "left": 4, "right": 12 },
 
         { "macro": "Shroom", "x": 904, "y": 32, "width": 40 },
         { "macro": "Fill", "thing": "Coin", "x": 905, "y": 39, "xnum": 5, "xwidth": 8 },

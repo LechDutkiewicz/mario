@@ -261,6 +261,56 @@ export class ShroomPlatform {
   }
 }
 
+// Scale platform (FSM Scale + moveFallingScale) — two platforms hanging from
+// a beam on ropes. Standing on one lowers it and raises its partner; if one
+// reaches the beam both ropes snap and the pair free-falls.
+export class ScalePlatform {
+  constructor(x, y, w, beamY, ropeX, beamX1, beamX2, isLeft) {
+    this.x = x; this.y = y; this.w = w; this.h = TILE / 2;
+    this.beamY = beamY; this.ropeX = ropeX;
+    this.beamX1 = beamX1; this.beamX2 = beamX2;
+    this.isLeft = isLeft;
+    this.partner = null;
+    this.scale = true;
+    this.yvel = 0;
+    this.snapped = false;
+    this.dead = false;
+    this.kind = 'platform';
+    this.velX = 0; this.velY = 0;
+  }
+
+  update() { this.velX = 0; this.velY = 0; }   // driven by game.js
+
+  draw(r, cam) {
+    const ctx = r.ctx;
+    const sx = Math.floor(this.x - cam.x);
+    const sy = Math.floor(this.y);
+    const rx = Math.floor(this.ropeX - cam.x);
+
+    if (!this.snapped) {
+      // The left platform draws the shared beam
+      if (this.isLeft) {
+        const b1 = Math.floor(this.beamX1 - cam.x), b2 = Math.floor(this.beamX2 - cam.x);
+        ctx.strokeStyle = '#f0c090'; ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.moveTo(b1, this.beamY); ctx.lineTo(b2, this.beamY); ctx.stroke();
+        ctx.fillStyle = '#c86020';
+        ctx.beginPath(); ctx.arc(b1, this.beamY, 4, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(b2, this.beamY, 4, 0, Math.PI * 2); ctx.fill();
+      }
+      // Rope from the beam down to this platform
+      ctx.strokeStyle = '#f0c090'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(rx, this.beamY); ctx.lineTo(rx, sy); ctx.stroke();
+    }
+
+    // Platform slab
+    r.platform(sx, sy, this.w, this.h, '#e08828');
+    ctx.fillStyle = '#c04818';
+    for (let px = 6; px < this.w - 6; px += 18) {
+      ctx.beginPath(); ctx.ellipse(sx + px + 4, sy + this.h / 2, 5, 4, 0, 0, Math.PI * 2); ctx.fill();
+    }
+  }
+}
+
 // Moving platform — travels between two points horizontally or vertically
 export class MovingPlatform {
   // mode: 'oscillate' (default) — bounces back and forth

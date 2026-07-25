@@ -9,7 +9,7 @@
 //   Ground    = GY (= 540)
 // ============================================================
 import { TILE, GROUND_Y, COLORS } from '../constants.js';
-import { Platform, QuestionBlock, PipeBlock, BrickBlock, MovingPlatform, TreePlatform, Springboard, ShroomPlatform } from '../entities/platform.js';
+import { Platform, QuestionBlock, PipeBlock, BrickBlock, MovingPlatform, TreePlatform, Springboard, ShroomPlatform, ScalePlatform } from '../entities/platform.js';
 import { FlagPole } from '../entities/flagpole.js';
 import { Enemy } from '../entities/enemy.js';
 import { Coin } from '../entities/coin.js';
@@ -358,6 +358,22 @@ function processMacro(e, out) {
       out.pikachuX = floorX + FLOOR_W - T * 2;
 
       out.noFlagPole = true;
+      break;
+    }
+
+    // FSM pushPreScale — two platforms on ropes over a beam (a balance scale)
+    case 'Scale': {
+      const pw    = e.platWidth ?? 24;             // JSON units
+      const offy1 = (e.left  ?? 4) + 1.5;
+      const offy2 = (e.right ?? 10) + 1.5;
+      const beamY = GY - y * 4;
+      const halfW = ux(pw) / 2;
+      const ropeL = ux(x);
+      const ropeR = ux(x + (e.width || 14) * 4);
+      const lp = new ScalePlatform(ropeL - halfW, GY - (y - offy1 * 4) * 4, ux(pw), beamY, ropeL, ropeL, ropeR, true);
+      const rp = new ScalePlatform(ropeR - halfW, GY - (y - offy2 * 4) * 4, ux(pw), beamY, ropeR, ropeL, ropeR, false);
+      lp.partner = rp; rp.partner = lp;
+      out.movingPlatforms.push(lp, rp);
       break;
     }
 

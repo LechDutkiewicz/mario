@@ -1,6 +1,5 @@
 // World 3-3 — converted from FSM World33 (Overworld Night, tree platforms).
-// FSM pushPreScale (pulley platforms) approximated as vertically floating
-// Platform pairs; moveFalling platforms approximated as static platforms.
+// FSM pushPreScale pulleys and moveFalling platforms are both implemented.
 export const world33Data = {
   "name": "3-3",
   "locations": [{ "entry": "Plain" }],
@@ -45,8 +44,7 @@ export const world33Data = {
         { "macro": "Tree", "x": 616, "y": 72, "width": 24 },
         { "thing": "Coin", "x": 625, "y": 79 },
 
-        { "thing": "Platform", "x": 660, "y": 62, "width": 24, "floating": true, "begin": 24, "end": 76 },
-        { "thing": "Platform", "x": 740, "y": 62, "width": 24, "floating": true, "begin": 24, "end": 76 },
+        { "macro": "Scale", "x": 660, "y": 86, "width": 14, "platWidth": 24, "left": 6, "right": 10 },
         { "macro": "Tree", "x": 672, "y": 16, "width": 32 },
 
         { "thing": "Platform", "x": 752, "y": 32, "width": 24, "falling": true },
@@ -66,8 +64,7 @@ export const world33Data = {
         { "macro": "Fill", "thing": "Koopa", "x": 992, "y": 36, "xnum": 2, "xwidth": 14, "smart": true },
         { "thing": "Platform", "x": 1056, "y": 56, "width": 24 },
 
-        { "thing": "Platform", "x": 1100, "y": 62, "width": 24, "floating": true, "begin": 30, "end": 76 },
-        { "thing": "Platform", "x": 1164, "y": 62, "width": 24, "floating": true, "begin": 30, "end": 76 },
+        { "macro": "Scale", "x": 1100, "y": 86, "width": 8, "platWidth": 24, "left": 4, "right": 10 },
 
         { "macro": "Floor", "x": 1152, "width": 256 },
         { "macro": "EndOutsideCastle", "x": 1204, "large": true, "walls": 13, "transport": { "map": "3-4" } }

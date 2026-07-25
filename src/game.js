@@ -522,6 +522,29 @@ export class Game {
           p.x += mp.velX;
           p.y += mp.velY;
         }
+        // FSM moveFallingScale: standing on one pan lowers it and raises the
+        // other; if a pan reaches the beam both ropes snap and they free-fall
+        if (mp.scale) {
+          if (mp.snapped) {
+            mp.yvel += 0.25;
+            mp.y += mp.yvel;
+            if (onTop) p.y += mp.yvel;
+            if (mp.y > 780) mp.dead = true;
+          } else if (onTop && !p.dead) {
+            mp.yvel = Math.min(mp.yvel + 0.25, 4);
+            mp.y += mp.yvel;
+            p.y  += mp.yvel;
+            mp.partner.y -= mp.yvel;
+            if (mp.partner.y <= mp.beamY + 12) {
+              mp.snapped = mp.partner.snapped = true;
+              mp.yvel = 2; mp.partner.yvel = 2;
+            }
+          } else if (mp.yvel > 0) {
+            mp.yvel = Math.max(0, mp.yvel - 0.125);
+            mp.y += mp.yvel;
+            mp.partner.y -= mp.yvel;
+          }
+        }
         // FSM collideTransport: once boarded, the ride moves right forever
         if (mp.transportRide) {
           if (onTop && !mp.engaged) mp.engaged = true;
