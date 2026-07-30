@@ -1476,7 +1476,10 @@ export class Player {
       ctx.translate(sx, sy);
     }
 
-    const big = h > PLAYER_SMALL_H + 2;
+    // Use the power-based flag: while crouching the hitbox shrinks to
+    // PLAYER_SMALL_H, so a height test would wrongly report "small" and
+    // fall through to the small-Eevee sprite
+    const big = this.big;
 
     // Dispatch to character family
     if (this.char === 'charmander') {

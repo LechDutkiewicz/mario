@@ -404,8 +404,11 @@ export class PowerUp {
 
     this.vy += GRAVITY;
     if (this.vy > MAX_FALL_SPEED) this.vy = MAX_FALL_SPEED;
+    const prevVx = this.vx;
     const res = resolveCollisions(this, solids);
-    if (res.hitSide) this.vx = -this.vx;  // bounce off walls
+    // resolveCollisions zeroes vx on a side hit, so bounce off the SAVED
+    // velocity — negating the zeroed one just left the item stuck
+    if (res.hitSide && prevVx !== 0) this.vx = -prevVx;
     if (this.kind === 'star' && res.onGround) this.vy = -5.5;  // star bounces
   }
 

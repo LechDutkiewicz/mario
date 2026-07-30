@@ -17,6 +17,7 @@ import { buildWorld4 } from './levels/world4.js';
 import { buildWorld5 } from './levels/world5.js';
 import { buildWorld6, WORLD62_RETURN_X } from './levels/world6.js';
 import { buildWorld7 } from './levels/world7.js';
+import { buildWorld8 } from './levels/world8.js';
 import { aabb }     from './physics.js';
 
 // Pokémon type of each playable line — controls which evolution stone
@@ -63,6 +64,8 @@ export class Game {
     this.world6SubArea = 0;
     this.world7Level   = 0;
     this.world7SubArea = 0;
+    this.world8Level   = 0;
+    this.world8SubArea = 0;
     this.areaTransTimer = 0;
     this._pendingArea = -1;
     this._pendingWorld1SubArea = -1;
@@ -72,6 +75,7 @@ export class Game {
     this._pendingWorld5SubArea = -1;
     this._pendingWorld6SubArea = -1;
     this._pendingWorld7SubArea = -1;
+    this._pendingWorld8SubArea = -1;
     this.area0AutoWalk = false; // player auto-walks into entrance pipe
     this._pipeEntry = null;    // { timer, dx, dy, callback } — pipe entry animation
     this.scorePopups = [];
@@ -84,8 +88,9 @@ export class Game {
 
   resetLevel(fullReset, resetPower = fullReset) {
     const savedPower = resetPower ? POWER.SMALL : (this.player ? this.player.power : POWER.SMALL);
-    if (fullReset) { this.world2Area = 0; this.world2Level = 0; this.world2SubArea = 0; this.world1Level = 0; this.world1SubArea = 0; this.world3Level = 0; this.world3SubArea = 0; this.world4Level = 0; this.world4SubArea = 0; this.world5Level = 0; this.world5SubArea = 0; this.world6Level = 0; this.world6SubArea = 0; this.world7Level = 0; this.world7SubArea = 0; }
-    this.level   = this.world === 7 ? buildWorld7(this.world7Level, this.world7SubArea)
+    if (fullReset) { this.world2Area = 0; this.world2Level = 0; this.world2SubArea = 0; this.world1Level = 0; this.world1SubArea = 0; this.world3Level = 0; this.world3SubArea = 0; this.world4Level = 0; this.world4SubArea = 0; this.world5Level = 0; this.world5SubArea = 0; this.world6Level = 0; this.world6SubArea = 0; this.world7Level = 0; this.world7SubArea = 0; this.world8Level = 0; this.world8SubArea = 0; }
+    this.level   = this.world === 8 ? buildWorld8(this.world8Level, this.world8SubArea)
+                 : this.world === 7 ? buildWorld7(this.world7Level, this.world7SubArea)
                  : this.world === 6 ? buildWorld6(this.world6Level, this.world6SubArea)
                  : this.world === 5 ? buildWorld5(this.world5Level, this.world5SubArea)
                  : this.world === 4 ? buildWorld4(this.world4Level, this.world4SubArea)
@@ -949,6 +954,8 @@ export class Game {
                 this._handleWorld6PipeEntry(pl);
               } else if (this.world === 7) {
                 this._handleWorld7PipeEntry(pl);
+              } else if (this.world === 8) {
+                this._handleWorld8PipeEntry(pl);
               }
             };
             this._pipeEntry = { timer: 28, dx: 0, dy: 2.5, pipe: pl, callback };
@@ -984,6 +991,7 @@ export class Game {
             else if (this.world === 5) { this._handleWorld5PipeEntry({ transportId: tid }); }
             else if (this.world === 6) { this._handleWorld6PipeEntry({ transportId: tid }); }
             else if (this.world === 7) { this._handleWorld7PipeEntry({ transportId: tid }); }
+            else if (this.world === 8) { this._handleWorld8PipeEntry({ transportId: tid }); }
           } };
           break;
         }
@@ -1015,6 +1023,9 @@ export class Game {
         } else if (this._pendingWorld7SubArea >= 0) {
           this._doWorld7SubAreaTransition(this._pendingWorld7SubArea);
           this._pendingWorld7SubArea = -1;
+        } else if (this._pendingWorld8SubArea >= 0) {
+          this._doWorld8SubAreaTransition(this._pendingWorld8SubArea);
+          this._pendingWorld8SubArea = -1;
         } else if (this._pendingArea >= 0) {
           this._doAreaTransition(this._pendingArea);
           this._pendingArea = -1;
@@ -1189,7 +1200,23 @@ export class Game {
             this.resetLevel(false);
             this.music.start();
           } else {
-            // Whole game complete — the Pikachu grand finale
+            // World 7 complete → world 8, the final world
+            this.world = 8;
+            this.world8Level = 0;
+            this.world8SubArea = 0;
+            this._checkpoint = null;
+            this.resetLevel(false);
+            this.music.start();
+          }
+        } else if (this.world === 8) {
+          if (this.world8Level < 3) {
+            this.world8Level++;
+            this.world8SubArea = 0;
+            this._checkpoint = null;
+            this.resetLevel(false);
+            this.music.start();
+          } else {
+            // 8-4 cleared — the whole game is done
             this._endingTimer = 0;
             this.state = STATE.ENDING;
             return;
@@ -1501,6 +1528,52 @@ export class Game {
     this._vine = null;
   }
 
+  _startWorld8SubAreaTransition(subArea) {
+    this._pendingWorld8SubArea = subArea;
+    this.areaTransTimer = 40;
+  }
+
+  _handleWorld8PipeEntry(pipe) {
+    const tid = pipe.transportId;
+    if (this.world8Level === 0 || this.world8Level === 1) {
+      // 8-1 / 8-2: transport 2 → coin vault; transport 1 (its exit) → overworld
+      if (tid === 1 || this.world8SubArea === 1) this._startWorld8SubAreaTransition(0);
+      else this._startWorld8SubAreaTransition(1);
+    } else if (this.world8Level === 3) {
+      // 8-4 maze: transport 1 sends you back to room 0, 2..5 advance a room
+      if (tid == null || tid === 1) this._startWorld8SubAreaTransition(0);
+      else this._startWorld8SubAreaTransition(Math.min(tid - 1, 4));
+    }
+  }
+
+  _doWorld8SubAreaTransition(subArea) {
+    const prevPower = this.player.power;
+    const prevSubArea = this.world8SubArea;
+    this.world8SubArea = subArea;
+    this.level = buildWorld8(this.world8Level, subArea);
+    this.r.currentSetting = this.level.setting || 'overworld';
+
+    let spawnX = 80, spawnY = GROUND_Y - 60;
+    if (prevSubArea !== subArea && this.level.exitSpawn) {
+      spawnX = this.level.exitSpawn.x;
+      spawnY = this.level.exitSpawn.y;
+    }
+    if (this._pendingSpawnX != null) { spawnX = this._pendingSpawnX; spawnY = GROUND_Y - 200; this._pendingSpawnX = null; }
+
+    this.player = new Player(spawnX, spawnY);
+    this.player.power = prevPower;
+    this.player.char = this.selectedChar || 'eevee';
+    this.player._applySize();
+    this.cam.x = Math.max(0, spawnX - 200);
+    this.fireballs = []; this.bossShots = []; this.powerups = [];
+    this._pipeEntry = null;
+    this._castleBossComplete = false;
+    this._bridgeRemoved = false;
+    this._catchCamLock = false;
+    this._debris = [];
+    this._vine = null;
+  }
+
   _handleWorld1PipeEntry(pipe) {
     const lvl = this.level;
     // Pipe with transportId: N means "go to FSM area N" (0-indexed, or N=2 → area 1 for 1-1)
@@ -1577,6 +1650,7 @@ export class Game {
     if (this.world === 5) return this.world5Level === 3 ? null : 0;
     if (this.world === 6) return this.world6Level === 3 ? null : 0;
     if (this.world === 7) return this.world7Level === 3 ? null : this.world7Level === 1 ? 1 : 0;
+    if (this.world === 8) return this.world8Level === 3 ? null : 0;
     return 0;
   }
 
@@ -1586,7 +1660,8 @@ export class Game {
          : this.world === 3 ? this.world3Level
          : this.world === 4 ? this.world4Level
          : this.world === 5 ? this.world5Level
-         : this.world === 6 ? this.world6Level : this.world7Level;
+         : this.world === 6 ? this.world6Level
+         : this.world === 7 ? this.world7Level : this.world8Level;
   }
 
   // Find a safe ground x at/after the requested spot (avoid respawning in a pit)
@@ -1940,7 +2015,8 @@ export class Game {
     else if (this.world === 4) worldLabel = `4-${this.world4Level + 1}`;
     else if (this.world === 5) worldLabel = `5-${this.world5Level + 1}`;
     else if (this.world === 6) worldLabel = `6-${this.world6Level + 1}`;
-    else                       worldLabel = `7-${this.world7Level + 1}`;
+    else if (this.world === 7) worldLabel = `7-${this.world7Level + 1}`;
+    else                       worldLabel = `8-${this.world8Level + 1}`;
     const areaIdx = this.level ? (this.level.areaIndex ?? this.world2Area ?? 0) : 0;
     ctx.fillStyle = '#fff';
     ctx.font = 'bold 20px monospace';
@@ -2023,8 +2099,10 @@ export class Game {
     if (world === 5) { this.world5Level = level; this.world5SubArea = 0; }
     if (world === 6) { this.world6Level = level; this.world6SubArea = 0; }
     if (world === 7) { this.world7Level = level; this.world7SubArea = 0; }
+    if (world === 8) { this.world8Level = level; this.world8SubArea = 0; }
     this._checkpoint = null;
-    this.level = world === 7 ? buildWorld7(level, 0)
+    this.level = world === 8 ? buildWorld8(level, 0)
+               : world === 7 ? buildWorld7(level, 0)
                : world === 6 ? buildWorld6(level, 0)
                : world === 5 ? buildWorld5(level, 0)
                : world === 4 ? buildWorld4(level, 0)
@@ -2059,13 +2137,13 @@ export class Game {
 
     // One button per level — 4 per row, one world per row
     const levels = [];
-    for (let w = 1; w <= 7; w++) {
+    for (let w = 1; w <= 8; w++) {
       for (let l = 0; l < 4; l++) {
         levels.push({ label: `${w}-${l + 1}`, world: w, level: l });
       }
     }
-    const cols = 4, bw = 140, bh = 48, gy = 130;
-    const gap = 20;
+    const cols = 4, bw = 140, bh = 34, gy = 108;
+    const gap = 12;
     const gx = Math.floor((CANVAS_WIDTH - (cols * bw + (cols - 1) * gap)) / 2);
     this._levelSelectBtns = [];
     levels.forEach((lv, i) => {
@@ -2276,7 +2354,8 @@ export class Game {
     else if (this.world === 4) worldLabel = `4-${this.world4Level + 1}`;
     else if (this.world === 5) worldLabel = `5-${this.world5Level + 1}`;
     else if (this.world === 6) worldLabel = `6-${this.world6Level + 1}`;
-    else                       worldLabel = `7-${this.world7Level + 1}`;
+    else if (this.world === 7) worldLabel = `7-${this.world7Level + 1}`;
+    else                       worldLabel = `8-${this.world8Level + 1}`;
     ctx.fillStyle = '#fff';
     ctx.font = 'bold 36px monospace';
     ctx.textAlign = 'center';
