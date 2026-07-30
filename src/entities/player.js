@@ -185,17 +185,6 @@ export class Player {
       }
     }
 
-    // Ground pound — big form, mid-air, holding down: slam straight down
-    // and smash bricks beneath (newer-Mario mechanic, added for fun)
-    if (!this.underwater && this.big && !this.onGround && input.down && this.vy > -2) {
-      this.pounding = true;
-    }
-    if (this.pounding) {
-      this.vy = Math.max(this.vy, 12);
-      this.vx *= 0.8;
-      this.isJumping = false;
-    }
-
     // Gravity — FSM: underwater gravity is gravity / 2.8
     this.vy += this.underwater ? GRAVITY / 2.8 : GRAVITY;
     if (this.vy > MAX_FALL_SPEED) this.vy = MAX_FALL_SPEED;
@@ -213,26 +202,6 @@ export class Player {
       this.stompChain = 0;   // FSM jumpcount: consecutive-stomp ladder resets on landing
     }
 
-    // Ground pound landing — smash the bricks directly under the feet
-    if (this.pounding && this.onGround) {
-      const feetY = this.y + this.h;
-      let broke = false;
-      for (const s2 of solids) {
-        if (s2.dead || s2.kind !== 'brick') continue;
-        if (Math.abs(s2.y - feetY) < 5 &&
-            this.x + this.w > s2.x + 2 && this.x < s2.x + s2.w - 2) {
-          game.onBlockBumped(s2);
-          if (s2.dead) broke = true;
-        }
-      }
-      this.pounding = false;
-      if (broke) {
-        // Fall through the freshly made hole
-        this.onGround = false;
-        this.vy = 2;
-      }
-    }
-    if (this.onGround) this.pounding = false;
 
     // FSM WaterBlock — the player cannot swim above the water surface.
     // FSM screen: floor at 416px with a 64px solid band at the top; our
