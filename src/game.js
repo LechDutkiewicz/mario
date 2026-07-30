@@ -16,6 +16,7 @@ import { buildWorld3 } from './levels/world3.js';
 import { buildWorld4 } from './levels/world4.js';
 import { buildWorld5 } from './levels/world5.js';
 import { buildWorld6, WORLD62_RETURN_X } from './levels/world6.js';
+import { buildWorld7 } from './levels/world7.js';
 import { aabb }     from './physics.js';
 
 // Pokémon type of each playable line — controls which evolution stone
@@ -60,6 +61,8 @@ export class Game {
     this.world5SubArea = 0;
     this.world6Level   = 0;
     this.world6SubArea = 0;
+    this.world7Level   = 0;
+    this.world7SubArea = 0;
     this.areaTransTimer = 0;
     this._pendingArea = -1;
     this._pendingWorld1SubArea = -1;
@@ -68,6 +71,7 @@ export class Game {
     this._pendingWorld4SubArea = -1;
     this._pendingWorld5SubArea = -1;
     this._pendingWorld6SubArea = -1;
+    this._pendingWorld7SubArea = -1;
     this.area0AutoWalk = false; // player auto-walks into entrance pipe
     this._pipeEntry = null;    // { timer, dx, dy, callback } — pipe entry animation
     this.scorePopups = [];
@@ -80,8 +84,9 @@ export class Game {
 
   resetLevel(fullReset, resetPower = fullReset) {
     const savedPower = resetPower ? POWER.SMALL : (this.player ? this.player.power : POWER.SMALL);
-    if (fullReset) { this.world2Area = 0; this.world2Level = 0; this.world2SubArea = 0; this.world1Level = 0; this.world1SubArea = 0; this.world3Level = 0; this.world3SubArea = 0; this.world4Level = 0; this.world4SubArea = 0; this.world5Level = 0; this.world5SubArea = 0; this.world6Level = 0; this.world6SubArea = 0; }
-    this.level   = this.world === 6 ? buildWorld6(this.world6Level, this.world6SubArea)
+    if (fullReset) { this.world2Area = 0; this.world2Level = 0; this.world2SubArea = 0; this.world1Level = 0; this.world1SubArea = 0; this.world3Level = 0; this.world3SubArea = 0; this.world4Level = 0; this.world4SubArea = 0; this.world5Level = 0; this.world5SubArea = 0; this.world6Level = 0; this.world6SubArea = 0; this.world7Level = 0; this.world7SubArea = 0; }
+    this.level   = this.world === 7 ? buildWorld7(this.world7Level, this.world7SubArea)
+                 : this.world === 6 ? buildWorld6(this.world6Level, this.world6SubArea)
                  : this.world === 5 ? buildWorld5(this.world5Level, this.world5SubArea)
                  : this.world === 4 ? buildWorld4(this.world4Level, this.world4SubArea)
                  : this.world === 3 ? buildWorld3(this.world3Level, this.world3SubArea)
@@ -658,6 +663,8 @@ export class Game {
           this._startWorld2SubAreaTransition(1); // world 2 entrance → first sub-area
         } else if (this.world === 4) {
           this._startWorld4SubAreaTransition(1); // 4-2 entrance → underworld
+        } else if (this.world === 7) {
+          this._startWorld7SubAreaTransition(1); // 7-2 entrance → underwater
         }
       }
       // Keep walking right until we hit the pipe
@@ -940,6 +947,8 @@ export class Game {
                 this._handleWorld5PipeEntry(pl);
               } else if (this.world === 6) {
                 this._handleWorld6PipeEntry(pl);
+              } else if (this.world === 7) {
+                this._handleWorld7PipeEntry(pl);
               }
             };
             this._pipeEntry = { timer: 28, dx: 0, dy: 2.5, pipe: pl, callback };
@@ -974,6 +983,7 @@ export class Game {
             else if (this.world === 4) { this._handleWorld4PipeEntry({ transportId: tid }); }
             else if (this.world === 5) { this._handleWorld5PipeEntry({ transportId: tid }); }
             else if (this.world === 6) { this._handleWorld6PipeEntry({ transportId: tid }); }
+            else if (this.world === 7) { this._handleWorld7PipeEntry({ transportId: tid }); }
           } };
           break;
         }
@@ -1002,6 +1012,9 @@ export class Game {
         } else if (this._pendingWorld6SubArea >= 0) {
           this._doWorld6SubAreaTransition(this._pendingWorld6SubArea);
           this._pendingWorld6SubArea = -1;
+        } else if (this._pendingWorld7SubArea >= 0) {
+          this._doWorld7SubAreaTransition(this._pendingWorld7SubArea);
+          this._pendingWorld7SubArea = -1;
         } else if (this._pendingArea >= 0) {
           this._doAreaTransition(this._pendingArea);
           this._pendingArea = -1;
@@ -1156,6 +1169,22 @@ export class Game {
           if (this.world6Level < 3) {
             this.world6Level++;
             this.world6SubArea = 0;
+            this._checkpoint = null;
+            this.resetLevel(false);
+            this.music.start();
+          } else {
+            // World 6 complete → world 7
+            this.world = 7;
+            this.world7Level = 0;
+            this.world7SubArea = 0;
+            this._checkpoint = null;
+            this.resetLevel(false);
+            this.music.start();
+          }
+        } else if (this.world === 7) {
+          if (this.world7Level < 3) {
+            this.world7Level++;
+            this.world7SubArea = 0;
             this._checkpoint = null;
             this.resetLevel(false);
             this.music.start();
@@ -1426,6 +1455,52 @@ export class Game {
     this._vine = null;
   }
 
+  _startWorld7SubAreaTransition(subArea) {
+    this._pendingWorld7SubArea = subArea;
+    this.areaTransTimer = 40;
+  }
+
+  _handleWorld7PipeEntry(pipe) {
+    const tid = pipe.transportId;
+    if (this.world7Level === 0) {
+      // 7-1: transport 2 → coin vault; transport 1 (its exit) → overworld
+      if (tid === 1 || this.world7SubArea === 1) this._startWorld7SubAreaTransition(0);
+      else this._startWorld7SubAreaTransition(1);
+    } else if (this.world7Level === 1) {
+      // 7-2: entrance → underwater (1); its exit pipe → overworld exit (2)
+      if (tid === 1) this._startWorld7SubAreaTransition(1);
+      else if (tid === 2) this._startWorld7SubAreaTransition(2);
+    }
+  }
+
+  _doWorld7SubAreaTransition(subArea) {
+    const prevPower = this.player.power;
+    const prevSubArea = this.world7SubArea;
+    this.world7SubArea = subArea;
+    this.level = buildWorld7(this.world7Level, subArea);
+    this.r.currentSetting = this.level.setting || 'overworld';
+
+    let spawnX = 80, spawnY = GROUND_Y - 60;
+    if (prevSubArea !== subArea && this.level.exitSpawn) {
+      spawnX = this.level.exitSpawn.x;
+      spawnY = this.level.exitSpawn.y;
+    }
+    if (this._pendingSpawnX != null) { spawnX = this._pendingSpawnX; spawnY = GROUND_Y - 200; this._pendingSpawnX = null; }
+
+    this.player = new Player(spawnX, spawnY);
+    this.player.power = prevPower;
+    this.player.char = this.selectedChar || 'eevee';
+    this.player._applySize();
+    this.cam.x = Math.max(0, spawnX - 200);
+    this.fireballs = []; this.bossShots = []; this.powerups = [];
+    this._pipeEntry = null;
+    this._castleBossComplete = false;
+    this._bridgeRemoved = false;
+    this._catchCamLock = false;
+    this._debris = [];
+    this._vine = null;
+  }
+
   _handleWorld1PipeEntry(pipe) {
     const lvl = this.level;
     // Pipe with transportId: N means "go to FSM area N" (0-indexed, or N=2 → area 1 for 1-1)
@@ -1501,6 +1576,7 @@ export class Game {
     if (this.world === 4) return this.world4Level === 3 ? null : this.world4Level === 1 ? 1 : 0;
     if (this.world === 5) return this.world5Level === 3 ? null : 0;
     if (this.world === 6) return this.world6Level === 3 ? null : 0;
+    if (this.world === 7) return this.world7Level === 3 ? null : this.world7Level === 1 ? 1 : 0;
     return 0;
   }
 
@@ -1509,7 +1585,8 @@ export class Game {
          : this.world === 2 ? this.world2Level
          : this.world === 3 ? this.world3Level
          : this.world === 4 ? this.world4Level
-         : this.world === 5 ? this.world5Level : this.world6Level;
+         : this.world === 5 ? this.world5Level
+         : this.world === 6 ? this.world6Level : this.world7Level;
   }
 
   // Find a safe ground x at/after the requested spot (avoid respawning in a pit)
@@ -1862,7 +1939,8 @@ export class Game {
     else if (this.world === 3) worldLabel = `3-${this.world3Level + 1}`;
     else if (this.world === 4) worldLabel = `4-${this.world4Level + 1}`;
     else if (this.world === 5) worldLabel = `5-${this.world5Level + 1}`;
-    else                       worldLabel = `6-${this.world6Level + 1}`;
+    else if (this.world === 6) worldLabel = `6-${this.world6Level + 1}`;
+    else                       worldLabel = `7-${this.world7Level + 1}`;
     const areaIdx = this.level ? (this.level.areaIndex ?? this.world2Area ?? 0) : 0;
     ctx.fillStyle = '#fff';
     ctx.font = 'bold 20px monospace';
@@ -1944,8 +2022,10 @@ export class Game {
     if (world === 4) { this.world4Level = level; this.world4SubArea = 0; }
     if (world === 5) { this.world5Level = level; this.world5SubArea = 0; }
     if (world === 6) { this.world6Level = level; this.world6SubArea = 0; }
+    if (world === 7) { this.world7Level = level; this.world7SubArea = 0; }
     this._checkpoint = null;
-    this.level = world === 6 ? buildWorld6(level, 0)
+    this.level = world === 7 ? buildWorld7(level, 0)
+               : world === 6 ? buildWorld6(level, 0)
                : world === 5 ? buildWorld5(level, 0)
                : world === 4 ? buildWorld4(level, 0)
                : world === 3 ? buildWorld3(level, 0)
@@ -1979,7 +2059,7 @@ export class Game {
 
     // One button per level — 4 per row, one world per row
     const levels = [];
-    for (let w = 1; w <= 6; w++) {
+    for (let w = 1; w <= 7; w++) {
       for (let l = 0; l < 4; l++) {
         levels.push({ label: `${w}-${l + 1}`, world: w, level: l });
       }
@@ -2195,7 +2275,8 @@ export class Game {
     else if (this.world === 3) worldLabel = `3-${this.world3Level + 1}`;
     else if (this.world === 4) worldLabel = `4-${this.world4Level + 1}`;
     else if (this.world === 5) worldLabel = `5-${this.world5Level + 1}`;
-    else                       worldLabel = `6-${this.world6Level + 1}`;
+    else if (this.world === 6) worldLabel = `6-${this.world6Level + 1}`;
+    else                       worldLabel = `7-${this.world7Level + 1}`;
     ctx.fillStyle = '#fff';
     ctx.font = 'bold 36px monospace';
     ctx.textAlign = 'center';
