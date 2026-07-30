@@ -731,8 +731,10 @@ export class Game {
         }
       }
 
-      // Fireballs don't affect shells or already-dying enemies
-      if (!e.inShell && !e.dying) {
+      // Fireballs kill shells too (FSM: Shell has no `nofire`, so fireEnemy
+      // calls its death → killFlip). Only Slugma/Beldum are fire-immune.
+      const fireImmune = e.type === 'podoboo' || e.type === 'bulletbill';
+      if (!fireImmune && !e.dying) {
         for (const fb of this.fireballs) {
           if (!fb.dead && aabb(fb, e)) {
             fb.dead = true;
