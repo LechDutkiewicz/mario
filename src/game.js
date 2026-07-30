@@ -2124,7 +2124,7 @@ export class Game {
 
   _drawLevelSelect() {
     const ctx = this.ctx;
-    ctx.fillStyle = 'rgba(0,0,0,0.75)';
+    ctx.fillStyle = 'rgba(0,0,0,0.88)';
     ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 
     ctx.fillStyle = '#ffd23b';
@@ -2142,8 +2142,8 @@ export class Game {
         levels.push({ label: `${w}-${l + 1}`, world: w, level: l });
       }
     }
-    const cols = 4, bw = 140, bh = 34, gy = 108;
-    const gap = 12;
+    const cols = 4, bw = 150, bh = 44, gy = 112;
+    const gap = 14;
     const gx = Math.floor((CANVAS_WIDTH - (cols * bw + (cols - 1) * gap)) / 2);
     this._levelSelectBtns = [];
     levels.forEach((lv, i) => {
