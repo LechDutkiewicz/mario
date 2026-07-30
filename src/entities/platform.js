@@ -219,6 +219,38 @@ export class TreePlatform {
   }
 }
 
+// Cannon (FSM Bill Blaster) — solid launcher block that fires Beldum bullets
+export class Cannon {
+  constructor(x, y, w, h) {
+    this.x = x; this.y = y; this.w = w; this.h = h;
+    this.timer = 270;      // FSM: addEventInterval(..., 270)
+    this.flash = 0;
+    this.dead = false;
+    this.kind = 'platform';
+  }
+
+  draw(r, cam) {
+    const ctx = r.ctx;
+    const sx = Math.floor(this.x - cam.x);
+    const sy = Math.floor(this.y);
+    // Base column
+    ctx.fillStyle = '#3a3a46';
+    ctx.fillRect(sx, sy + 26, this.w, this.h - 26);
+    ctx.fillStyle = '#54545e';
+    ctx.fillRect(sx + 3, sy + 29, this.w - 6, this.h - 32);
+    // Muzzle block
+    ctx.fillStyle = '#1e1e26';
+    ctx.fillRect(sx - 2, sy, this.w + 4, 28);
+    ctx.fillStyle = '#40404c';
+    ctx.fillRect(sx, sy + 3, this.w, 8);
+    // Barrel mouth
+    ctx.fillStyle = this.flash > 0 ? '#ffd23b' : '#0a0a10';
+    ctx.beginPath(); ctx.ellipse(sx + this.w / 2, sy + 15, 9, 8, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = '#111'; ctx.lineWidth = 1.5;
+    ctx.strokeRect(sx - 2, sy, this.w + 4, 28);
+  }
+}
+
 // Mushroom platform (FSM ShroomTop) — red cap with white spots on a trunk
 export class ShroomPlatform {
   constructor(x, y, w) {

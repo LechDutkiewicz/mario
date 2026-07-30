@@ -38,6 +38,8 @@ export class Enemy {
     if (type === 'pineco') { this.w = 24; this.h = 22; this.vx = -0.84; this.y = y - this.h; }
     // Spiny egg — falls from Zubat, becomes a walking Pineco on landing
     if (type === 'pinecoegg') { this.w = 22; this.h = 22; this.vx = 0; this.vy = -8.4; this.y = y; }
+    // FSM BulletBill → Beldum: flies straight, ignores gravity and solids
+    if (type === 'bulletbill') { this.w = 32; this.h = 28; this.vx = -2; this.y = y - this.h; this.active = true; }
     // Leaping Magikarp (FSM startCheepSpawn) — rockets up, then arcs down
     if (type === 'cheepjump') { this.w = 26; this.h = 20; this.y = y; this.active = true; this.rising = true; }
     this.dead = false;
@@ -138,6 +140,13 @@ export class Enemy {
     if (!this.active && this.type !== 'zubat') {
       if (Math.abs(this.x - player.x) < 520) this.active = true;
       else return;
+    }
+
+    // Beldum bullet — constant horizontal flight, no gravity, no collisions
+    if (this.type === 'bulletbill') {
+      this.x += this.vx;
+      if (this.x < -300 || this.x > 200000) this.dead = true;
+      return;
     }
 
     // Flying Paratroopa — FSM moveFloating: oscillates vertically ONLY
@@ -426,6 +435,8 @@ export class Enemy {
       this._drawCubone(ctx, x, y, w, h);
     } else if (this.type === 'pineco' || this.type === 'pinecoegg') {
       this._drawPineco(ctx, x, y, w, h);
+    } else if (this.type === 'bulletbill') {
+      this._drawBulletBill(ctx, x, y, w, h);
     } else {
       this._drawEkans(ctx, x, y, w, h);
     }
@@ -768,6 +779,44 @@ export class Enemy {
     ctx.moveTo(x + w * 0.9, y + h * 0.58);
     ctx.quadraticCurveTo(x + w * 0.98, y + h * 0.8, x + w * 0.9 + flop * 0.5, y + h * 0.95);
     ctx.stroke();
+  }
+
+  // Beldum — metallic bullet (Bullet Bill role)
+  _drawBulletBill(ctx, x, y, w, h) {
+    const OL = '#111';
+    const dir = this.vx < 0 ? -1 : 1;
+    const cx = x + w / 2, cy = y + h / 2;
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.scale(dir, 1);
+    // Body — rounded steel capsule, nose leading
+    ctx.fillStyle = '#5878a0';
+    ctx.beginPath();
+    ctx.moveTo(-w * 0.20, -h * 0.42);
+    ctx.lineTo(w * 0.10, -h * 0.42);
+    ctx.quadraticCurveTo(w * 0.50, 0, w * 0.10, h * 0.42);
+    ctx.lineTo(-w * 0.20, h * 0.42);
+    ctx.quadraticCurveTo(-w * 0.42, 0, -w * 0.20, -h * 0.42);
+    ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = OL; ctx.lineWidth = 1.5; ctx.stroke();
+    // Steel sheen
+    ctx.fillStyle = '#8ab0d0';
+    ctx.beginPath(); ctx.ellipse(-w * 0.05, -h * 0.20, w * 0.22, h * 0.12, 0, 0, Math.PI * 2); ctx.fill();
+    // Fins at the tail
+    ctx.fillStyle = '#3a5878';
+    ctx.beginPath();
+    ctx.moveTo(-w * 0.20, -h * 0.30); ctx.lineTo(-w * 0.44, -h * 0.50); ctx.lineTo(-w * 0.30, -h * 0.10);
+    ctx.closePath(); ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(-w * 0.20, h * 0.30); ctx.lineTo(-w * 0.44, h * 0.50); ctx.lineTo(-w * 0.30, h * 0.10);
+    ctx.closePath(); ctx.fill();
+    // Single glowing red eye
+    ctx.fillStyle = '#e02020';
+    ctx.beginPath(); ctx.arc(w * 0.12, 0, 5, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = OL; ctx.lineWidth = 1; ctx.stroke();
+    ctx.fillStyle = '#ff9090';
+    ctx.beginPath(); ctx.arc(w * 0.10, -1.5, 2, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
   }
 
   // Zubat — blue bat hovering above (Lakitu role)

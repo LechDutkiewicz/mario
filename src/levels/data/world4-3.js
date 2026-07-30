@@ -33,8 +33,8 @@ export const world43Data = {
         { "thing": "Coin", "x": 385, "y": 47 },
         { "macro": "Scale", "x": 396, "y": 86, "width": 14, "platWidth": 24, "left": 4, "right": 10 },
         { "macro": "Shroom", "x": 408, "y": 40, "width": 24 },
-        { "thing": "Platform", "x": 464, "y": 20, "width": 48, "floating": true, "begin": 32, "end": 88 },
-        { "thing": "Platform", "x": 496, "y": 66, "width": 48, "floating": true, "begin": 32, "end": 88 },
+        { "thing": "Platform", "x": 464, "y": 20, "width": 24, "floating": true, "begin": 32, "end": 88 },
+        { "thing": "Platform", "x": 496, "y": 66, "width": 24, "floating": true, "begin": 32, "end": 88 },
 
         { "macro": "Shroom", "x": 520, "width": 40 },
         { "macro": "Shroom", "x": 536, "y": 48, "width": 24 },
@@ -58,7 +58,7 @@ export const world43Data = {
         { "macro": "Shroom", "x": 936, "y": 56, "width": 24 },
         { "macro": "Shroom", "x": 968, "width": 56 },
         { "macro": "Shroom", "x": 1040, "y": 24, "width": 40 },
-        { "thing": "Platform", "x": 1088, "y": 67, "width": 48, "floating": true, "begin": 8, "end": 88 },
+        { "thing": "Platform", "x": 1088, "y": 67, "width": 24, "floating": true, "begin": 8, "end": 88 },
 
         { "macro": "Floor", "x": 1128, "width": 152 },
         { "macro": "EndOutsideCastle", "x": 1172, "transport": { "map": "4-4" } }

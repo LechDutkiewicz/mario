@@ -9,7 +9,7 @@
 //   Ground    = GY (= 540)
 // ============================================================
 import { TILE, GROUND_Y, COLORS } from '../constants.js';
-import { Platform, QuestionBlock, PipeBlock, BrickBlock, MovingPlatform, TreePlatform, Springboard, ShroomPlatform, ScalePlatform } from '../entities/platform.js';
+import { Platform, QuestionBlock, PipeBlock, BrickBlock, MovingPlatform, TreePlatform, Springboard, ShroomPlatform, ScalePlatform, Cannon } from '../entities/platform.js';
 import { FlagPole } from '../entities/flagpole.js';
 import { Enemy } from '../entities/enemy.js';
 import { Coin } from '../entities/coin.js';
@@ -92,6 +92,16 @@ function processThing(e, out) {
       // Cubone — slides side to side, throws bone boomerangs
       out.enemies.push(new Enemy(sx, GY - (y - 8) * 4, 'cubone'));
       break;
+
+    // FSM Cannon (Bill Blaster) — solid, fires bullets at the player
+    case 'Cannon': {
+      const ch = (e.height || 1) * 8 * 4;   // tiles of 8 units → px
+      const c = new Cannon(sx, GY - y * 4, T, ch);
+      out.platforms.push(c);
+      out.cannons = out.cannons || [];
+      out.cannons.push(c);
+      break;
+    }
 
     case 'Springboard': {
       // FSM: width 8u (32px), height 14.5u (58px); y = top above floor
@@ -521,6 +531,7 @@ export function loadFSMLevel(jsonData, areaIndex = 0) {
     hPipeExits:      out.hPipeExits || [],
     cheepZone:       out.cheepZone || null,
     scrollBlockers:  out.scrollBlockers || [],
+    cannons:         out.cannons || [],
     patterns:        out.patterns || [],
     lavaZones:       out.lavaZones || [],
     time:            jsonData.time ?? 300,
