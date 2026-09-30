@@ -418,11 +418,12 @@ export class MovingPlatform {
 
 // Pipe block — solid hitbox is exactly T*2 wide; cap is drawn visually wider but doesn't affect collision
 export class PipeBlock {
-  constructor(tx, tileHeight, enterable = false) {
+  constructor(tx, tileHeight, enterable = false, baseY = GROUND_Y) {
     const T = TILE;
-    // Solid hitbox: exact pipe body width, full height
+    // Solid hitbox: exact pipe body width, full height. baseY = where the
+    // pipe's bottom sits (ground, or the top of a stone pedestal)
     this.x = tx;
-    this.y = GROUND_Y - T * tileHeight;
+    this.y = baseY - T * tileHeight;
     this.w = T * 2;
     this.h = T * tileHeight;
     this.dead = false;

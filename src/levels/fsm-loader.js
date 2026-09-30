@@ -39,11 +39,14 @@ function processThing(e, out) {
   const sx = ux(x);
 
   switch (e.thing) {
-    case 'Brick':
+    case 'Brick': {
       // y = top of brick in FSM units → screen_top = GY - y*4
       // Bricks may carry contents (Star, Mushroom, Vine, …) — spawned on bump
-      out.platforms.push(new BrickBlock(sx, uy(y), e.contents ? mapContents(e.contents) : null));
+      const by = uy(y);
+      if (out.platforms.some(o => o.kind === 'brick' && o.x === sx && o.y === by)) break;  // duplicate tile
+      out.platforms.push(new BrickBlock(sx, by, e.contents ? mapContents(e.contents) : null));
       break;
+    }
 
     case 'Stone':
     case 'HardBlock': {
@@ -298,14 +301,21 @@ function processMacro(e, out) {
     case 'Pipe': {
       const heightTiles = Math.max(1, Math.round((e.height || 16) / 8));
       const sx = ux(x);
-      const enterable = (e.entrance != null || e.exit != null || e.transport != null);
-      const pb = new PipeBlock(sx, heightTiles, enterable);
+      // Only pipes that LEAD somewhere can be entered. Exit pipes (entrance
+      // only) must not be: pressing down on one re-entered the bonus room
+      // (endless coin farming) or, in worlds 2/6, sank the player into the
+      // pipe with no transition at all
+      const enterable = (e.exit != null || e.transport != null);
+      // FSM pushPrePipe(x, y, height): the pipe's bottom sits at y (0 = ground,
+      // otherwise on top of a stone pedestal)
+      const baseY = GY - y * 4;
+      const pb = new PipeBlock(sx, heightTiles, enterable, baseY);
       if (e.exit != null)      pb.leadsToArea   = 2;
       if (e.transport != null) pb.transportId   = typeof e.transport === 'object' ? null : e.transport;
       if (e.entrance  != null) pb.entranceId    = e.entrance;
       out.platforms.push(pb);
       if (e.pirhana || e.piranha) {
-        out.plants.push(new PipePlant(sx, GY - heightTiles * T));
+        out.plants.push(new PipePlant(sx, baseY - heightTiles * T));
       }
       break;
     }

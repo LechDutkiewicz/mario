@@ -100,7 +100,7 @@ export class Game {
     this.area0AutoWalk = !!this.level?.entrancePipeX
                       || (this.world === 1 && this.world1Level === 1 && this.world1SubArea === 0);
     this.r.currentSetting = this.level.setting || 'overworld';
-    this.player  = new Player(80, GROUND_Y - 60);
+    this.player  = new Player(...this._safeSpawn(80, GROUND_Y - 60));
     this.player.power = savedPower;
     this.player.char = this.selectedChar || 'eevee';
     this.player._applySize();
@@ -492,8 +492,7 @@ export class Game {
     // ── Halfway checkpoint (main play areas only, not castles/bonus zones) ──
     {
       const mainSub = this._mainSubArea();
-      const curSub = this.world === 1 ? this.world1SubArea
-                   : this.world === 2 ? this.world2SubArea : 0;
+      const curSub = this._curSubArea();
       if (mainSub != null && curSub === mainSub && !p.dead &&
           (!this._checkpoint || this._checkpoint.world !== this.world ||
            this._checkpoint.level !== this._curLevelIdx())) {
@@ -926,6 +925,12 @@ export class Game {
       if (pe.timer <= 0) {
         pe.callback();
         this._pipeEntry = null;
+        // Safety net: a pipe whose handler started no transition must not
+        // leave the player buried inside it — pop them back out on top
+        if (this.areaTransTimer === 0 && pe.pipe && this.player === p) {
+          p.y = pe.pipe.y - p.h;
+          p.vy = 0;
+        }
       }
       // Skip normal physics/input this frame
     }
@@ -942,6 +947,8 @@ export class Game {
             const callback = () => {
               if (this.world === 2 && pl.leadsToArea !== undefined) {
                 this._startWorld2SubAreaTransition(pl.leadsToArea);
+              } else if (this.world === 2) {
+                this._handleWorld2PipeEntry(pl);
               } else if (this.world === 1) {
                 this._handleWorld1PipeEntry(pl);
               } else if (this.world === 3) {
@@ -1044,7 +1051,12 @@ export class Game {
     const fp = this.level.flagPole;
     if (fp) {
       fp.update(p);
-      if (fp.touched && !p.poleSliding && !p.dead && this.worldClearTimer === 0) {
+      // Grab the pole ONCE. `touched` stays true after landing, so without the
+      // `grabbed` latch this re-fired every frame: the player was snapped
+      // back onto the pole forever (level never ended) and the height bonus
+      // was re-awarded 60 times a second
+      if (fp.touched && !fp.grabbed && !p.poleSliding && !p.dead && this.worldClearTimer === 0) {
+        fp.grabbed = true;
         p.poleSliding = true;
         p.x = fp.x + 2;
         p.vx = 0;
@@ -1288,7 +1300,7 @@ export class Game {
     }
     if (this._pendingSpawnX != null) { spawnX = this._pendingSpawnX; spawnY = GROUND_Y - 200; this._pendingSpawnX = null; }
 
-    this.player = new Player(spawnX, spawnY);
+    this.player = new Player(...this._safeSpawn(spawnX, spawnY));
     this.player.power = prevPower;
     this.player.char = this.selectedChar || 'eevee';
     this.player._applySize();
@@ -1330,7 +1342,7 @@ export class Game {
     }
     if (this._pendingSpawnX != null) { spawnX = this._pendingSpawnX; spawnY = GROUND_Y - 200; this._pendingSpawnX = null; }
 
-    this.player = new Player(spawnX, spawnY);
+    this.player = new Player(...this._safeSpawn(spawnX, spawnY));
     this.player.power = prevPower;
     this.player.char = this.selectedChar || 'eevee';
     this.player._applySize();
@@ -1379,7 +1391,7 @@ export class Game {
     }
     if (this._pendingSpawnX != null) { spawnX = this._pendingSpawnX; spawnY = GROUND_Y - 200; this._pendingSpawnX = null; }
 
-    this.player = new Player(spawnX, spawnY);
+    this.player = new Player(...this._safeSpawn(spawnX, spawnY));
     this.player.power = prevPower;
     this.player.char = this.selectedChar || 'eevee';
     this.player._applySize();
@@ -1425,7 +1437,7 @@ export class Game {
     }
     if (this._pendingSpawnX != null) { spawnX = this._pendingSpawnX; spawnY = GROUND_Y - 200; this._pendingSpawnX = null; }
 
-    this.player = new Player(spawnX, spawnY);
+    this.player = new Player(...this._safeSpawn(spawnX, spawnY));
     this.player.power = prevPower;
     this.player.char = this.selectedChar || 'eevee';
     this.player._applySize();
@@ -1468,7 +1480,7 @@ export class Game {
     let spawnX = 80, spawnY = GROUND_Y - 60;
     if (this._pendingSpawnX != null) { spawnX = this._pendingSpawnX; spawnY = GROUND_Y - 200; this._pendingSpawnX = null; }
 
-    this.player = new Player(spawnX, spawnY);
+    this.player = new Player(...this._safeSpawn(spawnX, spawnY));
     this.player.power = prevPower;
     this.player.char = this.selectedChar || 'eevee';
     this.player._applySize();
@@ -1514,7 +1526,7 @@ export class Game {
     }
     if (this._pendingSpawnX != null) { spawnX = this._pendingSpawnX; spawnY = GROUND_Y - 200; this._pendingSpawnX = null; }
 
-    this.player = new Player(spawnX, spawnY);
+    this.player = new Player(...this._safeSpawn(spawnX, spawnY));
     this.player.power = prevPower;
     this.player.char = this.selectedChar || 'eevee';
     this.player._applySize();
@@ -1560,7 +1572,7 @@ export class Game {
     }
     if (this._pendingSpawnX != null) { spawnX = this._pendingSpawnX; spawnY = GROUND_Y - 200; this._pendingSpawnX = null; }
 
-    this.player = new Player(spawnX, spawnY);
+    this.player = new Player(...this._safeSpawn(spawnX, spawnY));
     this.player.power = prevPower;
     this.player.char = this.selectedChar || 'eevee';
     this.player._applySize();
@@ -1598,6 +1610,34 @@ export class Game {
     }
   }
 
+  // Nudge a spawn point out of solid geometry. Several sub-areas (level-exit
+  // staircases, bonus rooms with brick columns) put something at the default
+  // x=80 — spawning there embeds the player in a wall and collision resolution
+  // then flings them around. Search sideways for the nearest clear spot,
+  // standing on top of whatever occupies that column if needed.
+  _safeSpawn(x, y) {
+    const lvl = this.level;
+    const solids = [...lvl.platforms, ...lvl.qblocks].filter(o => !o.dead && !o.hidden);
+    const W = 32, H = 56;
+    const clear = (bx, by) => !solids.some(o =>
+      bx < o.x + o.w && bx + W > o.x && by < o.y + o.h && by + H > o.y);
+    if (clear(x, y)) return [x, y];
+    // 1) free floor right next to the spot
+    for (let d = 8; d <= 64; d += 8)
+      for (const cx of [x - d, x + d]) if (cx >= 0 && clear(cx, y)) return [cx, y];
+    // 2) stand on top of whatever occupies a nearby column
+    for (let d = 8; d <= 320; d += 8) {
+      for (const cx of [x - d, x + d]) {
+        if (cx < 0) continue;
+        const tops = solids
+          .filter(o => cx < o.x + o.w && cx + W > o.x && o.y > y - 200 && o.y <= y + H)
+          .map(o => o.y).sort((a, b) => a - b);
+        for (const t of tops) if (clear(cx, t - H)) return [cx, t - H];
+      }
+    }
+    return [x, y];
+  }
+
   _startWorld1AreaTransition(toSubArea) {
     this._pendingWorld1SubArea = toSubArea;
     this.areaTransTimer = 40;
@@ -1616,7 +1656,7 @@ export class Game {
       spawnX = this.level.exitSpawn.x;
       spawnY = this.level.exitSpawn.y;
     }
-    this.player = new Player(spawnX, spawnY);
+    this.player = new Player(...this._safeSpawn(spawnX, spawnY));
     this.player.power = savedPower;
     this.player.char = this.selectedChar || 'eevee';
     this.player._applySize();
@@ -1631,7 +1671,7 @@ export class Game {
     this.area0AutoWalk = false;
     this.level = buildWorld2(toArea);
     this.r.currentSetting = this.level.setting || 'overworld';
-    this.player = new Player(80, GROUND_Y - 60);
+    this.player = new Player(...this._safeSpawn(80, GROUND_Y - 60));
     this.player.power = savedPower;
     this.player.char = this.selectedChar || 'eevee';
     this.player._applySize();
@@ -1652,6 +1692,10 @@ export class Game {
     if (this.world === 7) return this.world7Level === 3 ? null : this.world7Level === 1 ? 1 : 0;
     if (this.world === 8) return this.world8Level === 3 ? null : 0;
     return 0;
+  }
+
+  _curSubArea() {
+    return this[`world${this.world}SubArea`] ?? 0;
   }
 
   _curLevelIdx() {
@@ -1685,8 +1729,10 @@ export class Game {
     // Halfway checkpoint: respawn there instead of the level start
     const cp = this._checkpoint;
     if (cp && cp.world === this.world && cp.level === this._curLevelIdx()) {
-      if (this.world === 1) this.world1SubArea = cp.sub;
-      if (this.world === 2) this.world2SubArea = cp.sub;
+      // Respawn in the checkpoint's own sub-area (every world, not just 1/2 —
+      // otherwise dying in a bonus room put the player at a main-level x
+      // inside the small room, out of bounds, in a death loop)
+      this[`world${this.world}SubArea`] = cp.sub;
       this.resetLevel(false, true);   // power resets to SMALL as on any death
       this.player.x = cp.x;
       this.player.y = GROUND_Y - 200; // drop in from above
@@ -2091,6 +2137,14 @@ export class Game {
 
   _jumpToLevel(world, level) {
     const savedPower = this.player ? this.player.power : POWER.SMALL;
+    // Cancel any pipe/area transition still in flight — otherwise it fires a
+    // moment later and drops the player into a sub-area of the OLD level
+    this.areaTransTimer = 0;
+    this._pendingArea = -1;
+    for (let w = 1; w <= 8; w++) this[`_pendingWorld${w}SubArea`] = -1;
+    this._pendingWorld1SubArea = -1;
+    this._pendingSpawnX = null;
+    this.walkToPC = false; this.walkToPCTimer = 0;
     this.world = world;
     if (world === 1) { this.world1Level = level; this.world1SubArea = 0; }
     if (world === 2) { this.world2Area = level; this.world2Level = level; this.world2SubArea = 0; }
@@ -2110,7 +2164,7 @@ export class Game {
                : world === 2 ? buildWorld2(level, 0)
                : buildWorld1(level, 0);
     this.r.currentSetting = this.level.setting || 'overworld';
-    this.player = new Player(80, GROUND_Y - 60);
+    this.player = new Player(...this._safeSpawn(80, GROUND_Y - 60));
     this.player.power = savedPower;
     this.player.char = this.selectedChar || 'eevee';
     this.player._applySize();
