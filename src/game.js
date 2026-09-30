@@ -679,6 +679,19 @@ export class Game {
       };
     }
 
+    // Boss beaten (Ultra Ball touched or shot down): like SMB after the axe,
+    // the player loses control until the auto-walk to the trainer starts —
+    // otherwise a held right arrow ran them off the end of the castle floor
+    // during the bridge-collapse animation
+    if (lvl.castleBoss && lvl.castleBoss.defeated && !this._castleBossComplete && !p.walkToPC) {
+      activeInput = {
+        left: false, right: false, down: false, run: false,
+        jump: false, jumpPressed: false, firePressed: false,
+        justPressed: () => false,
+      };
+      p.vx *= 0.8;
+    }
+
     const pipeBlockedInput = this._pipeEntry ? {
       left: false, right: false, down: false, run: false,
       jump: false, jumpPressed: false, firePressed: false,

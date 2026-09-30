@@ -355,6 +355,9 @@ function processMacro(e, out) {
       const floorX   = bridgeX + BRIDGE_W;
       const FLOOR_W  = T * 12;
       out.platforms.push(new Platform(floorX, FLOOR_Y, FLOOR_W, GY - FLOOR_Y + T, COLORS.brick));
+      // End wall behind the trainer (SMB: the screen edge) — a jumping player
+      // who overshoots the Ultra Ball must not fall off the end of the castle
+      out.platforms.push(new Platform(floorX + FLOOR_W, GY - 11 * T, T, 12 * T, COLORS.brick));
 
       // Bridge platform — visually distinct planks, collapses when Ultra Ball is grabbed
       const bridge = new Platform(bridgeX, FLOOR_Y, BRIDGE_W, T, COLORS.brick);
