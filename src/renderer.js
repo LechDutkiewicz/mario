@@ -30,6 +30,17 @@ const TERRAIN = {
     dirt: '#d0b46c', dirtLight: '#e4cc88', dirtDark: '#a48a48', pebble: '#b09450', outline: '#4a3a1c',
   },
 };
+// Sky world uses the overworld terrain palette (grass caps, dirt body)
+TERRAIN.sky = TERRAIN.overworld;
+
+// Per-setting ambient tint other entity renderers may multiply over raw
+// sprite colours (pipes etc.) so they sit in the scene's mood. null = none.
+const AMBIENT = {
+  night:       'rgba(20,30,80,0.25)',
+  castle:      'rgba(60,10,0,0.2)',
+  underground: 'rgba(10,20,60,0.2)',
+  underwater:  'rgba(10,40,90,0.2)',
+};
 
 export class Renderer {
   constructor(ctx) {
@@ -249,6 +260,11 @@ export class Renderer {
     return TERRAIN[s] || TERRAIN.overworld;
   }
 
+  // CSS colour to tint foreground props toward the scene mood, or null.
+  ambientTint() {
+    return AMBIENT[this.currentSetting] || null;
+  }
+
   _makeTile(w, h) {
     const c = document.createElement('canvas');
     c.width = w; c.height = h;
@@ -419,15 +435,97 @@ export class Renderer {
   // ------------------------------------------------------------
   // Background layers
   // ------------------------------------------------------------
-  _skyBands(top, bottom, stops) {
-    // Stepped sky banding (SNES-style) between y=top and y=bottom
+  _skyGradient(key, top, bottom, stops) {
+    // Smooth vertical sky gradient between y=top and y=bottom (cached per key)
     const ctx = this.ctx;
-    const n = stops.length;
-    const bandH = (bottom - top) / n;
-    for (let i = 0; i < n; i++) {
-      ctx.fillStyle = stops[i];
-      ctx.fillRect(0, Math.floor(top + i * bandH), CANVAS_WIDTH, Math.ceil(bandH) + 1);
+    if (!this._skyGrads) this._skyGrads = new Map();
+    let g = this._skyGrads.get(key);
+    if (!g) {
+      g = ctx.createLinearGradient(0, top, 0, bottom);
+      const n = stops.length;
+      for (let i = 0; i < n; i++) g.addColorStop(n === 1 ? 0 : i / (n - 1), stops[i]);
+      this._skyGrads.set(key, g);
     }
+    ctx.fillStyle = g;
+    ctx.fillRect(0, top, CANVAS_WIDTH, bottom - top);
+  }
+
+  // Distant ground band under the horizon line (y >= GROUND_Y). On levels
+  // with ground tiles this is fully covered; on void levels it reads as far
+  // fields / water instead of raw sky. Treeline ridge scrolls at 0.2x.
+  _farGround(camX, top, bottom, ridge, lines) {
+    const ctx = this.ctx;
+    const key = 'fg:' + (this.currentSetting || 'overworld');
+    if (!this._fgGrads) this._fgGrads = new Map();
+    let g = this._fgGrads.get(key);
+    if (!g) {
+      g = ctx.createLinearGradient(0, GROUND_Y, 0, CANVAS_HEIGHT);
+      g.addColorStop(0, top);
+      g.addColorStop(1, bottom);
+      this._fgGrads.set(key, g);
+    }
+    ctx.fillStyle = g;
+    ctx.fillRect(0, GROUND_Y, CANVAS_WIDTH, CANVAS_HEIGHT - GROUND_Y);
+    const period = 320;
+    const off = ((camX * 0.2) % period + period) % period;
+    const x0 = -period - off;
+    ctx.fillStyle = ridge;
+    ctx.beginPath();
+    ctx.moveTo(x0, GROUND_Y + 22);
+    for (let i = -1; i < Math.ceil(CANVAS_WIDTH / period) + 2; i++) {
+      const bx = i * period - off;
+      ctx.quadraticCurveTo(bx + 40, GROUND_Y + 4, bx + 90, GROUND_Y + 14);
+      ctx.quadraticCurveTo(bx + 150, GROUND_Y + 2, bx + 200, GROUND_Y + 12);
+      ctx.quadraticCurveTo(bx + 260, GROUND_Y + 6, bx + 320, GROUND_Y + 22);
+    }
+    ctx.lineTo(CANVAS_WIDTH + period, CANVAS_HEIGHT);
+    ctx.lineTo(x0, CANVAS_HEIGHT);
+    ctx.closePath();
+    ctx.fill();
+    // Faint horizontal glints lower down (water / field rows) at 0.1x
+    ctx.fillStyle = lines;
+    for (let i = 0; i < 3; i++) {
+      const ly = GROUND_Y + 34 + i * 9;
+      const lx = ((i * 230 - camX * 0.1) % 260 + 260) % 260;
+      for (let x = lx - 260; x < CANVAS_WIDTH; x += 260) ctx.fillRect(x, ly, 120 + i * 20, 1);
+    }
+  }
+
+  // Rolling cloud-sea layer: scalloped cloud tops along baseY with a solid
+  // body down to the canvas bottom. Shade pass first, lifted white pass over.
+  _cloudSea(scroll, baseY, fill, shade) {
+    const ctx = this.ctx;
+    const period = 560;
+    const off = ((scroll % period) + period) % period;
+    const bumps = [[0, 70, 30], [110, 58, 22], [205, 82, 36], [330, 54, 20], [420, 74, 32], [520, 48, 18]];
+    const passes = [[shade, 0, CANVAS_HEIGHT - baseY], [fill, -6, 18]];
+    for (const [col, dy, bodyH] of passes) {
+      ctx.fillStyle = col;
+      ctx.beginPath();
+      ctx.rect(-period, baseY + dy, CANVAS_WIDTH + 2 * period, bodyH);
+      for (let i = -1; i < Math.ceil(CANVAS_WIDTH / period) + 1; i++) {
+        const bx = i * period - off;
+        for (const [ox, rx, ry] of bumps) {
+          ctx.moveTo(bx + ox + rx, baseY + dy);
+          ctx.ellipse(bx + ox, baseY + dy, rx, ry, 0, Math.PI, 0);
+        }
+      }
+      ctx.fill();
+    }
+  }
+
+  // Soft dark edge vignette (cached radial gradient) for enclosed scenes
+  _vignette() {
+    const ctx = this.ctx;
+    if (!this._vigGrad) {
+      const g = ctx.createRadialGradient(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, CANVAS_HEIGHT * 0.35,
+                                         CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, CANVAS_WIDTH * 0.72);
+      g.addColorStop(0, 'rgba(0,0,0,0)');
+      g.addColorStop(1, 'rgba(0,0,0,0.55)');
+      this._vigGrad = g;
+    }
+    ctx.fillStyle = this._vigGrad;
+    ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
   }
 
   _farMountains(camX, fill, baseY) {
@@ -496,6 +594,9 @@ export class Renderer {
     ctx.beginPath(); ctx.arc(x, baseY - r * 0.4, r, Math.PI, 0); ctx.fill();
     ctx.beginPath(); ctx.arc(x - r * 1.1, baseY - r * 0.2, r * 0.75, Math.PI, 0); ctx.fill();
     ctx.beginPath(); ctx.arc(x + r * 1.1, baseY - r * 0.2, r * 0.75, Math.PI, 0); ctx.fill();
+    // Solid body under the domes down to the ground line (no sky gap)
+    ctx.fillRect(x - r, baseY - r * 0.4, r * 2, r * 0.4 + 1);
+    ctx.fillRect(x - r * 1.85, baseY - r * 0.2, r * 3.7, r * 0.2 + 1);
     if (outline) {
       ctx.strokeStyle = outline; ctx.lineWidth = 1.5;
       ctx.beginPath(); ctx.arc(x - r * 1.1, baseY - r * 0.2, r * 0.75, Math.PI, Math.PI * 1.55); ctx.stroke();
@@ -542,6 +643,34 @@ export class Renderer {
       ctx.fillStyle = wall;
       ctx.fillRect(0, 0, CANVAS_WIDTH + 64, CANVAS_HEIGHT);
       ctx.restore();
+      // Far cave mouths at 0.05x: darker arches behind the brickwork
+      const ap = 720;
+      const aoff = ((camX * 0.05) % ap + ap) % ap;
+      for (let i = -1; i < Math.ceil(CANVAS_WIDTH / ap) + 2; i++) {
+        const bx = i * ap - aoff;
+        for (const [ox, w, top] of [[80, 150, 250], [340, 110, 300], [540, 180, 210]]) {
+          ctx.beginPath();
+          ctx.moveTo(bx + ox, GROUND_Y);
+          ctx.lineTo(bx + ox, top + w / 2);
+          ctx.arc(bx + ox + w / 2, top + w / 2, w / 2, Math.PI, 0);
+          ctx.lineTo(bx + ox + w, GROUND_Y);
+          ctx.closePath();
+          ctx.fillStyle = '#0c1020';
+          ctx.fill();
+          ctx.strokeStyle = '#1c2240';
+          ctx.lineWidth = 2;
+          ctx.stroke();
+          // Inner, even darker depth
+          ctx.fillStyle = '#080c18';
+          ctx.beginPath();
+          ctx.moveTo(bx + ox + 14, GROUND_Y);
+          ctx.lineTo(bx + ox + 14, top + w / 2 + 10);
+          ctx.arc(bx + ox + w / 2, top + w / 2 + 10, w / 2 - 14, Math.PI, 0);
+          ctx.lineTo(bx + ox + w - 14, GROUND_Y);
+          ctx.closePath();
+          ctx.fill();
+        }
+      }
       // Stalactite silhouettes at 0.3x
       ctx.fillStyle = '#0e1222';
       const sp = 640;
@@ -568,14 +697,13 @@ export class Renderer {
       }
       ctx.fillStyle = this._ugFloorGrad;
       ctx.fillRect(0, GROUND_Y - 140, CANVAS_WIDTH, CANVAS_HEIGHT - GROUND_Y + 140);
+      this._vignette();
       return;  // skip hills and clouds
     }
 
     if (this.currentSetting === 'night') {
       // Night sky — deep navy with stars and dark silhouette hills
-      this._skyBands(0, GROUND_Y, ['#0a1026', '#0e1630', '#121a38', '#161f42', '#1a2448']);
-      ctx.fillStyle = '#1a2448';
-      ctx.fillRect(0, GROUND_Y, CANVAS_WIDTH, CANVAS_HEIGHT - GROUND_Y);
+      this._skyGradient('night', 0, GROUND_Y, ['#060a1c', '#0c1430', '#141c40', '#1e2c58', '#2a3a66']);
       ctx.fillStyle = 'rgba(255,255,255,0.8)';
       for (let i = 0; i < 40; i++) {
         // Deterministic star positions from index hash
@@ -596,6 +724,7 @@ export class Renderer {
       // Far ridge + silhouette hills
       this._farMountains(camX, '#131c3c', GROUND_Y);
       this._hillLayer(camX, '#1a2a48', '#101a34', '#162440', GROUND_Y);
+      this._farGround(camX, '#141e3c', '#0a1226', '#0f1830', 'rgba(255,255,255,0.05)');
       this._bottomShade();
       return;
     }
@@ -603,7 +732,7 @@ export class Renderer {
     if (this.currentSetting === 'underwater') {
       const SURFACE = 188;  // FSM WaterBlock mapped to our ground height (540-416+64)
       // Air band above the surface
-      this._skyBands(0, SURFACE, ['#8cc8ec', '#9cd0ee', '#acd8f0', '#bce0f4']);
+      this._skyGradient('uw-air', 0, SURFACE, ['#86c4ec', '#c0e2f4']);
       // Water below — deep blue gradient
       if (!this._waterGrad) {
         const grad = ctx.createLinearGradient(0, SURFACE, 0, CANVAS_HEIGHT);
@@ -709,17 +838,42 @@ export class Renderer {
       return;
     }
 
+    if (this.currentSetting === 'sky') {
+      // ---- Sky world: high above the clouds ----
+      this._skyGradient('sky', 0, GROUND_Y, ['#5aa8f0', '#86c2f4', '#b0d8f8', '#d6eafa', '#eef6fc']);
+      // Sparse flat far clouds at 0.08x
+      ctx.fillStyle = 'rgba(255,255,255,0.6)';
+      const fp = 640 * 6;
+      for (let i = 0; i < 6; i++) {
+        const sx = ((i * 640 + this._hash(i + 3) * 320 - camX * 0.08) % fp + fp) % fp - 160;
+        if (sx < -160 || sx > CANVAS_WIDTH + 20) continue;
+        const sy = 70 + this._hash(i + 40) * 240;
+        const sw = 80 + (i % 3) * 30;
+        ctx.fillRect(sx, sy, sw, 6);
+        ctx.fillRect(sx + 18, sy - 5, sw - 40, 5);
+        ctx.fillRect(sx + 10, sy + 6, sw - 24, 4);
+      }
+      // Puffy clouds at 0.2x, slightly cooler shade
+      this._clouds(camX, '#ffffff', '#dce8f6', '#7aa6d6');
+      // Cloud sea: three rolling layers across the bottom third
+      this._cloudSea(camX * 0.25, GROUND_Y - 118, '#e6f0fa', '#c8daf0');
+      this._cloudSea(camX * 0.35 + 190, GROUND_Y - 62, '#f6faff', '#d8e6f4');
+      this._cloudSea(camX * 0.45 + 90, GROUND_Y + 4, '#ffffff', '#e4edf8');
+      this._bottomShade();
+      return;
+    }
+
     // ---- Overworld ----
-    // Stepped sky banding, deeper blue up top → pale at the horizon
-    this._skyBands(0, GROUND_Y - 40, ['#5aa0e6', '#68ace8', '#78b8ec', '#8ac6ee', '#9cd2f2', '#b0dcf6', '#c4e6f8']);
-    ctx.fillStyle = '#c4e6f8';
-    ctx.fillRect(0, GROUND_Y - 40, CANVAS_WIDTH, CANVAS_HEIGHT - GROUND_Y + 40);
+    // Smooth sky: deeper blue up top → pale, slightly warm at the horizon
+    this._skyGradient('ow', 0, GROUND_Y, ['#4e98e6', '#6cb2ec', '#92caf0', '#b8def6', '#d8ecf6']);
     // Far pale mountains at 0.15x
     this._farMountains(camX, '#aed8dc', GROUND_Y);
     // Mid hills with dark outline + bushes at 0.3x
     this._hillLayer(camX, '#6ecb6e', '#2e7a30', '#4fae52', GROUND_Y);
     // White puffy clouds at 0.2x
     this._clouds(camX, '#ffffff', '#d2e4f2', '#5a8fc0');
+    // Distant fields below the horizon (hidden behind ground tiles)
+    this._farGround(camX, '#4e9a46', '#2a5e2c', '#2f7a34', 'rgba(255,255,255,0.10)');
     this._bottomShade();
   }
 
@@ -766,20 +920,16 @@ export class Renderer {
     ctx.fillStyle = this._capPattern();
     ctx.fillRect(x0 - x, 0, x1 - x0, 16);
     ctx.restore();
-    // Edges: 1px dark outline on top/sides, darker shadow line at the bottom
+    // Edges: 1px dark outline on top, darker shadow line at the bottom.
+    // No side outlines: abutting ground slabs must merge without a seam.
     ctx.fillStyle = T.outline;
     ctx.fillRect(x0, y, x1 - x0, 1);
-    if (x >= -1) ctx.fillRect(x, y, 1, h);
-    if (x + w <= CANVAS_WIDTH + 1) ctx.fillRect(x + w - 1, y, 1, h);
     if (y + h <= CANVAS_HEIGHT) {
       ctx.fillStyle = T.dirtDark;
       ctx.fillRect(x0, y + h - 3, x1 - x0, 2);
       ctx.fillStyle = T.outline;
       ctx.fillRect(x0, y + h - 1, x1 - x0, 1);
     }
-    // Side bevel: light line on the left edge, dark on the right
-    if (x >= -1) { ctx.fillStyle = T.dirtLight; ctx.fillRect(x + 1, y + 12, 1, h - 14); }
-    if (x + w <= CANVAS_WIDTH + 1) { ctx.fillStyle = T.dirtDark; ctx.fillRect(x + w - 2, y + 12, 1, h - 14); }
   }
 
   // Generic solid platform — setting-aware, tinted from `color`
@@ -803,19 +953,15 @@ export class Renderer {
     ctx.fillStyle = this._noisePattern();
     ctx.fillRect(0, 0, w, h);
     ctx.restore();
-    // Bevel: light top/left, dark bottom/right
+    // Bevel: light top, dark bottom (no side bevels so abutting slabs merge)
     ctx.fillStyle = light;
-    ctx.fillRect(x + 1, y + 1, w - 2, 2);
-    ctx.fillRect(x + 1, y + 1, 2, h - 2);
+    ctx.fillRect(x, y + 1, w, 2);
     ctx.fillStyle = dark;
-    ctx.fillRect(x + 1, y + h - 3, w - 2, 2);
-    ctx.fillRect(x + w - 3, y + 1, 2, h - 2);
-    // 1px dark outline
+    ctx.fillRect(x, y + h - 3, w, 2);
+    // 1px dark outline, top and bottom only
     ctx.fillStyle = edge;
     ctx.fillRect(x, y, w, 1);
     ctx.fillRect(x, y + h - 1, w, 1);
-    ctx.fillRect(x, y, 1, h);
-    ctx.fillRect(x + w - 1, y, 1, h);
   }
 
   // Stone-block masonry (castle grey / underground blue-grey), lightly tinted
@@ -866,12 +1012,10 @@ export class Renderer {
       }
     }
     ctx.restore();
-    // Dark outline around the whole slab
+    // Dark outline top and bottom only (sides merge with neighbouring slabs)
     ctx.fillStyle = edge;
     ctx.fillRect(x, y, w, 1);
     ctx.fillRect(x, y + h - 1, w, 1);
-    ctx.fillRect(x, y, 1, h);
-    ctx.fillRect(x + w - 1, y, 1, h);
   }
 
   rect(x, y, w, h, color) {

@@ -527,6 +527,7 @@ export function loadFSMLevel(jsonData, areaIndex = 0) {
   const setting = area.underwater || area.setting === 'Underwater' ? 'underwater'
                 : area.setting === 'Underworld' ? 'underground'
                 : area.setting === 'Castle'     ? 'castle'
+                : area.setting === 'Sky'        ? 'sky'
                 : 'overworld';
 
   // Underground areas and warp zones don't get a flag/Pokemon Center
