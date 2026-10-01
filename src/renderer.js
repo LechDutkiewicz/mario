@@ -451,44 +451,25 @@ export class Renderer {
   }
 
   // Distant ground band under the horizon line (y >= GROUND_Y). On levels
-  // with ground tiles this is fully covered; on void levels it reads as far
-  // fields / water instead of raw sky. Treeline ridge scrolls at 0.2x.
+  // with ground tiles this is fully covered; on void levels it reads as a
+  // darker, farther strip of the same dirt/grass tiling as real ground.
+  // Scrolls at 0.5x so pits in tiled levels show it as a layer behind.
   _farGround(camX, top, bottom, ridge, lines) {
     const ctx = this.ctx;
-    const key = 'fg:' + (this.currentSetting || 'overworld');
-    if (!this._fgGrads) this._fgGrads = new Map();
-    let g = this._fgGrads.get(key);
-    if (!g) {
-      g = ctx.createLinearGradient(0, GROUND_Y, 0, CANVAS_HEIGHT);
-      g.addColorStop(0, top);
-      g.addColorStop(1, bottom);
-      this._fgGrads.set(key, g);
-    }
-    ctx.fillStyle = g;
-    ctx.fillRect(0, GROUND_Y, CANVAS_WIDTH, CANVAS_HEIGHT - GROUND_Y);
-    const period = 320;
-    const off = ((camX * 0.2) % period + period) % period;
-    const x0 = -period - off;
-    ctx.fillStyle = ridge;
-    ctx.beginPath();
-    ctx.moveTo(x0, GROUND_Y + 22);
-    for (let i = -1; i < Math.ceil(CANVAS_WIDTH / period) + 2; i++) {
-      const bx = i * period - off;
-      ctx.quadraticCurveTo(bx + 40, GROUND_Y + 4, bx + 90, GROUND_Y + 14);
-      ctx.quadraticCurveTo(bx + 150, GROUND_Y + 2, bx + 200, GROUND_Y + 12);
-      ctx.quadraticCurveTo(bx + 260, GROUND_Y + 6, bx + 320, GROUND_Y + 22);
-    }
-    ctx.lineTo(CANVAS_WIDTH + period, CANVAS_HEIGHT);
-    ctx.lineTo(x0, CANVAS_HEIGHT);
-    ctx.closePath();
-    ctx.fill();
-    // Faint horizontal glints lower down (water / field rows) at 0.1x
-    ctx.fillStyle = lines;
-    for (let i = 0; i < 3; i++) {
-      const ly = GROUND_Y + 34 + i * 9;
-      const lx = ((i * 230 - camX * 0.1) % 260 + 260) % 260;
-      for (let x = lx - 260; x < CANVAS_WIDTH; x += 260) ctx.fillRect(x, ly, 120 + i * 20, 1);
-    }
+    const bandH = CANVAS_HEIGHT - GROUND_Y;
+    const off = ((camX * 0.5) % 32 + 32) % 32;
+    ctx.save();
+    ctx.translate(-off, GROUND_Y);
+    ctx.fillStyle = this._dirtPattern();
+    ctx.fillRect(0, 0, CANVAS_WIDTH + 32, bandH);
+    ctx.fillStyle = this._capPattern();
+    ctx.fillRect(0, 0, CANVAS_WIDTH + 32, 16);
+    ctx.restore();
+    // Top outline like drawGround, then darken the whole band ~25%
+    ctx.fillStyle = this._terrain().outline;
+    ctx.fillRect(0, GROUND_Y, CANVAS_WIDTH, 1);
+    ctx.fillStyle = 'rgba(0,0,0,0.25)';
+    ctx.fillRect(0, GROUND_Y, CANVAS_WIDTH, bandH);
   }
 
   // Rolling cloud-sea layer: scalloped cloud tops along baseY with a solid
@@ -533,19 +514,27 @@ export class Renderer {
     const ctx = this.ctx;
     const period = 900;
     const off = ((camX * 0.15) % period + period) % period;
-    ctx.fillStyle = fill;
-    for (let i = -1; i < Math.ceil(CANVAS_WIDTH / period) + 2; i++) {
-      const bx = i * period - off;
+    const ridge = (dy) => {
       ctx.beginPath();
-      ctx.moveTo(bx - 40, baseY);
-      ctx.quadraticCurveTo(bx + 60, baseY - 100, bx + 160, baseY - 70);
-      ctx.quadraticCurveTo(bx + 240, baseY - 40, bx + 330, baseY - 95);
-      ctx.quadraticCurveTo(bx + 420, baseY - 140, bx + 520, baseY - 60);
-      ctx.quadraticCurveTo(bx + 600, baseY - 30, bx + 700, baseY - 85);
-      ctx.quadraticCurveTo(bx + 800, baseY - 120, bx + 940, baseY);
-      ctx.closePath();
+      for (let i = -1; i < Math.ceil(CANVAS_WIDTH / period) + 2; i++) {
+        const bx = i * period - off, by = baseY + dy;
+        ctx.moveTo(bx - 40, by);
+        ctx.quadraticCurveTo(bx + 60, by - 100, bx + 160, by - 70);
+        ctx.quadraticCurveTo(bx + 240, by - 40, bx + 330, by - 95);
+        ctx.quadraticCurveTo(bx + 420, by - 140, bx + 520, by - 60);
+        ctx.quadraticCurveTo(bx + 600, by - 30, bx + 700, by - 85);
+        ctx.quadraticCurveTo(bx + 800, by - 120, bx + 940, by);
+        ctx.closePath();
+      }
       ctx.fill();
-    }
+    };
+    // Lit crest band: lighter tone, then the body colour pushed down 14px so
+    // only a band along the top edge stays light (bottom overdraw is hidden
+    // by the far-ground band drawn later).
+    ctx.fillStyle = this._mix(this._rgb(fill), WHITE, 0.22);
+    ridge(0);
+    ctx.fillStyle = fill;
+    ridge(14);
   }
 
   _hillLayer(camX, fill, outline, bushFill, baseY) {
@@ -577,6 +566,12 @@ export class Renderer {
       ctx.lineWidth = 2;
       ctx.beginPath();
       ctx.ellipse(x, baseY, r, r * 0.6, 0, Math.PI, 0);
+      ctx.stroke();
+      // Lighter inner highlight following the curve 6px inside (upper-left)
+      ctx.strokeStyle = this._mix(this._rgb(fill), WHITE, 0.28);
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.ellipse(x, baseY, r - 6, r * 0.6 - 6, 0, Math.PI * 1.08, Math.PI * 1.72);
       ctx.stroke();
       // Simple SMW-style dark "eye" spots on the big hills
       if (r >= 90) {
@@ -853,6 +848,28 @@ export class Renderer {
         ctx.fillRect(sx + 18, sy - 5, sw - 40, 5);
         ctx.fillRect(sx + 10, sy + 6, sw - 24, 4);
       }
+      // Second, higher haze band at 0.12x (y 200-260): long soft streaks
+      ctx.fillStyle = 'rgba(255,255,255,0.32)';
+      const hp = 900;
+      const hoff = ((camX * 0.12) % hp + hp) % hp;
+      for (let i = -1; i < Math.ceil(CANVAS_WIDTH / hp) + 1; i++) {
+        const bx = i * hp - hoff;
+        for (const [ox, oy, w] of [[40, 206, 260], [380, 238, 180], [620, 222, 220]]) {
+          ctx.fillRect(bx + ox, oy, w, 4);
+          ctx.fillRect(bx + ox + 30, oy - 4, w - 90, 4);
+          ctx.fillRect(bx + ox + 16, oy + 4, w - 40, 3);
+          ctx.fillRect(bx + ox + 60, oy + 7, w - 120, 2);
+        }
+      }
+      // Distant floating islands at 0.1x: a cloud puff with a tiny green top
+      const ip = 1100;
+      const ioff = ((camX * 0.1) % ip + ip) % ip;
+      for (let i = -1; i < Math.ceil(CANVAS_WIDTH / ip) + 1; i++) {
+        const bx = i * ip - ioff;
+        for (const [ox, oy, s] of [[150, 168, 1], [520, 318, 0.8], [860, 244, 0.9]]) {
+          this._skyIsland(bx + ox, oy, s);
+        }
+      }
       // Puffy clouds at 0.2x, slightly cooler shade
       this._clouds(camX, '#ffffff', '#dce8f6', '#7aa6d6');
       // Cloud sea: three rolling layers across the bottom third
@@ -904,12 +921,95 @@ export class Renderer {
     }
   }
 
+  // Small far floating island: faded cloud puff carrying a tiny grass-topped
+  // dirt block. Drawn muted so it stays a quiet background note.
+  _skyIsland(x, y, s) {
+    const ctx = this.ctx;
+    const w = 56 * s, h = 10 * s;
+    // dirt block + grass top (atmospheric, desaturated)
+    ctx.fillStyle = '#9c8a74';
+    ctx.fillRect(x - w / 2 + 4 * s, y, w - 8 * s, h);
+    ctx.fillStyle = '#7fbf7a';
+    ctx.fillRect(x - w / 2 + 2 * s, y - 3 * s, w - 4 * s, 4 * s);
+    ctx.fillStyle = '#a8dca0';
+    ctx.fillRect(x - w / 2 + 6 * s, y - 3 * s, w - 12 * s, 1);
+    // cloud puff under it
+    const parts = [[-16, 4, 11], [0, 6, 14], [16, 4, 11]];
+    ctx.fillStyle = '#d6e4f4';
+    for (const [ox, oy, r] of parts) {
+      ctx.beginPath(); ctx.arc(x + ox * s, y + h + oy * s, r * s, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.fillStyle = '#f4f8fe';
+    for (const [ox, oy, r] of parts) {
+      ctx.beginPath(); ctx.arc(x + ox * s, y + h + oy * s - 3 * s, (r - 2) * s, 0, Math.PI * 2); ctx.fill();
+    }
+  }
+
+  // Cached 64x20 cloud-top cap for sky-world ground: three outlined puffs of
+  // differing size, white body, cream highlight, soft grey underside line.
+  // Transparent background; the bottom 8 rows are a flat cloud body.
+  _cloudCapPattern() {
+    if (this._cloudCapPat) return this._cloudCapPat;
+    const c = this._makeTile(64, 20);
+    const g = c.getContext('2d');
+    const puffs = [[12, 12, 12.5], [34, 13, 9.5], [52, 12, 11.5]];
+    const pass = (col, dy, dr) => {
+      g.fillStyle = col;
+      for (const [px, py, r] of puffs) { g.beginPath(); g.arc(px, py + dy, r + dr, 0, Math.PI * 2); g.fill(); }
+    };
+    pass('#5c7090', 0, 1);                                   // dark outline ring
+    g.fillStyle = '#5c7090'; g.fillRect(0, 12, 64, 8);
+    pass('#c0cede', 0, 0);                                   // grey shade / underside
+    g.fillStyle = '#c0cede'; g.fillRect(0, 12, 64, 7);
+    pass('#f0f5fb', -1.5, -1);                               // body
+    g.fillStyle = '#f0f5fb'; g.fillRect(0, 11, 64, 6);
+    pass('#ffffff', -4, -4.5);                               // highlight
+    g.fillStyle = '#fffcf0'; g.fillRect(6, 14, 12, 1); g.fillRect(30, 15, 8, 1); g.fillRect(46, 14, 12, 1);
+    g.fillStyle = '#aab8c8'; g.fillRect(0, 18, 64, 1);       // soft grey underside line
+    this._cloudCapPat = this.ctx.createPattern(c, 'repeat');
+    return this._cloudCapPat;
+  }
+
+  // Sky-world ground slab: cream block body with a bevel and a puffy cloud
+  // cap. Used by drawGround and by floor-level platforms in the sky setting.
+  _skyGround(x, y, w, h) {
+    const ctx = this.ctx;
+    const x0 = Math.max(x, -32), x1 = Math.min(x + w, CANVAS_WIDTH + 32);
+    if (x1 <= x0) return;
+    const body = '#e4d4b4', light = '#f6ecd6', dark = '#bca486', outline = '#5a4834';
+    ctx.fillStyle = body;
+    ctx.fillRect(x0, y + 6, x1 - x0, h - 6);
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.fillStyle = this._noisePattern();
+    ctx.fillRect(x0 - x, 6, x1 - x0, h - 6);
+    ctx.restore();
+    // bevel: light under the cap, dark above the bottom edge
+    ctx.fillStyle = light;
+    ctx.fillRect(x0, y + 12, x1 - x0, 2);
+    ctx.fillStyle = dark;
+    ctx.fillRect(x0, y + h - 3, x1 - x0, 2);
+    // 1px dark outline top and bottom, 2px ends 1px inside the slab
+    ctx.fillStyle = outline;
+    ctx.fillRect(x0, y + 6, x1 - x0, 1);
+    ctx.fillRect(x0, y + h - 1, x1 - x0, 1);
+    if (x >= -32) ctx.fillRect(x + 1, y + 10, 2, h - 11);
+    if (x + w <= CANVAS_WIDTH + 32) ctx.fillRect(x + w - 3, y + 10, 2, h - 11);
+    // cloud cap: puffs rise 8px above the slab top, body ends at y+12
+    ctx.save();
+    ctx.translate(x, y - 8);
+    ctx.fillStyle = this._cloudCapPattern();
+    ctx.fillRect(x0 - x, 0, x1 - x0, 20);
+    ctx.restore();
+  }
+
   // Ground tile: textured dirt/stone with a grass (or ledge / sand) cap.
   // x,y are screen coords (already tile-aligned by callers); the pattern is
   // anchored to the platform's own origin so it never swims with the camera.
   drawGround(x, y, w, h) {
     const ctx = this.ctx;
     // Clip loop/fill work to the visible span
+    if (this.currentSetting === 'sky') { this._skyGround(x, y, w, h); return; }
     const x0 = Math.max(x, -32), x1 = Math.min(x + w, CANVAS_WIDTH + 32);
     if (x1 <= x0) return;
     const T = this._terrain();
@@ -920,10 +1020,18 @@ export class Renderer {
     ctx.fillStyle = this._capPattern();
     ctx.fillRect(x0 - x, 0, x1 - x0, 16);
     ctx.restore();
-    // Edges: 1px dark outline on top, darker shadow line at the bottom.
-    // No side outlines: abutting ground slabs must merge without a seam.
+    // Edges: 1px dark outline on top, darker shadow line at the bottom,
+    // and a 2px end line 1px inside each slab end so a slab that stops at a
+    // gap does not look sliced off.
     ctx.fillStyle = T.outline;
     ctx.fillRect(x0, y, x1 - x0, 1);
+    // Castle and underwater level data contain abutting floor slabs, which
+    // would show a seam, so the end lines are skipped there.
+    const s = this.currentSetting;
+    if (s !== 'castle' && s !== 'underwater') {
+      if (x >= -32) ctx.fillRect(x + 1, y + 1, 2, h - 1);
+      if (x + w <= CANVAS_WIDTH + 32) ctx.fillRect(x + w - 3, y + 1, 2, h - 1);
+    }
     if (y + h <= CANVAS_HEIGHT) {
       ctx.fillStyle = T.dirtDark;
       ctx.fillRect(x0, y + h - 3, x1 - x0, 2);
@@ -941,6 +1049,11 @@ export class Renderer {
       this._masonry(x, y, w, h, color, s);
       return;
     }
+    if (s === 'sky' && y >= GROUND_Y - 1) {
+      // Floor-level stone in the sky world is the cloud ground itself
+      this._skyGround(x, y, w, h);
+      return;
+    }
     const rgb = this._rgb(color);
     const light = this._mix(rgb, WHITE, 0.45);
     const dark = this._mix(rgb, BLACK, 0.35);
@@ -953,6 +1066,31 @@ export class Renderer {
     ctx.fillStyle = this._noisePattern();
     ctx.fillRect(0, 0, w, h);
     ctx.restore();
+    if (h >= w * 1.5 || (s === 'underwater' && h > w)) {
+      // Tall narrow column (coral, pillars): shaded like a rounded post.
+      // Lighter top band, vertical highlight/shadow stripes, full outline.
+      ctx.fillStyle = this._mix(rgb, WHITE, 0.28);
+      ctx.fillRect(x + 1, y + 1, w - 2, 7);
+      ctx.fillStyle = light;
+      ctx.fillRect(x + 1, y + 1, w - 2, 2);
+      ctx.fillRect(x + 2, y + 1, 3, h - 2);
+      ctx.fillStyle = this._mix(rgb, WHITE, 0.14);
+      ctx.fillRect(x + 5, y + 1, 2, h - 2);
+      ctx.fillStyle = dark;
+      ctx.fillRect(x + w - 6, y + 1, 5, h - 2);
+      ctx.fillRect(x + 1, y + h - 3, w - 2, 2);
+      ctx.fillStyle = this._mix(rgb, BLACK, 0.18);
+      ctx.fillRect(x + w - 9, y + 1, 3, h - 2);
+      // faint horizontal segment lines every 32px
+      ctx.fillStyle = this._mix(rgb, BLACK, 0.22);
+      for (let ly = y + 32; ly < y + h - 4; ly += 32) ctx.fillRect(x + 2, ly, w - 4, 1);
+      ctx.fillStyle = edge;
+      ctx.fillRect(x, y, w, 1);
+      ctx.fillRect(x, y + h - 1, w, 1);
+      ctx.fillRect(x, y, 1, h);
+      ctx.fillRect(x + w - 1, y, 1, h);
+      return;
+    }
     // Bevel: light top, dark bottom (no side bevels so abutting slabs merge)
     ctx.fillStyle = light;
     ctx.fillRect(x, y + 1, w, 2);
