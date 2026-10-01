@@ -597,9 +597,12 @@ export class Enemy {
     ctx.globalAlpha = 1;
   }
 
-  // Sandshrew — sandy armadillo on all fours; curls into a plated ball
+  // Sandshrew — sandy armadillo-mouse: dark armoured back with bold plate
+  // rows, cream belly + face, big eye with brow, pointed ear, stubby clawed
+  // feet. Curls into a plated ball (shell state).
   _drawSquirtle(ctx, x, y, w, h) {
-    const SAND = '#e6c86e', SAND_D = '#a8843a', BELLY = '#f8ecc8', OL = '#4a3010';
+    const SHELL = '#d1a542', SHELL_D = '#7c5316', CREAM = '#fff1cc', OL = '#33200a';
+    const CLAW = '#3a2a16';
 
     if (this.inShell) {
       // FSM: from frame 350 the shell "peeks" — wiggle warns it's waking up
@@ -608,35 +611,45 @@ export class Enemy {
       }
       const cx = x + w / 2, cy2 = y + h - 13;
       this._groundShadow(ctx, x, y, w, h);
-      const rot = this.shellSliding ? this.animTimer * 0.35 * (this.vx > 0 ? 1 : -1) : 0;
+      // Rolling: full spin while sliding, tiny rock while idle so it still
+      // reads as a living ball that could get going
+      const rot = this.shellSliding
+        ? this.animTimer * 0.35 * (this.vx > 0 ? 1 : -1)
+        : 0;
       ctx.save();
       ctx.translate(cx, cy2); ctx.rotate(rot);
-      // Ball
-      ell(ctx, 0, 0, 13, 13, 0, SAND, OL, { sh: 0.76, dy: 4 });
-      // Brick plates — carved grooves (dark line + light line)
+      // Ball — darker plated body, heavy outline
+      ell(ctx, 0, 0, 12.5, 12.5, 0, SHELL, OL, { sh: 0.72, dy: 4.5, lw: 1.8 });
+      // Plate segmentation: 3 wide bands + staggered vertical cuts, bold
+      // grooves with a pale top edge on each plate
       ctx.save();
-      ctx.beginPath(); ctx.arc(0, 0, 12.2, 0, TAU); ctx.clip();
-      for (let row = -2; row <= 2; row++) {
-        const yy = row * 5.2;
-        ctx.strokeStyle = SAND_D; ctx.lineWidth = 1.4;
+      ctx.beginPath(); ctx.arc(0, 0, 11.6, 0, TAU); ctx.clip();
+      ctx.lineCap = 'butt';
+      for (let row = -1; row <= 1; row++) {
+        const yy = row * 7;
+        ctx.strokeStyle = SHELL_D; ctx.lineWidth = 2;
         ctx.beginPath(); ctx.moveTo(-13, yy); ctx.lineTo(13, yy); ctx.stroke();
-        ctx.strokeStyle = 'rgba(255,255,255,0.3)'; ctx.lineWidth = 1;
-        ctx.beginPath(); ctx.moveTo(-13, yy + 1.3); ctx.lineTo(13, yy + 1.3); ctx.stroke();
-        const off = row % 2 ? 3.5 : 0;
-        ctx.strokeStyle = SAND_D; ctx.lineWidth = 1.4;
-        for (let c = -2; c <= 2; c++) {
-          const xx = c * 7 + off;
-          ctx.beginPath(); ctx.moveTo(xx, yy); ctx.lineTo(xx, yy + 5.2); ctx.stroke();
+        ctx.strokeStyle = 'rgba(255,245,200,0.45)'; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(-13, yy + 1.6); ctx.lineTo(13, yy + 1.6); ctx.stroke();
+        const off = row ? 0 : 4.5;
+        ctx.strokeStyle = SHELL_D; ctx.lineWidth = 2;
+        for (let c = -1; c <= 1; c++) {
+          const xx = c * 9 + off;
+          ctx.beginPath(); ctx.moveTo(xx, yy); ctx.lineTo(xx, yy + 7); ctx.stroke();
         }
       }
       ctx.restore();
-      hilite(ctx, -5, -6, 4, 2);
-      // Tucked head peeking at the lower front + ear nub + curled tail nub
-      ell(ctx, 6, 6, 5, 3.8, -0.3, BELLY, OL, { sh: 0.9, lw: 1.2 });
-      ctx.strokeStyle = OL; ctx.lineWidth = 1.2; ctx.lineCap = 'round';
-      ctx.beginPath(); ctx.moveTo(5, 5); ctx.lineTo(8, 5.5); ctx.stroke();   // closed eye
-      ell(ctx, 2, 1.5, 2.2, 2.8, 0.3, SAND, OL, { sh: 0.85, lw: 1 });       // ear
-      ell(ctx, -8, 7, 4, 2.6, 0.5, SAND, OL, { sh: 0.85, lw: 1.1 });        // tail
+      hilite(ctx, -5, -6.5, 3.8, 1.8, 0.4);
+      // Tucked face — cream patch at the lower front with one open eye
+      ell(ctx, 6, 5.5, 5.6, 4.4, -0.25, CREAM, OL, { sh: 0.9, lw: 1.4 });
+      eye(ctx, 6.5, 4.8, 2.1);
+      ctx.strokeStyle = OL; ctx.lineWidth = 1.3; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(4.6, 1.6); ctx.lineTo(8.6, 2.2); ctx.stroke();   // brow
+      ctx.fillStyle = CLAW;
+      ctx.beginPath(); ctx.arc(10.2, 7.2, 1.1, 0, TAU); ctx.fill();                  // nose
+      // Pointed ear poking out above the face, curled tail nub at the back
+      poly(ctx, [1, -1, 5.5, -7.5, 7.5, -1.5], SHELL, OL, { sh: 0.85, lw: 1.3 });
+      ell(ctx, -8, 7, 4, 2.6, 0.5, SHELL, OL, { sh: 0.8, lw: 1.3 });
       ctx.restore();
       // Motion lines when sliding
       if (this.shellSliding) {
@@ -654,7 +667,6 @@ export class Enemy {
 
     this._groundShadow(ctx, x, y, w, h);
     const dir = this.vx <= 0 ? -1 : 1;   // face direction of travel
-    const fx = (ux) => x + w / 2 + dir * (ux - 0.5) * w;  // mirrorable x
 
     // Feathered wings for the flying variant (behind the body)
     if (this.flying) {
@@ -681,55 +693,78 @@ export class Enemy {
       wing(-1); wing(1);
     }
 
-    // Legs (animated) with white claws
-    const step = Math.abs(this.vx) > 0.3 ? Math.floor(this.animTimer / 8) % 2 : 0;
-    const legs = [[x + w * 0.24 + step * 3, 1], [x + w * 0.72 - step * 3, -1]];
-    for (const [lx] of legs) {
-      ell(ctx, lx, y + h * 0.88, 5, 4, 0, SAND, OL, { lw: 1.2, sh: 0.8 });
-      ctx.fillStyle = '#fff';
-      ctx.fillRect(lx - 4, y + h * 0.9, 2, 3.5);
-      ctx.fillRect(lx - 0.5, y + h * 0.92, 2, 3.5);
-      ctx.fillRect(lx + 3, y + h * 0.9, 2, 3.5);
-    }
-
-    // Tail (behind, trailing side)
-    ell(ctx, fx(0.06), y + h * 0.6, 6, 3.4, dir * 0.5, SAND, OL, { lw: 1.2 });
-
-    // Armoured back dome with brick plates
-    ell(ctx, x + w / 2, y + h * 0.52, w * 0.46, h * 0.4, 0, SAND, OL, { sh: 0.76, dy: 3.5 });
+    // Body is drawn in a local frame: origin at the hitbox's top-centre,
+    // +u = facing direction, v down. u in [-15, 15], v in [0, 26].
     ctx.save();
-    ctx.beginPath(); ctx.ellipse(x + w / 2, y + h * 0.52, w * 0.44, h * 0.38, 0, 0, TAU); ctx.clip();
-    ctx.strokeStyle = SAND_D; ctx.lineWidth = 1.3;
-    for (const yy of [0.3, 0.46, 0.62]) {
-      ctx.beginPath(); ctx.moveTo(x, y + h * yy); ctx.lineTo(x + w, y + h * yy); ctx.stroke();
+    ctx.translate(x + w / 2, y);
+    ctx.scale(dir, 1);
+
+    // Feet — alternate on the walk cycle, each with 3 dark claws in front
+    const walking = Math.abs(this.vx) > 0.3 || this.flying;
+    const step = walking ? Math.floor(this.animTimer / 8) % 2 : 0;
+    const lift = walking ? [step ? -1.5 : 0, step ? 0 : -1.5] : [0, 0];
+    const feet = [[-8 + (step ? 3 : -2), lift[0]], [5 + (step ? -2 : 3), lift[1]]];
+    for (const [fu, fv] of feet) {
+      ell(ctx, fu, 22.5 + fv, 4.6, 3.3, 0, SHELL, OL, { lw: 1.4, sh: 0.78, dy: 1.5 });
+      ctx.strokeStyle = CLAW; ctx.lineWidth = 1.3; ctx.lineCap = 'round';
+      for (const du of [1.2, 3, 4.6]) {
+        ctx.beginPath(); ctx.moveTo(fu + du, 23.2 + fv); ctx.lineTo(fu + du + 0.8, 25.4 + fv); ctx.stroke();
+      }
     }
-    ctx.beginPath(); ctx.moveTo(fx(0.3), y + h * 0.3); ctx.lineTo(fx(0.3), y + h * 0.46); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(fx(0.55), y + h * 0.46); ctx.lineTo(fx(0.55), y + h * 0.62); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(fx(0.5), y + h * 0.1); ctx.lineTo(fx(0.5), y + h * 0.3); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(fx(0.15), y + h * 0.46); ctx.lineTo(fx(0.15), y + h * 0.62); ctx.stroke();
+
+    // Tail — tapered, trailing behind
+    poly(ctx, [-9, 16, -16, 12.5, -15.5, 16, -10, 19.5], SHELL, OL, { sh: 0.8, lw: 1.4 });
+
+    // Cream belly under the body
+    ell(ctx, 1, 18.5, 9, 4.8, 0, CREAM, OL, { sh: 0, lw: 1.4 });
+
+    // Armoured back dome — darker sand, bold outline
+    ell(ctx, -2.5, 12, 11.5, 9.5, 0, SHELL, OL, { sh: 0.72, dy: 4.5, lw: 1.6 });
+    // Plate rows — 2 wide dark grooves + staggered cuts, pale edge beneath
+    ctx.save();
+    ctx.beginPath(); ctx.ellipse(-2.5, 12, 10.7, 8.7, 0, 0, TAU); ctx.clip();
+    ctx.lineCap = 'butt';
+    ctx.strokeStyle = SHELL_D; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(-15, 9); ctx.lineTo(10, 9); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(-15, 15); ctx.lineTo(10, 15); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(-7, 3); ctx.lineTo(-7, 9); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(-1, 3); ctx.lineTo(-1, 9); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(-10, 9); ctx.lineTo(-10, 15); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(-3, 9); ctx.lineTo(-3, 15); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(-7, 15); ctx.lineTo(-7, 22); ctx.stroke();
+    ctx.strokeStyle = 'rgba(255,245,200,0.4)'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(-15, 10.6); ctx.lineTo(10, 10.6); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(-15, 16.6); ctx.lineTo(10, 16.6); ctx.stroke();
     ctx.restore();
-    hilite(ctx, fx(0.38), y + h * 0.26, 4, 1.8);
+    hilite(ctx, -6, 5.5, 4, 1.8, 0.38);
 
-    // Pale belly
-    ell(ctx, fx(0.6), y + h * 0.72, w * 0.24, h * 0.16, 0, BELLY, null, { sh: 0.9 });
-
-    // Snout + face on the leading side
-    ell(ctx, fx(0.8), y + h * 0.42, w * 0.17, h * 0.17, 0, BELLY, OL, { sh: 0.88, lw: 1.2 });
-    ell(ctx, fx(0.7), y + h * 0.18, 3.5, 4.5, 0, SAND, OL, { lw: 1.1 });     // ear
-    ell(ctx, fx(0.7), y + h * 0.2, 1.6, 2.4, 0, '#c88a60', null, { sh: 0 }); // inner ear
-    // Eye — narrow, mischievous
-    ell(ctx, fx(0.8), y + h * 0.37, 2.3, 3, 0, '#111', null, { sh: 0 });
-    ctx.fillStyle = '#fff';
-    ctx.fillRect(fx(0.8) - 1.2, y + h * 0.32, 1.5, 1.5);
-    // Nose tip + mouth
-    ell(ctx, fx(0.95), y + h * 0.45, 1.6, 1.4, 0, '#333', null, { sh: 0 });
-    ctx.strokeStyle = OL; ctx.lineWidth = 1;
-    ctx.beginPath(); ctx.moveTo(fx(0.9), y + h * 0.52); ctx.lineTo(fx(0.84), y + h * 0.54); ctx.stroke();
+    // Head — cream face with a sandy cap, big eye + brow, pointed ear
+    ell(ctx, 8, 11, 7, 6.6, 0, CREAM, OL, { sh: 0, lw: 1.6 });
+    // Sandy cap over the top of the head (clipped to the head ellipse)
+    ctx.save();
+    ctx.beginPath(); ctx.ellipse(8, 11, 6.2, 5.8, 0, 0, TAU); ctx.clip();
+    ctx.fillStyle = SHELL;
+    ctx.beginPath(); ctx.ellipse(4.5, 2.8, 8, 2.8, 0, 0, TAU); ctx.fill();
+    ctx.restore();
+    // Ear — pointed, with a dark inner
+    poly(ctx, [3, 7, 5.5, -1, 9.5, 5.5], SHELL, OL, { sh: 0.85, lw: 1.4 });
+    poly(ctx, [4.8, 5.5, 5.8, 1.5, 7.8, 5.2], '#b07048', null, { sh: 0 });
+    // Eye — white, pupil, shine; heavy brow above
+    eye(ctx, 9.5, 10.5, 2.5);
+    ctx.strokeStyle = OL; ctx.lineWidth = 1.5; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(7, 7); ctx.lineTo(12, 7.8); ctx.stroke();
+    // Nose + mouth on the snout tip
+    ctx.fillStyle = CLAW;
+    ctx.beginPath(); ctx.arc(14.2, 12.5, 1.4, 0, TAU); ctx.fill();
+    ctx.strokeStyle = OL; ctx.lineWidth = 1.1;
+    ctx.beginPath(); ctx.moveTo(13.5, 14.5); ctx.lineTo(10.5, 15.2); ctx.stroke();
+    ctx.restore();
   }
 
-  // Tentacool — blue jellyfish with red crystals, dangling tentacles
+  // Tentacool — blue jellyfish: big bell with darker rim, two red crystal
+  // gems with highlights, eyes between, outlined swaying tentacles
   _drawBlooper(ctx, x, y, w, h) {
-    const OL = '#162a52', BELL = '#6fb0e0', BELL_L = '#a6d6f0', RED = '#d82424';
+    const OL = '#10203f', BELL = '#4f9fe0', BELL_L = '#9ad2f4', RED = '#e02828', TENT = '#3878c0';
     const sway = Math.sin(this.animTimer * 0.1) * 2;
     const cx = x + w / 2;
     if (this.squeeze) {
@@ -739,46 +774,41 @@ export class Enemy {
       ctx.translate(-cx, -(y + h));
     }
 
-    // Tentacles — two long wavy ones + two short inner, outlined
+    // Tentacles — hang from under the bell, stay inside the hitbox (+3px)
     const tent = (sx, sy, c1x, c1y, ex, ey, lw) => {
       ctx.lineCap = 'round';
-      ctx.strokeStyle = OL; ctx.lineWidth = lw + 2;
+      ctx.strokeStyle = OL; ctx.lineWidth = lw + 2.2;
       ctx.beginPath(); ctx.moveTo(sx, sy); ctx.quadraticCurveTo(c1x, c1y, ex, ey); ctx.stroke();
-      ctx.strokeStyle = '#4a84c8'; ctx.lineWidth = lw;
+      ctx.strokeStyle = TENT; ctx.lineWidth = lw;
       ctx.beginPath(); ctx.moveTo(sx, sy); ctx.quadraticCurveTo(c1x, c1y, ex, ey); ctx.stroke();
-      ctx.strokeStyle = 'rgba(255,255,255,0.35)'; ctx.lineWidth = 1;
+      ctx.strokeStyle = 'rgba(255,255,255,0.4)'; ctx.lineWidth = 1;
       ctx.beginPath(); ctx.moveTo(sx - 1, sy); ctx.quadraticCurveTo(c1x - 1, c1y, ex - 1, ey); ctx.stroke();
     };
-    tent(x + w * 0.28, y + h * 0.7, x + w * 0.18 + sway, y + h * 1.1, x + w * 0.26 - sway, y + h * 1.5, 3);
-    tent(x + w * 0.72, y + h * 0.7, x + w * 0.82 - sway, y + h * 1.1, x + w * 0.74 + sway, y + h * 1.5, 3);
-    tent(x + w * 0.44, y + h * 0.78, x + w * 0.4 - sway, y + h * 1.0, x + w * 0.46 + sway * 0.5, y + h * 1.2, 2);
-    tent(x + w * 0.56, y + h * 0.78, x + w * 0.6 + sway, y + h * 1.0, x + w * 0.54 - sway * 0.5, y + h * 1.2, 2);
+    const tb = y + h * 0.66;
+    tent(x + w * 0.2, tb, x + w * 0.1 + sway, y + h * 0.9, x + w * 0.2 - sway, y + h + 2, 3.2);
+    tent(x + w * 0.8, tb, x + w * 0.9 - sway, y + h * 0.9, x + w * 0.8 + sway, y + h + 2, 3.2);
+    tent(x + w * 0.4, tb + 2, x + w * 0.37 - sway, y + h * 0.88, x + w * 0.42 + sway * 0.6, y + h + 1, 2.2);
+    tent(x + w * 0.6, tb + 2, x + w * 0.63 + sway, y + h * 0.88, x + w * 0.58 - sway * 0.6, y + h + 1, 2.2);
 
-    // Lower body lobes (sides), then the bell dome
-    ell(ctx, x + w * 0.22, y + h * 0.62, w * 0.2, h * 0.18, 0.3, BELL, OL, { lw: 1.3 });
-    ell(ctx, x + w * 0.78, y + h * 0.62, w * 0.2, h * 0.18, -0.3, BELL, OL, { lw: 1.3 });
-    ell(ctx, cx, y + h * 0.42, w * 0.52, h * 0.43, 0, BELL, OL, { sh: 0.76, dy: 3.5 });
-    // Pale translucent band around the base of the bell
-    ell(ctx, cx, y + h * 0.62, w * 0.4, h * 0.13, 0, BELL_L, null, { sh: 0.9, dy: 1.5 });
-    hilite(ctx, x + w * 0.32, y + h * 0.22, 4, 2);
+    // Bell dome — fills the width of the hitbox, darker underside rim
+    ell(ctx, cx, y + h * 0.4, w * 0.5, h * 0.37, 0, BELL, OL, { sh: 0.7, dy: 5, lw: 1.6 });
+    // Pale band around the base of the bell (lip)
+    ell(ctx, cx, y + h * 0.66, w * 0.42, h * 0.12, 0, BELL_L, OL, { sh: 0.86, dy: 1.5, lw: 1.3 });
+    hilite(ctx, x + w * 0.3, y + h * 0.18, 4.2, 2, 0.42);
 
-    // Red crystal orbs — one big on top, two on the sides, with shine
-    ell(ctx, cx, y + h * 0.16, 5.5, 6, 0, RED, OL, { sh: 0.7, lw: 1.2 });
-    hilite(ctx, cx - 2, y + h * 0.1, 1.8, 1, 0.6);
-    ell(ctx, x + w * 0.22, y + h * 0.4, 3.8, 4.4, 0, RED, OL, { sh: 0.7, lw: 1.1 });
-    ell(ctx, x + w * 0.78, y + h * 0.4, 3.8, 4.4, 0, RED, OL, { sh: 0.7, lw: 1.1 });
-    hilite(ctx, x + w * 0.2, y + h * 0.35, 1.3, 0.8, 0.6);
-    hilite(ctx, x + w * 0.76, y + h * 0.35, 1.3, 0.8, 0.6);
+    // Two red crystal gems on the upper bell, with shine
+    for (const gx of [x + w * 0.26, x + w * 0.74]) {
+      ell(ctx, gx, y + h * 0.26, 4.6, 5.2, 0, RED, OL, { sh: 0.66, dy: 2.5, lw: 1.3 });
+      hilite(ctx, gx - 1.6, y + h * 0.2, 1.8, 1, 0.75);
+    }
+    // Small ridge gem on top of the bell
+    ell(ctx, cx, y + h * 0.06, 2.8, 2.6, 0, RED, OL, { sh: 0.7, lw: 1.1 });
 
-    // Eyes — between the crystals
-    ell(ctx, x + w * 0.4, y + h * 0.48, 2, 2.8, 0, '#111', null, { sh: 0 });
-    ell(ctx, x + w * 0.6, y + h * 0.48, 2, 2.8, 0, '#111', null, { sh: 0 });
-    ctx.fillStyle = '#fff';
-    ctx.fillRect(x + w * 0.4 - 1.5, y + h * 0.43, 1.3, 1.3);
-    ctx.fillRect(x + w * 0.6 - 1.5, y + h * 0.43, 1.3, 1.3);
+    // Eyes — between the gems, white with pupils
+    eye(ctx, x + w * 0.4, y + h * 0.46, 2.2);
+    eye(ctx, x + w * 0.6, y + h * 0.46, 2.2);
     if (this.squeeze) ctx.restore();
   }
-
   // Magikarp — red fish with whiskers and crown fin
   _drawCheepCheep(ctx, x, y, w, h) {
     const OL = '#5a1408', RED = '#e8412a', FIN = '#f6e6b8', FIN_OL = '#9a7a40';

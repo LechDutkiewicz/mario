@@ -2,12 +2,12 @@ import { GRAVITY, MAX_FALL_SPEED } from '../constants.js';
 import { resolveCollisions } from '../physics.js';
 import { TAU, shape, ell, hilite } from './sprite-utils.js';
 
-// soft radial glow behind a projectile
+// flat two-step halo behind a projectile (pixel-style glow, no gradient)
 function _glow(ctx, cx, cy, r, rgb, a = 0.4) {
-  const g = ctx.createRadialGradient(cx, cy, r * 0.25, cx, cy, r);
-  g.addColorStop(0, `rgba(${rgb},${a})`); g.addColorStop(1, `rgba(${rgb},0)`);
-  ctx.fillStyle = g;
+  ctx.fillStyle = `rgba(${rgb},${a * 0.45})`;
   ctx.beginPath(); ctx.arc(cx, cy, r, 0, TAU); ctx.fill();
+  ctx.fillStyle = `rgba(${rgb},${a * 0.6})`;
+  ctx.beginPath(); ctx.arc(cx, cy, r * 0.72, 0, TAU); ctx.fill();
 }
 
 // Player projectile — visual matches the character's type (element),
@@ -116,31 +116,21 @@ export class Fireball {
     }
   }
 
-  // Shadow Ball — dark violet orb with wispy aura (Dark)
+  // Shadow Ball — dark violet orb, flat 3-tone bands + ink outline (Dark)
   _drawShadowOrb(ctx, cx, cy) {
-    // Wispy aura ring
     const pulse = 1 + Math.sin(this.anim * 0.25) * 0.15;
-    ctx.fillStyle = 'rgba(120,60,200,0.3)';
-    ctx.beginPath(); ctx.arc(cx, cy, 9 * pulse, 0, Math.PI * 2); ctx.fill();
-    // Main orb
-    const grad = ctx.createRadialGradient(cx - 2, cy - 2, 1, cx, cy, 7);
-    grad.addColorStop(0, '#a060e0');
-    grad.addColorStop(0.6, '#5a2090');
-    grad.addColorStop(1, '#28084a');
-    ctx.fillStyle = grad;
-    ctx.beginPath(); ctx.arc(cx, cy, 6.5, 0, Math.PI * 2); ctx.fill();
-    ctx.strokeStyle = '#1a0630'; ctx.lineWidth = 1.3; ctx.stroke();
-    // Trailing wisps behind
-    ctx.fillStyle = 'rgba(160,100,240,0.5)';
+    _glow(ctx, cx, cy, 8.5 * pulse, '140,70,220', 0.24);
+    // Trailing wisps behind (flat, outlined)
     const tb = -this.dir;
     for (let i = 1; i <= 2; i++) {
       const wob = Math.sin(this.anim * 0.4 + i * 2) * 3;
-      ctx.beginPath();
-      ctx.arc(cx + tb * (7 + i * 5), cy + wob, 3.5 - i, 0, Math.PI * 2);
-      ctx.fill();
+      ell(ctx, cx + tb * (7 + i * 5), cy + wob, 3.5 - i, 3.5 - i, 0, '#7a3cc8', '#1a0630', { sh: 0, lw: 1 });
     }
+    // Orb: dark base, mid band, bright upper-left core
+    ell(ctx, cx, cy, 6.8, 6.8, 0, '#5a2090', '#1a0630', { sh: 0.5, dy: 3, lw: 1.4 });
+    ell(ctx, cx - 1.2, cy - 1.4, 3.6, 3.6, 0, '#a060e0', null, { sh: 0 });
     // Sparkle
-    ctx.fillStyle = '#e8d0ff';
+    ctx.fillStyle = '#efe0ff';
     ctx.fillRect(cx - 3, cy - 4, 2, 2);
   }
 
