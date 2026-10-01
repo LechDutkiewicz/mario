@@ -1,4 +1,5 @@
 import { GRAVITY, MAX_FALL_SPEED, GROUND_Y, TILE } from '../constants.js';
+import { TAU, shape, ell, poly, hilite, shadow } from './sprite-utils.js';
 import { resolveCollisions } from '../physics.js';
 import { BossShot } from './projectile.js';
 
@@ -205,80 +206,73 @@ export class CastleBoss {
     const w = this.w, h = this.h;
 
     // Gengar — round ghost, dark purple, wide grin, red eyes
-    const BODY  = '#6a3898';
+    const BODY  = '#6e3ca0';
     const DARK  = '#3a1a60';
-    const LIGHT = '#8858b8';
+    const OL    = '#1a0a30';
 
     const cx = x + w / 2;
     const cy = y + h * 0.5;
     const bob = Math.sin(this.anim * 0.08) * 3;
 
     // Shadow under Gengar
-    ctx.fillStyle = 'rgba(0,0,0,0.25)';
-    ctx.beginPath(); ctx.ellipse(cx, y + h + 2, w * 0.4, 5, 0, 0, Math.PI * 2); ctx.fill();
+    shadow(ctx, cx, y + h + 2, w * 0.4, 5);
 
-    // Spiky back/ears (behind body)
-    ctx.fillStyle = DARK;
-    ctx.beginPath();
-    ctx.moveTo(cx - w * 0.32, cy - h * 0.2 + bob);
-    ctx.lineTo(cx - w * 0.48, cy - h * 0.56 + bob);
-    ctx.lineTo(cx - w * 0.12, cy - h * 0.28 + bob);
-    ctx.closePath(); ctx.fill();
-    ctx.beginPath();
-    ctx.moveTo(cx + w * 0.32, cy - h * 0.2 + bob);
-    ctx.lineTo(cx + w * 0.48, cy - h * 0.56 + bob);
-    ctx.lineTo(cx + w * 0.12, cy - h * 0.28 + bob);
-    ctx.closePath(); ctx.fill();
+    // Spiky back/ears (behind body) + lower spikes
+    poly(ctx, [cx - w * 0.32, cy - h * 0.2 + bob, cx - w * 0.5, cy - h * 0.58 + bob, cx - w * 0.1, cy - h * 0.3 + bob], BODY, OL, { sh: 0.72 });
+    poly(ctx, [cx + w * 0.32, cy - h * 0.2 + bob, cx + w * 0.5, cy - h * 0.58 + bob, cx + w * 0.1, cy - h * 0.3 + bob], BODY, OL, { sh: 0.72 });
     for (let i = -1; i <= 1; i++) {
-      ctx.beginPath();
-      ctx.moveTo(cx + i * w * 0.3, cy + h * 0.32 + bob);
-      ctx.lineTo(cx + i * w * 0.3 - 6, cy + h * 0.46 + bob);
-      ctx.lineTo(cx + i * w * 0.3 + 6, cy + h * 0.46 + bob);
-      ctx.closePath(); ctx.fill();
+      poly(ctx, [cx + i * w * 0.3 - 7, cy + h * 0.3 + bob, cx + i * w * 0.3, cy + h * 0.5 + bob, cx + i * w * 0.3 + 7, cy + h * 0.3 + bob], BODY, OL, { sh: 0.72 });
     }
+    // Stubby legs
+    ell(ctx, cx - w * 0.22, y + h * 0.94 + bob * 0.3, 7, 4.5, 0, BODY, OL, { sh: 0.72, lw: 1.4 });
+    ell(ctx, cx + w * 0.22, y + h * 0.94 + bob * 0.3, 7, 4.5, 0, BODY, OL, { sh: 0.72, lw: 1.4 });
 
-    // Main body — big round sphere
-    ctx.fillStyle = BODY;
-    ctx.beginPath(); ctx.ellipse(cx, cy + bob, w * 0.46, h * 0.42, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = LIGHT;
-    ctx.beginPath(); ctx.ellipse(cx - w * 0.1, cy - h * 0.1 + bob, w * 0.18, h * 0.14, -0.5, 0, Math.PI * 2); ctx.fill();
+    // Main body — big round sphere with scalloped head spikes on the silhouette
+    shape(ctx, () => {
+      ctx.ellipse(cx, cy + bob, w * 0.46, h * 0.42, 0, 0, TAU);
+      for (const [sx, sy, tx, ty] of [[-0.22, -0.36, -0.3, -0.56], [0, -0.42, 0.02, -0.6], [0.22, -0.36, 0.3, -0.56]]) {
+        ctx.moveTo(cx + sx * w - 6, cy + sy * h + bob + 2);
+        ctx.lineTo(cx + tx * w, cy + ty * h + bob);
+        ctx.lineTo(cx + sx * w + 6, cy + sy * h + bob + 2);
+        ctx.closePath();
+      }
+    }, BODY, OL, { sh: 0.72, dy: 6, lw: 1.6 });
+    hilite(ctx, cx - w * 0.18, cy - h * 0.2 + bob, 7, 3.5, 0.28);
 
-    // Stubby arms
+    // Stubby arms with claws
     const aw = Math.sin(this.anim * 0.12) * 3;
-    ctx.fillStyle = BODY;
-    ctx.beginPath(); ctx.ellipse(cx - w * 0.5, cy + h * 0.05 + bob + aw, w * 0.15, h * 0.1, 0.4, 0, Math.PI * 2); ctx.fill();
-    ctx.beginPath(); ctx.ellipse(cx + w * 0.5, cy + h * 0.05 + bob - aw, w * 0.15, h * 0.1, -0.4, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = DARK;
-    for (let i = -1; i <= 1; i++) {
-      ctx.beginPath(); ctx.arc(cx - w * 0.62 + i * 4, cy + h * 0.04 + bob + aw, 3, 0, Math.PI * 2); ctx.fill();
-      ctx.beginPath(); ctx.arc(cx + w * 0.62 + i * 4, cy + h * 0.04 + bob - aw, 3, 0, Math.PI * 2); ctx.fill();
+    for (const side of [-1, 1]) {
+      const ay = cy + h * 0.05 + bob + aw * -side;
+      ell(ctx, cx + side * w * 0.5, ay, w * 0.15, h * 0.1, side * 0.4, BODY, OL, { sh: 0.72, lw: 1.4 });
+      for (let i = -1; i <= 1; i++) {
+        poly(ctx, [cx + side * w * 0.58 + i * 4, ay - 2, cx + side * w * 0.68 + i * 4, ay + i * 2, cx + side * w * 0.58 + i * 4, ay + 3], DARK, OL, { sh: 0, lw: 1 });
+      }
     }
 
-    // Red eyes
-    ctx.fillStyle = '#cc1010';
-    ctx.beginPath(); ctx.ellipse(cx - w * 0.17, cy - h * 0.1 + bob, 8, 9, 0.3, 0, Math.PI * 2); ctx.fill();
-    ctx.beginPath(); ctx.ellipse(cx + w * 0.17, cy - h * 0.1 + bob, 8, 9, -0.3, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = '#ff4444';
-    ctx.beginPath(); ctx.arc(cx - w * 0.19, cy - h * 0.14 + bob, 3, 0, Math.PI * 2); ctx.fill();
-    ctx.beginPath(); ctx.arc(cx + w * 0.15, cy - h * 0.14 + bob, 3, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = '#1a0808';
-    ctx.beginPath(); ctx.ellipse(cx - w * 0.17, cy - h * 0.08 + bob, 4, 5, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.beginPath(); ctx.ellipse(cx + w * 0.17, cy - h * 0.08 + bob, 4, 5, 0, 0, Math.PI * 2); ctx.fill();
+    // Red eyes — angled, with brows and glints
+    ell(ctx, cx - w * 0.17, cy - h * 0.1 + bob, 8, 9, 0.3, '#d81818', OL, { sh: 0.7, lw: 1.3 });
+    ell(ctx, cx + w * 0.17, cy - h * 0.1 + bob, 8, 9, -0.3, '#d81818', OL, { sh: 0.7, lw: 1.3 });
+    ell(ctx, cx - w * 0.17, cy - h * 0.08 + bob, 4, 5, 0, '#1a0808', null, { sh: 0 });
+    ell(ctx, cx + w * 0.17, cy - h * 0.08 + bob, 4, 5, 0, '#1a0808', null, { sh: 0 });
+    hilite(ctx, cx - w * 0.21, cy - h * 0.16 + bob, 2.4, 1.4, 0.8);
+    hilite(ctx, cx + w * 0.13, cy - h * 0.16 + bob, 2.4, 1.4, 0.8);
+    ctx.strokeStyle = OL; ctx.lineWidth = 2.5; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(cx - w * 0.3, cy - h * 0.26 + bob); ctx.lineTo(cx - w * 0.06, cy - h * 0.18 + bob); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(cx + w * 0.3, cy - h * 0.26 + bob); ctx.lineTo(cx + w * 0.06, cy - h * 0.18 + bob); ctx.stroke();
 
     // Mouth — closed while winding up a flame (FSM "firing" class), wide grin otherwise
     const mouthY = cy + h * 0.12 + bob;
     if (this.windup > 0) {
-      ctx.strokeStyle = '#1a0828'; ctx.lineWidth = 3; ctx.lineCap = 'round';
+      ctx.strokeStyle = OL; ctx.lineWidth = 3; ctx.lineCap = 'round';
       ctx.beginPath();
       ctx.moveTo(cx - w * 0.26, mouthY + 2);
       ctx.quadraticCurveTo(cx, mouthY + 6, cx + w * 0.26, mouthY + 2);
       ctx.stroke();
     } else {
-      ctx.fillStyle = '#1a0828';
-      ctx.beginPath();
-      ctx.arc(cx, mouthY, w * 0.32, 0.1, Math.PI - 0.1);
-      ctx.fill();
-      ctx.fillStyle = '#f0f0f0';
+      shape(ctx, () => { ctx.arc(cx, mouthY, w * 0.32, 0.1, Math.PI - 0.1); ctx.closePath(); }, '#1a0828', OL, { sh: 0, lw: 1.5 });
+      // Tongue
+      ell(ctx, cx + w * 0.08, mouthY + 7, 7, 5, 0.2, '#e04080', '#7a1040', { sh: 0.8, lw: 1 });
+      ctx.fillStyle = '#f4f4f4';
       const toothW = (w * 0.6) / 5;
       for (let i = 0; i < 5; i++) {
         const tx = cx - w * 0.3 + i * toothW;
@@ -288,9 +282,6 @@ export class CastleBoss {
         ctx.lineTo(tx + toothW, mouthY);
         ctx.closePath(); ctx.fill();
       }
-      // Tongue
-      ctx.fillStyle = '#e04080';
-      ctx.beginPath(); ctx.ellipse(cx + w * 0.08, mouthY + 6, 7, 5, 0.2, 0, Math.PI * 2); ctx.fill();
     }
   }
 }
@@ -315,35 +306,21 @@ export class BossAxe {
     const ax = Math.floor(this.x - cam.x);
     const ay = Math.floor(this.y) + bob;
 
+    // Glow
+    const glow = ctx.createRadialGradient(ax + 14, ay + 12, 2, ax + 14, ay + 12, 20);
+    glow.addColorStop(0, 'rgba(255,220,80,0.4)'); glow.addColorStop(1, 'rgba(255,220,80,0)');
+    ctx.fillStyle = glow; ctx.beginPath(); ctx.arc(ax + 14, ay + 12, 20, 0, TAU); ctx.fill();
+
     // Handle (dark brown vertical bar)
-    ctx.fillStyle = '#6b3a10';
-    ctx.fillRect(ax + 10, ay + 10, 5, 22);
-    ctx.fillStyle = '#8b5520';
-    ctx.fillRect(ax + 11, ay + 10, 2, 22);
+    shape(ctx, () => { ctx.rect(ax + 10, ay + 10, 5, 22); }, '#7a4414', '#2e1808', { sh: 0.7, dx: 2, dy: 0, lw: 1.3 });
+    ctx.fillStyle = '#a06828'; ctx.fillRect(ax + 11, ay + 11, 1.5, 20);
 
     // Blade (golden, curved crescent shape)
-    ctx.fillStyle = '#d4a000';
-    ctx.beginPath();
-    ctx.moveTo(ax + 12, ay + 4);
-    ctx.bezierCurveTo(ax + 24, ay + 0, ax + 26, ay + 16, ax + 12, ay + 14);
-    ctx.closePath();
-    ctx.fill();
-
-    // Blade highlight
-    ctx.fillStyle = '#ffd700';
-    ctx.beginPath();
-    ctx.moveTo(ax + 13, ay + 6);
-    ctx.bezierCurveTo(ax + 21, ay + 3, ax + 22, ay + 12, ax + 13, ay + 12);
-    ctx.closePath();
-    ctx.fill();
-
-    // Blade outline
-    ctx.strokeStyle = '#a07800';
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(ax + 12, ay + 4);
-    ctx.bezierCurveTo(ax + 24, ay + 0, ax + 26, ay + 16, ax + 12, ay + 14);
-    ctx.closePath();
-    ctx.stroke();
+    shape(ctx, () => {
+      ctx.moveTo(ax + 12, ay + 4);
+      ctx.bezierCurveTo(ax + 24, ay + 0, ax + 26, ay + 16, ax + 12, ay + 14);
+      ctx.closePath();
+    }, '#e0b020', '#5a3c00', { sh: 0.72, dy: 4, lw: 1.4 });
+    hilite(ctx, ax + 17, ay + 6, 3.5, 1.5, 0.6);
   }
 }

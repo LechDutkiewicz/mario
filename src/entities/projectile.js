@@ -1,5 +1,14 @@
 import { GRAVITY, MAX_FALL_SPEED } from '../constants.js';
 import { resolveCollisions } from '../physics.js';
+import { TAU, shape, ell, hilite } from './sprite-utils.js';
+
+// flat two-step halo behind a projectile (pixel-style glow, no gradient)
+function _glow(ctx, cx, cy, r, rgb, a = 0.4) {
+  ctx.fillStyle = `rgba(${rgb},${a * 0.45})`;
+  ctx.beginPath(); ctx.arc(cx, cy, r, 0, TAU); ctx.fill();
+  ctx.fillStyle = `rgba(${rgb},${a * 0.6})`;
+  ctx.beginPath(); ctx.arc(cx, cy, r * 0.72, 0, TAU); ctx.fill();
+}
 
 // Player projectile — visual matches the character's type (element),
 // physics identical for all: bounces on ground, dies on wall hit.
@@ -52,17 +61,20 @@ export class Fireball {
   _drawFlame(ctx, cx, cy) {
     const t = Math.floor(this.anim / 3) % 3;
     const colors = ['#ff4400', '#ff8800', '#ffcc00'];
+    _glow(ctx, cx, cy, 13, '255,150,40', 0.45);
     ctx.save();
     ctx.translate(cx, cy);
     ctx.rotate(this.dir > 0 ? 0.3 : -0.3 + Math.PI);
-    ctx.fillStyle = colors[t];
-    ctx.beginPath();
-    ctx.ellipse(0, 0, this.w * 0.55, this.h * 0.48, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = colors[(t + 1) % 3];
-    ctx.beginPath();
-    ctx.ellipse(-3, 0, this.w * 0.28, this.h * 0.3, 0, 0, Math.PI * 2);
-    ctx.fill();
+    // Teardrop flame: darker rim + ink outline, bright core up front
+    shape(ctx, () => {
+      ctx.moveTo(this.w * 0.5, 0);
+      ctx.quadraticCurveTo(this.w * 0.2, -this.h * 0.6, -this.w * 0.3, -this.h * 0.35);
+      ctx.quadraticCurveTo(-this.w * 0.62, 0, -this.w * 0.3, this.h * 0.35);
+      ctx.quadraticCurveTo(this.w * 0.2, this.h * 0.6, this.w * 0.5, 0);
+      ctx.closePath();
+    }, colors[t], '#7a1a00', { sh: 0.72, dy: 2, lw: 1.3 });
+    ell(ctx, 2, -0.5, this.w * 0.24, this.h * 0.28, 0, colors[(t + 1) % 3], null, { sh: 0 });
+    ell(ctx, 3.5, -1, this.w * 0.11, this.h * 0.14, 0, '#fff6d0', null, { sh: 0 });
     ctx.restore();
   }
 
@@ -71,13 +83,13 @@ export class Fireball {
     ctx.save();
     ctx.translate(cx, cy);
     ctx.rotate(this.anim * 0.35 * this.dir);
-    ctx.fillStyle = '#3aa832';
-    ctx.beginPath();
-    ctx.moveTo(-9, 0);
-    ctx.bezierCurveTo(-4, -6, 4, -6, 9, 0);
-    ctx.bezierCurveTo(4, 6, -4, 6, -9, 0);
-    ctx.closePath(); ctx.fill();
-    ctx.strokeStyle = '#1e6018'; ctx.lineWidth = 1; ctx.stroke();
+    shape(ctx, () => {
+      ctx.moveTo(-9, 0);
+      ctx.bezierCurveTo(-4, -6, 4, -6, 9, 0);
+      ctx.bezierCurveTo(4, 6, -4, 6, -9, 0);
+      ctx.closePath();
+    }, '#3aa832', '#164a12', { sh: 0.72, dy: 2, lw: 1.3 });
+    hilite(ctx, -3, -2, 2.5, 1, 0.4);
     // Center vein
     ctx.strokeStyle = '#a8e070'; ctx.lineWidth = 1;
     ctx.beginPath(); ctx.moveTo(-7, 0); ctx.lineTo(7, 0); ctx.stroke();
@@ -88,10 +100,9 @@ export class Fireball {
   _drawSpark(ctx, cx, cy) {
     const flick = Math.floor(this.anim / 2) % 2;
     // Core orb
-    ctx.fillStyle = flick ? '#fff890' : '#ffd820';
-    ctx.beginPath(); ctx.arc(cx, cy, 5.5, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = '#fff';
-    ctx.beginPath(); ctx.arc(cx, cy, 2.5, 0, Math.PI * 2); ctx.fill();
+    _glow(ctx, cx, cy, 13, '255,230,80', 0.4);
+    ell(ctx, cx, cy, 5.5, 5.5, 0, flick ? '#fff890' : '#ffd820', '#8a6400', { sh: 0.78, dy: 2, lw: 1.3 });
+    ell(ctx, cx - 0.5, cy - 0.8, 2.5, 2.5, 0, '#ffffff', null, { sh: 0 });
     // Zigzag sparks radiating out — rotate with anim
     ctx.strokeStyle = flick ? '#ffe040' : '#fff8a0';
     ctx.lineWidth = 1.5;
@@ -105,30 +116,21 @@ export class Fireball {
     }
   }
 
-  // Shadow Ball — dark violet orb with wispy aura (Dark)
+  // Shadow Ball — dark violet orb, flat 3-tone bands + ink outline (Dark)
   _drawShadowOrb(ctx, cx, cy) {
-    // Wispy aura ring
     const pulse = 1 + Math.sin(this.anim * 0.25) * 0.15;
-    ctx.fillStyle = 'rgba(120,60,200,0.3)';
-    ctx.beginPath(); ctx.arc(cx, cy, 9 * pulse, 0, Math.PI * 2); ctx.fill();
-    // Main orb
-    const grad = ctx.createRadialGradient(cx - 2, cy - 2, 1, cx, cy, 7);
-    grad.addColorStop(0, '#a060e0');
-    grad.addColorStop(0.6, '#5a2090');
-    grad.addColorStop(1, '#28084a');
-    ctx.fillStyle = grad;
-    ctx.beginPath(); ctx.arc(cx, cy, 6.5, 0, Math.PI * 2); ctx.fill();
-    // Trailing wisps behind
-    ctx.fillStyle = 'rgba(160,100,240,0.5)';
+    _glow(ctx, cx, cy, 8.5 * pulse, '140,70,220', 0.24);
+    // Trailing wisps behind (flat, outlined)
     const tb = -this.dir;
     for (let i = 1; i <= 2; i++) {
       const wob = Math.sin(this.anim * 0.4 + i * 2) * 3;
-      ctx.beginPath();
-      ctx.arc(cx + tb * (7 + i * 5), cy + wob, 3.5 - i, 0, Math.PI * 2);
-      ctx.fill();
+      ell(ctx, cx + tb * (7 + i * 5), cy + wob, 3.5 - i, 3.5 - i, 0, '#7a3cc8', '#1a0630', { sh: 0, lw: 1 });
     }
+    // Orb: dark base, mid band, bright upper-left core
+    ell(ctx, cx, cy, 6.8, 6.8, 0, '#5a2090', '#1a0630', { sh: 0.5, dy: 3, lw: 1.4 });
+    ell(ctx, cx - 1.2, cy - 1.4, 3.6, 3.6, 0, '#a060e0', null, { sh: 0 });
     // Sparkle
-    ctx.fillStyle = '#e8d0ff';
+    ctx.fillStyle = '#efe0ff';
     ctx.fillRect(cx - 3, cy - 4, 2, 2);
   }
 
@@ -137,8 +139,11 @@ export class Fireball {
     const wobble = 1 + Math.sin(this.anim * 0.3) * 0.1;
     ctx.fillStyle = 'rgba(120,200,255,0.35)';
     ctx.beginPath(); ctx.ellipse(cx, cy, 8 * wobble, 8 / wobble, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.strokeStyle = '#a0d8f8'; ctx.lineWidth = 1.5;
+    ctx.strokeStyle = '#2a68b0'; ctx.lineWidth = 1.4;
     ctx.beginPath(); ctx.ellipse(cx, cy, 8 * wobble, 8 / wobble, 0, 0, Math.PI * 2); ctx.stroke();
+    // darker underside of the bubble
+    ctx.strokeStyle = 'rgba(40,90,160,0.55)'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.ellipse(cx, cy, 6.5 * wobble, 6.5 / wobble, 0, Math.PI * 0.2, Math.PI * 0.8); ctx.stroke();
     // Rim highlight
     ctx.strokeStyle = 'rgba(255,255,255,0.9)'; ctx.lineWidth = 2;
     ctx.beginPath(); ctx.arc(cx - 2.5, cy - 2.5, 4, Math.PI * 0.9, Math.PI * 1.6); ctx.stroke();
@@ -193,21 +198,11 @@ export class BossShot {
     const cx = this.x - cam.x + this.w / 2;
     const cy = this.y + this.h / 2;
     const t = Math.floor(this.anim / 4) % 2;
-    // Outer glow
-    ctx.fillStyle = t ? '#ffee00' : '#ffcc00';
-    ctx.beginPath();
-    ctx.arc(cx, cy, this.w / 2, 0, Math.PI * 2);
-    ctx.fill();
-    // Inner white core
-    ctx.fillStyle = '#ffffcc';
-    ctx.beginPath();
-    ctx.arc(cx, cy, this.w * 0.28, 0, Math.PI * 2);
-    ctx.fill();
-    // Rim
-    ctx.strokeStyle = '#cc8800'; ctx.lineWidth = 1.5;
-    ctx.beginPath();
-    ctx.arc(cx, cy, this.w / 2, 0, Math.PI * 2);
-    ctx.stroke();
+    // Hyper Beam orb: glow halo, darker rim + ink outline, white-hot core
+    _glow(ctx, cx, cy, this.w * 0.85, '255,220,60', 0.45);
+    ell(ctx, cx, cy, this.w / 2, this.w / 2, 0, t ? '#ffe420' : '#ffc800', '#7a4a00', { sh: 0.74, dy: 3, lw: 1.4 });
+    ell(ctx, cx - 1, cy - 1.5, this.w * 0.28, this.w * 0.28, 0, '#ffffcc', null, { sh: 0 });
+    hilite(ctx, cx - 3, cy - 4, 2.2, 1.2, 0.7);
   }
 
   // Spinning bone thrown by Cubone
@@ -218,13 +213,15 @@ export class BossShot {
     ctx.save();
     ctx.translate(cx, cy);
     ctx.rotate(this.anim * 0.25 * (this.vx > 0 ? 1 : -1));
-    ctx.strokeStyle = '#f0ece0'; ctx.lineWidth = 3.5; ctx.lineCap = 'round';
+    ctx.lineCap = 'round';
+    ctx.strokeStyle = '#5a4a30'; ctx.lineWidth = 5.5;
     ctx.beginPath(); ctx.moveTo(-7, 0); ctx.lineTo(7, 0); ctx.stroke();
-    ctx.fillStyle = '#f0ece0';
     for (const [bx, by] of [[-8, -2.5], [-8, 2.5], [8, -2.5], [8, 2.5]]) {
-      ctx.beginPath(); ctx.arc(bx, by, 2.6, 0, Math.PI * 2); ctx.fill();
+      ell(ctx, bx, by, 2.6, 2.6, 0, '#f0ece0', '#5a4a30', { sh: 0.85, dy: 1.2, lw: 1 });
     }
-    ctx.strokeStyle = '#c8c0a8'; ctx.lineWidth = 0.8;
+    ctx.strokeStyle = '#f0ece0'; ctx.lineWidth = 3.5;
+    ctx.beginPath(); ctx.moveTo(-7, 0); ctx.lineTo(7, 0); ctx.stroke();
+    ctx.strokeStyle = '#c8c0a8'; ctx.lineWidth = 1;
     ctx.beginPath(); ctx.moveTo(-6, 1.2); ctx.lineTo(6, 1.2); ctx.stroke();
     ctx.restore();
   }
@@ -243,20 +240,19 @@ export class BossShot {
 
     // Flame body — head at the front (left), wavy tail behind
     const t = Math.floor(this.anim / 3) % 2;
-    ctx.fillStyle = t ? '#b040e0' : '#8828c8';
-    ctx.beginPath();
-    ctx.arc(-this.w * 0.32, 0, this.h * 0.5, Math.PI * 0.5, Math.PI * 1.5);
-    ctx.lineTo(this.w * 0.18, -this.h * 0.28);
-    ctx.lineTo(this.w * 0.34, -this.h * 0.1);
-    ctx.lineTo(this.w * 0.22, this.h * 0.12);
-    ctx.lineTo(this.w * 0.5, this.h * 0.3);
-    ctx.lineTo(-this.w * 0.1, this.h * 0.5);
-    ctx.closePath(); ctx.fill();
+    _glow(ctx, -this.w * 0.2, 0, this.w * 0.6, '190,90,255', 0.45);
+    shape(ctx, () => {
+      ctx.arc(-this.w * 0.32, 0, this.h * 0.5, Math.PI * 0.5, Math.PI * 1.5);
+      ctx.lineTo(this.w * 0.18, -this.h * 0.28);
+      ctx.lineTo(this.w * 0.34, -this.h * 0.1);
+      ctx.lineTo(this.w * 0.22, this.h * 0.12);
+      ctx.lineTo(this.w * 0.5, this.h * 0.3);
+      ctx.lineTo(-this.w * 0.1, this.h * 0.5);
+      ctx.closePath();
+    }, t ? '#b040e0' : '#8828c8', '#2a0848', { sh: 0.72, dy: 2, lw: 1.3 });
     // Bright core
-    ctx.fillStyle = t ? '#e8a0ff' : '#d070f8';
-    ctx.beginPath();
-    ctx.ellipse(-this.w * 0.24, 0, this.w * 0.18, this.h * 0.28, 0, 0, Math.PI * 2);
-    ctx.fill();
+    ell(ctx, -this.w * 0.24, 0, this.w * 0.18, this.h * 0.28, 0, t ? '#e8a0ff' : '#d070f8', null, { sh: 0 });
+    ell(ctx, -this.w * 0.28, -0.5, this.w * 0.08, this.h * 0.14, 0, '#fbeaff', null, { sh: 0 });
 
     ctx.restore();
   }

@@ -1,5 +1,26 @@
 import { GRAVITY, MAX_FALL_SPEED } from '../constants.js';
 import { resolveCollisions } from '../physics.js';
+import { TAU, shape, hilite } from './sprite-utils.js';
+
+// Kidney-shaped evolution-stone body: gradient fill + darker underside
+// shade (clipped to the stone) so it matches the outlined, shaded sprites
+function _stonePath(ctx, cx, cy, s) {
+  ctx.moveTo(cx - s * 0.3, cy - s * 0.85);
+  ctx.bezierCurveTo(cx + s * 0.4, cy - s * 1.05, cx + s * 1.1, cy - s * 0.55, cx + s * 1.05, cy);
+  ctx.bezierCurveTo(cx + s * 1.0, cy + s * 0.55, cx + s * 0.4, cy + s * 0.9, cx - s * 0.1, cy + s * 0.9);
+  ctx.bezierCurveTo(cx - s * 0.7, cy + s * 0.9, cx - s * 1.1, cy + s * 0.5, cx - s * 1.05, cy);
+  ctx.bezierCurveTo(cx - s * 1.0, cy - s * 0.5, cx - s * 0.7, cy - s * 0.75, cx - s * 0.3, cy - s * 0.85);
+  ctx.closePath();
+}
+function _stoneBody(ctx, cx, cy, s, grad) {
+  ctx.beginPath(); _stonePath(ctx, cx, cy, s); ctx.fillStyle = grad; ctx.fill();
+  ctx.save(); ctx.clip();
+  ctx.translate(-0.6, s * 0.28);
+  ctx.beginPath(); _stonePath(ctx, cx, cy, s); ctx.fillStyle = 'rgba(0,0,0,0.22)'; ctx.fill();
+  ctx.restore();
+  // re-set the path so the caller's stroke outlines the stone
+  ctx.beginPath(); _stonePath(ctx, cx, cy, s);
+}
 
 // Rare Candy — blue/purple round sweet with twisted wrapper ends
 function _drawRareCandy(ctx, cx, cy, size, anim) {
@@ -84,14 +105,7 @@ function _drawFireStone(ctx, cx, cy, size, anim) {
   stoneGrad.addColorStop(0,   '#c8c870');
   stoneGrad.addColorStop(0.5, '#a0a040');
   stoneGrad.addColorStop(1,   '#707020');
-  ctx.fillStyle = stoneGrad;
-  ctx.beginPath();
-  ctx.moveTo(cx - s * 0.3, cy - s * 0.85);
-  ctx.bezierCurveTo(cx + s * 0.4, cy - s * 1.05, cx + s * 1.1, cy - s * 0.55, cx + s * 1.05, cy);
-  ctx.bezierCurveTo(cx + s * 1.0, cy + s * 0.55, cx + s * 0.4, cy + s * 0.9, cx - s * 0.1, cy + s * 0.9);
-  ctx.bezierCurveTo(cx - s * 0.7, cy + s * 0.9, cx - s * 1.1, cy + s * 0.5, cx - s * 1.05, cy);
-  ctx.bezierCurveTo(cx - s * 1.0, cy - s * 0.5, cx - s * 0.7, cy - s * 0.75, cx - s * 0.3, cy - s * 0.85);
-  ctx.closePath(); ctx.fill();
+  _stoneBody(ctx, cx, cy, s, stoneGrad);
   ctx.strokeStyle = '#4a4a10'; ctx.lineWidth = 1.8; ctx.stroke();
 
   // Stone highlight (top-left sheen)
@@ -146,14 +160,7 @@ function _drawLeafStone(ctx, cx, cy, size, anim) {
   stoneGrad.addColorStop(0,   '#d8e890');
   stoneGrad.addColorStop(0.5, '#a8c858');
   stoneGrad.addColorStop(1,   '#688828');
-  ctx.fillStyle = stoneGrad;
-  ctx.beginPath();
-  ctx.moveTo(cx - s * 0.3, cy - s * 0.85);
-  ctx.bezierCurveTo(cx + s * 0.4, cy - s * 1.05, cx + s * 1.1, cy - s * 0.55, cx + s * 1.05, cy);
-  ctx.bezierCurveTo(cx + s * 1.0, cy + s * 0.55, cx + s * 0.4, cy + s * 0.9, cx - s * 0.1, cy + s * 0.9);
-  ctx.bezierCurveTo(cx - s * 0.7, cy + s * 0.9, cx - s * 1.1, cy + s * 0.5, cx - s * 1.05, cy);
-  ctx.bezierCurveTo(cx - s * 1.0, cy - s * 0.5, cx - s * 0.7, cy - s * 0.75, cx - s * 0.3, cy - s * 0.85);
-  ctx.closePath(); ctx.fill();
+  _stoneBody(ctx, cx, cy, s, stoneGrad);
   ctx.strokeStyle = '#3a5210'; ctx.lineWidth = 1.8; ctx.stroke();
 
   // Leaf emblem — dark green, tip swaying gently
@@ -192,14 +199,7 @@ function _drawThunderStone(ctx, cx, cy, size, anim) {
   stoneGrad.addColorStop(0,   '#a0e8b0');
   stoneGrad.addColorStop(0.5, '#50b868');
   stoneGrad.addColorStop(1,   '#207838');
-  ctx.fillStyle = stoneGrad;
-  ctx.beginPath();
-  ctx.moveTo(cx - s * 0.3, cy - s * 0.85);
-  ctx.bezierCurveTo(cx + s * 0.4, cy - s * 1.05, cx + s * 1.1, cy - s * 0.55, cx + s * 1.05, cy);
-  ctx.bezierCurveTo(cx + s * 1.0, cy + s * 0.55, cx + s * 0.4, cy + s * 0.9, cx - s * 0.1, cy + s * 0.9);
-  ctx.bezierCurveTo(cx - s * 0.7, cy + s * 0.9, cx - s * 1.1, cy + s * 0.5, cx - s * 1.05, cy);
-  ctx.bezierCurveTo(cx - s * 1.0, cy - s * 0.5, cx - s * 0.7, cy - s * 0.75, cx - s * 0.3, cy - s * 0.85);
-  ctx.closePath(); ctx.fill();
+  _stoneBody(ctx, cx, cy, s, stoneGrad);
   ctx.strokeStyle = '#0a4a1e'; ctx.lineWidth = 1.8; ctx.stroke();
 
   // Lightning bolt emblem — angular yellow zigzag
@@ -232,14 +232,7 @@ function _drawMoonStone(ctx, cx, cy, size, anim) {
   stoneGrad.addColorStop(0,   '#5a5a88');
   stoneGrad.addColorStop(0.5, '#32325a');
   stoneGrad.addColorStop(1,   '#181830');
-  ctx.fillStyle = stoneGrad;
-  ctx.beginPath();
-  ctx.moveTo(cx - s * 0.3, cy - s * 0.85);
-  ctx.bezierCurveTo(cx + s * 0.4, cy - s * 1.05, cx + s * 1.1, cy - s * 0.55, cx + s * 1.05, cy);
-  ctx.bezierCurveTo(cx + s * 1.0, cy + s * 0.55, cx + s * 0.4, cy + s * 0.9, cx - s * 0.1, cy + s * 0.9);
-  ctx.bezierCurveTo(cx - s * 0.7, cy + s * 0.9, cx - s * 1.1, cy + s * 0.5, cx - s * 1.05, cy);
-  ctx.bezierCurveTo(cx - s * 1.0, cy - s * 0.5, cx - s * 0.7, cy - s * 0.75, cx - s * 0.3, cy - s * 0.85);
-  ctx.closePath(); ctx.fill();
+  _stoneBody(ctx, cx, cy, s, stoneGrad);
   ctx.strokeStyle = '#0a0a1a'; ctx.lineWidth = 1.8; ctx.stroke();
 
   // Crescent moon emblem — pale gold, opening to the right
@@ -275,14 +268,7 @@ function _drawWaterStone(ctx, cx, cy, size, anim) {
   stoneGrad.addColorStop(0,   '#90d0f8');
   stoneGrad.addColorStop(0.5, '#3888d8');
   stoneGrad.addColorStop(1,   '#144898');
-  ctx.fillStyle = stoneGrad;
-  ctx.beginPath();
-  ctx.moveTo(cx - s * 0.3, cy - s * 0.85);
-  ctx.bezierCurveTo(cx + s * 0.4, cy - s * 1.05, cx + s * 1.1, cy - s * 0.55, cx + s * 1.05, cy);
-  ctx.bezierCurveTo(cx + s * 1.0, cy + s * 0.55, cx + s * 0.4, cy + s * 0.9, cx - s * 0.1, cy + s * 0.9);
-  ctx.bezierCurveTo(cx - s * 0.7, cy + s * 0.9, cx - s * 1.1, cy + s * 0.5, cx - s * 1.05, cy);
-  ctx.bezierCurveTo(cx - s * 1.0, cy - s * 0.5, cx - s * 0.7, cy - s * 0.75, cx - s * 0.3, cy - s * 0.85);
-  ctx.closePath(); ctx.fill();
+  _stoneBody(ctx, cx, cy, s, stoneGrad);
   ctx.strokeStyle = '#082858'; ctx.lineWidth = 1.8; ctx.stroke();
 
   // Droplet emblem — light blue teardrop
@@ -322,16 +308,16 @@ function _drawStar(ctx, cx, cy, size, anim) {
   ctx.save();
   ctx.translate(cx, cy);
   ctx.rotate(spin);
-  ctx.fillStyle = flash ? '#ffe040' : '#ffd000';
-  ctx.beginPath();
-  for (let i = 0; i < 10; i++) {
-    const a = (i / 10) * Math.PI * 2 - Math.PI / 2;
-    const rad = i % 2 === 0 ? r : r * 0.45;
-    if (i === 0) ctx.moveTo(Math.cos(a) * rad, Math.sin(a) * rad);
-    else ctx.lineTo(Math.cos(a) * rad, Math.sin(a) * rad);
-  }
-  ctx.closePath(); ctx.fill();
-  ctx.strokeStyle = '#a07800'; ctx.lineWidth = 1.5; ctx.stroke();
+  shape(ctx, () => {
+    for (let i = 0; i < 10; i++) {
+      const a = (i / 10) * Math.PI * 2 - Math.PI / 2;
+      const rad = i % 2 === 0 ? r : r * 0.45;
+      if (i === 0) ctx.moveTo(Math.cos(a) * rad, Math.sin(a) * rad);
+      else ctx.lineTo(Math.cos(a) * rad, Math.sin(a) * rad);
+    }
+    ctx.closePath();
+  }, flash ? '#ffe040' : '#ffd000', '#6a4a00', { sh: 0.78, dy: 3, lw: 1.5 });
+  hilite(ctx, -3, -5, 2.6, 1.3, 0.55);
   // Eyes (SMB star has eyes)
   ctx.fillStyle = '#111';
   ctx.fillRect(-4, -2, 2.5, 5);
@@ -351,14 +337,13 @@ function _drawRevive(ctx, cx, cy, size, anim) {
   ctx.beginPath(); ctx.arc(cx, cy, s * 1.6, 0, Math.PI * 2); ctx.fill();
 
   // Diamond
-  ctx.fillStyle = '#f0c020';
-  ctx.beginPath();
-  ctx.moveTo(cx, cy - s);
-  ctx.lineTo(cx + s * 0.85, cy);
-  ctx.lineTo(cx, cy + s);
-  ctx.lineTo(cx - s * 0.85, cy);
-  ctx.closePath(); ctx.fill();
-  ctx.strokeStyle = '#a07800'; ctx.lineWidth = 1.5; ctx.stroke();
+  shape(ctx, () => {
+    ctx.moveTo(cx, cy - s);
+    ctx.lineTo(cx + s * 0.85, cy);
+    ctx.lineTo(cx, cy + s);
+    ctx.lineTo(cx - s * 0.85, cy);
+    ctx.closePath();
+  }, '#f0c020', '#5a3c00', { sh: 0.74, dy: 3.5, lw: 1.5 });
   // Facet lines
   ctx.strokeStyle = '#ffe878'; ctx.lineWidth = 1;
   ctx.beginPath(); ctx.moveTo(cx, cy - s); ctx.lineTo(cx, cy + s); ctx.stroke();
