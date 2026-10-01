@@ -1779,21 +1779,9 @@ export class Game {
 
     // Lava/water hazards filling castle floor gaps
     for (const lz of (lvl.lavaZones || [])) {
-      const ctx2 = this.ctx;
       const lx = Math.floor(lz.x - this.cam.x);
       if (lx + lz.w < 0 || lx > CANVAS_WIDTH) continue;
-      ctx2.fillStyle = '#cc2200';
-      ctx2.fillRect(lx, GROUND_Y + 8, lz.w, CANVAS_HEIGHT - GROUND_Y - 8);
-      ctx2.fillStyle = '#ff4400';
-      for (let i = 0; i < Math.ceil(lz.w / TILE); i++) {
-        const wx = lx + i * TILE;
-        const wave = Math.sin((wx + this._lavaAnim * 2) * 0.04) * 3;
-        ctx2.beginPath();
-        ctx2.moveTo(wx, GROUND_Y + 8 + wave);
-        ctx2.lineTo(wx + TILE / 2, GROUND_Y + 2 + wave);
-        ctx2.lineTo(wx + TILE, GROUND_Y + 8 + wave);
-        ctx2.fill();
-      }
+      this._drawLava(lx, GROUND_Y + 6, lz.w, lz.x);
     }
 
     // Draw castle buildings (appear behind platforms)
@@ -1845,20 +1833,7 @@ export class Game {
       const lx = Math.floor(lvl.bossBridgeX - this.cam.x);
       const lw = lvl.bossBridgeW;
       const lavaTop = (lvl.bossBridgeY ?? GROUND_Y) + TILE;
-      // Lava fill
-      ctx2.fillStyle = '#cc2200';
-      ctx2.fillRect(lx, lavaTop, lw, CANVAS_HEIGHT - lavaTop);
-      // Lava surface wave
-      ctx2.fillStyle = '#ff4400';
-      for (let i = 0; i < Math.ceil(lw / TILE); i++) {
-        const wx = lx + i * TILE;
-        const wave = Math.sin((wx + this._lavaAnim * 2) * 0.04) * 4;
-        ctx2.beginPath();
-        ctx2.moveTo(wx, lavaTop + wave);
-        ctx2.lineTo(wx + TILE / 2, lavaTop - 6 + wave);
-        ctx2.lineTo(wx + TILE, lavaTop + wave);
-        ctx2.fill();
-      }
+      this._drawLava(lx, lavaTop, lw, lvl.bossBridgeX);
       // Draw bridge planks (isBossBridge platform)
       for (const pl of lvl.platforms) {
         if (!pl.isBossBridge) continue;
@@ -1966,30 +1941,189 @@ export class Game {
     }
   }
 
+  // ── Shared UI drawing helpers ─────────────────────────────────────────
+
+  // Lava pool: deep body with dark bands, rising bubbles/sparks, warm glow
+  // above the surface and a bright animated surface band drawn last.
+  // sx = screen x, top = surface y, w = width, worldX = world x (for
+  // deterministic bubble placement that doesn't slide with the camera).
+  _drawLava(sx, top, w, worldX = 0) {
+    const ctx = this.ctx;
+    const t = this._lavaAnim || 0;
+    const bottom = CANVAS_HEIGHT;
+    const bodyH = bottom - top;
+    if (bodyH <= 0 || w <= 0) return;
+    ctx.save();
+    // Glow above the surface (fades upward over 40px)
+    const glow = ctx.createLinearGradient(0, top - 40, 0, top);
+    glow.addColorStop(0, 'rgba(255,120,20,0)');
+    glow.addColorStop(1, 'rgba(255,140,30,0.45)');
+    ctx.fillStyle = glow;
+    ctx.fillRect(sx, top - 40, w, 40);
+    // Body: red-orange with deeper bands lower down
+    ctx.beginPath(); ctx.rect(sx, top, w, bodyH); ctx.clip();
+    const body = ctx.createLinearGradient(0, top, 0, bottom);
+    body.addColorStop(0, '#e84a10');
+    body.addColorStop(0.5, '#c42a08');
+    body.addColorStop(1, '#8a1604');
+    ctx.fillStyle = body;
+    ctx.fillRect(sx, top, w, bodyH);
+    // Darker horizontal bands drifting slowly
+    ctx.fillStyle = 'rgba(90,10,0,0.35)';
+    for (let by = top + 14 + ((t * 0.25) % 16); by < bottom; by += 16) {
+      ctx.fillRect(sx, Math.floor(by), w, 3);
+    }
+    // Rising bubbles / sparks, deterministic per column
+    const col0 = Math.floor(worldX / 24);
+    for (let i = 0; i < Math.ceil(w / 24); i++) {
+      const seed = ((col0 + i) * 7919) % 97;
+      const period = 70 + (seed % 5) * 12;
+      const phase = (t + seed * 3) % period;
+      const bx = sx + i * 24 + 6 + (seed % 12);
+      const rise = (phase / period) * Math.min(bodyH, 44);
+      const by = top + 6 + Math.min(bodyH - 8, 44) - rise;
+      const rad = 2 + (seed % 3);
+      const a = 0.9 - phase / period * 0.7;
+      ctx.fillStyle = `rgba(255,${170 + (seed % 60)},60,${a.toFixed(2)})`;
+      ctx.beginPath(); ctx.arc(bx, by, rad, 0, Math.PI * 2); ctx.fill();
+      if (phase < 8) {   // spark popping out at the surface
+        ctx.fillStyle = '#ffe680';
+        ctx.fillRect(bx - 1, top - 6 - phase, 2, 3);
+      }
+    }
+    ctx.restore();
+    // Surface band (drawn last so it sits over everything in the pool)
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(sx, top + 10);
+    for (let x = 0; x <= w; x += 4) {
+      const wave = Math.sin((worldX + x + t * 2) * 0.045) * 3 + Math.sin((worldX + x) * 0.11 + t * 0.08) * 1.5;
+      ctx.lineTo(sx + x, top + wave);
+    }
+    ctx.lineTo(sx + w, top + 10);
+    ctx.closePath();
+    const surf = ctx.createLinearGradient(0, top - 4, 0, top + 10);
+    surf.addColorStop(0, '#fff07a');
+    surf.addColorStop(0.45, '#ffb020');
+    surf.addColorStop(1, '#ff6a10');
+    ctx.fillStyle = surf;
+    ctx.fill();
+    // Highlight crest line
+    ctx.strokeStyle = 'rgba(255,255,200,0.75)'; ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    for (let x = 0; x <= w; x += 4) {
+      const wave = Math.sin((worldX + x + t * 2) * 0.045) * 3 + Math.sin((worldX + x) * 0.11 + t * 0.08) * 1.5;
+      if (x === 0) ctx.moveTo(sx + x, top + wave - 1); else ctx.lineTo(sx + x, top + wave - 1);
+    }
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  // SNES-style framed panel: dark fill, 2-tone bevel (light top-left,
+  // dark bottom-right) and a 1px dark outer outline.
+  _drawPanel(x, y, w, h, opts = {}) {
+    const ctx = this.ctx;
+    const fill  = opts.fill  || 'rgba(12,10,34,0.86)';
+    const light = opts.light || '#ffe88a';
+    const mid   = opts.mid   || '#d9a52a';
+    const dark  = opts.dark  || '#6b4a08';
+    const bw = opts.border ?? 4;
+    x = Math.floor(x); y = Math.floor(y); w = Math.floor(w); h = Math.floor(h);
+    ctx.save();
+    // Outer 1px outline
+    ctx.fillStyle = '#050308';
+    ctx.fillRect(x - 1, y - 1, w + 2, h + 2);
+    // Frame base (mid tone)
+    ctx.fillStyle = mid;
+    ctx.fillRect(x, y, w, h);
+    // Bevel: light top/left, dark bottom/right
+    ctx.fillStyle = light;
+    ctx.fillRect(x, y, w, 2);
+    ctx.fillRect(x, y, 2, h);
+    ctx.fillStyle = dark;
+    ctx.fillRect(x, y + h - 2, w, 2);
+    ctx.fillRect(x + w - 2, y, 2, h);
+    // Inner dark line then fill
+    ctx.fillStyle = '#050308';
+    ctx.fillRect(x + bw, y + bw, w - bw * 2, h - bw * 2);
+    ctx.fillStyle = fill;
+    ctx.fillRect(x + bw + 1, y + bw + 1, w - bw * 2 - 2, h - bw * 2 - 2);
+    // Inner shade (dark top-left inside, so the panel reads as recessed)
+    ctx.fillStyle = 'rgba(0,0,0,0.35)';
+    ctx.fillRect(x + bw + 1, y + bw + 1, w - bw * 2 - 2, 2);
+    ctx.fillRect(x + bw + 1, y + bw + 1, 2, h - bw * 2 - 2);
+    ctx.restore();
+  }
+
+  // Bold text with a hard pixel-style drop shadow (text drawn twice, offset)
+  _shadowText(text, x, y, color, off = 3, shadow = '#0a0612') {
+    const ctx = this.ctx;
+    ctx.fillStyle = shadow;
+    ctx.fillText(text, x + off, y + off);
+    ctx.fillStyle = color;
+    ctx.fillText(text, x, y);
+  }
+
+  // Cached preview Player for a character (used by char-select / intro card)
+  _charPreview(char) {
+    if (!this._charPreviews) this._charPreviews = {};
+    let p = this._charPreviews[char];
+    if (!p) {
+      p = new Player(0, 0);
+      p.char = char; p.power = 0; p._applySize();
+      p.invincible = 0; p.dead = false; p.starTimer = 0; p.facing = 1;
+      this._charPreviews[char] = p;
+    }
+    return p;
+  }
+
+  // Draw a character preview centred at (cx, baseY = feet line), scaled
+  _drawCharPreview(char, cx, baseY, scale = 2) {
+    const ctx = this.ctx;
+    const p = this._charPreview(char);
+    p.x = 0; p.y = 0; p.vx = 0; p.vy = 0; p.onGround = true;
+    ctx.save();
+    ctx.translate(Math.floor(cx - p.w * scale / 2), Math.floor(baseY - p.h * scale));
+    ctx.scale(scale, scale);
+    p.draw(this.r, { x: 0 });
+    ctx.restore();
+  }
+
   _drawCharSelect() {
     const ctx = this.ctx;
-    ctx.fillStyle = '#1a0830';
+    const t = (this._uiAnim = (this._uiAnim || 0) + 1);
+    // Night sky with vignette
+    const sky = ctx.createLinearGradient(0, 0, 0, CANVAS_HEIGHT);
+    sky.addColorStop(0, '#120524');
+    sky.addColorStop(1, '#2a0c48');
+    ctx.fillStyle = sky;
     ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
     ctx.fillStyle = '#ffffff';
-    for (let i = 0; i < 40; i++) {
+    for (let i = 0; i < 60; i++) {
       const sx = (i * 137.5) % CANVAS_WIDTH;
-      const sy = (i * 97.3) % (CANVAS_HEIGHT * 0.55);
+      const sy = (i * 97.3) % (CANVAS_HEIGHT * 0.9);
+      const tw = (Math.sin(t * 0.08 + i) + 1) * 0.3 + 0.4;
+      ctx.globalAlpha = tw;
       ctx.fillRect(sx, sy, i % 3 === 0 ? 2 : 1, i % 3 === 0 ? 2 : 1);
     }
+    ctx.globalAlpha = 1;
+    const vig = ctx.createRadialGradient(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, 200, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, 560);
+    vig.addColorStop(0, 'rgba(0,0,0,0)');
+    vig.addColorStop(1, 'rgba(0,0,0,0.6)');
+    ctx.fillStyle = vig;
+    ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
     ctx.textAlign = 'center';
-    ctx.fillStyle = '#ffd23b';
     ctx.font = 'bold 34px monospace';
-    ctx.strokeStyle = '#000'; ctx.lineWidth = 4;
-    ctx.strokeText('CHOOSE YOUR PARTNER!', CANVAS_WIDTH / 2, 70);
-    ctx.fillText('CHOOSE YOUR PARTNER!', CANVAS_WIDTH / 2, 70);
+    this._shadowText('CHOOSE YOUR PARTNER!', CANVAS_WIDTH / 2, 70, '#ffd23b', 3, '#3a1a00');
 
     const chars = [
-      { name: 'EEVEE',      evolves: 'UMBREON / FLAREON',    color: '#c8864a' },
-      { name: 'CHARMANDER', evolves: 'CHARMELEON / CHARIZARD', color: '#f8933c' },
-      { name: 'BULBASAUR',  evolves: 'IVYSAUR / VENUSAUR',   color: '#68a858' },
-      { name: 'PICHU',      evolves: 'PIKACHU / RAICHU',     color: '#f8d030' },
+      { key: 'eevee',      name: 'EEVEE',      evolves: 'UMBREON / FLAREON' },
+      { key: 'charmander', name: 'CHARMANDER', evolves: 'CHARMELEON / CHARIZARD' },
+      { key: 'bulbasaur',  name: 'BULBASAUR',  evolves: 'IVYSAUR / VENUSAUR' },
+      { key: 'pichu',      name: 'PICHU',      evolves: 'PIKACHU / RAICHU' },
     ];
-    const boxW = 170, boxH = 230, spacing = 190;
+    const boxW = 170, boxH = 250, spacing = 190;
     const startX = CANVAS_WIDTH / 2 - spacing * 1.5;
 
     for (let i = 0; i < chars.length; i++) {
@@ -1997,43 +2131,74 @@ export class Game {
       const bx = startX + i * spacing - boxW / 2;
       const by = 100;
       const selected = this.charSelectIdx === i;
-      ctx.fillStyle = selected ? 'rgba(255,210,59,0.2)' : 'rgba(255,255,255,0.07)';
-      ctx.fillRect(bx, by, boxW, boxH);
-      ctx.strokeStyle = selected ? '#ffd23b' : 'rgba(255,255,255,0.3)';
-      ctx.lineWidth = selected ? 3 : 1;
-      ctx.strokeRect(bx, by, boxW, boxH);
-      const pcx = bx + boxW / 2, pcy = by + 100;
-      ctx.fillStyle = c.color;
-      ctx.beginPath(); ctx.arc(pcx, pcy, 36, 0, Math.PI * 2); ctx.fill();
-      ctx.strokeStyle = '#000'; ctx.lineWidth = 2; ctx.stroke();
-      ctx.fillStyle = '#fff';
-      ctx.font = 'bold 30px monospace';
-      ctx.fillText(c.name[0], pcx, pcy + 11);
-      ctx.fillStyle = selected ? '#ffd23b' : '#ffffff';
-      ctx.font = `bold ${selected ? 15 : 13}px monospace`;
-      ctx.fillText(c.name, bx + boxW / 2, by + boxH - 58);
-      ctx.fillStyle = 'rgba(255,255,255,0.6)';
+      const bob = selected ? Math.round(Math.sin(t * 0.12) * 4) : 0;
+      // Card frame
+      this._drawPanel(bx, by, boxW, boxH, selected
+        ? { fill: 'rgba(70,40,10,0.92)', light: '#fff4b0', mid: '#ffd23b', dark: '#8a5a00' }
+        : { fill: 'rgba(16,10,40,0.85)', light: '#8a8aa8', mid: '#55557a', dark: '#22223a' });
+      // Spotlight behind the sprite
+      const pcx = bx + boxW / 2, footY = by + 150;
+      const spot = ctx.createRadialGradient(pcx, footY - 30, 4, pcx, footY - 30, 58);
+      spot.addColorStop(0, selected ? 'rgba(255,220,120,0.35)' : 'rgba(255,255,255,0.10)');
+      spot.addColorStop(1, 'rgba(255,255,255,0)');
+      ctx.fillStyle = spot;
+      ctx.fillRect(bx + 6, by + 6, boxW - 12, 170);
+      // Floor shadow
+      ctx.fillStyle = 'rgba(0,0,0,0.45)';
+      ctx.beginPath(); ctx.ellipse(pcx, footY + 4, 30 - bob * 0.8, 6, 0, 0, Math.PI * 2); ctx.fill();
+      // Real sprite at 2x
+      this._drawCharPreview(c.key, pcx, footY + bob, 2);
+      // Name plate
+      const npY = by + boxH - 80, npH = 30;
+      this._drawPanel(bx + 12, npY, boxW - 24, npH, selected
+        ? { fill: '#3a2608', light: '#fff4b0', mid: '#ffd23b', dark: '#8a5a00', border: 3 }
+        : { fill: '#14102a', light: '#8a8aa8', mid: '#55557a', dark: '#22223a', border: 3 });
+      ctx.textAlign = 'center';
+      ctx.font = 'bold 15px monospace';
+      this._shadowText(c.name, pcx, npY + 21, selected ? '#ffd23b' : '#ffffff', 2);
+      ctx.fillStyle = selected ? 'rgba(255,230,160,0.85)' : 'rgba(255,255,255,0.55)';
       ctx.font = '11px monospace';
-      ctx.fillText(c.evolves, bx + boxW / 2, by + boxH - 38);
+      ctx.fillText(c.evolves, pcx, by + boxH - 24);
       if (selected) {
-        ctx.fillStyle = '#ffd23b';
         ctx.font = 'bold 22px monospace';
-        ctx.fillText('▼', bx + boxW / 2, by - 12);
+        this._shadowText('▼', pcx, by - 10 + bob, '#ffd23b', 2);
       }
     }
-    ctx.fillStyle = 'rgba(255,255,255,0.7)';
-    ctx.font = '16px monospace';
-    ctx.fillText('← → to choose   ENTER to confirm', CANVAS_WIDTH / 2, CANVAS_HEIGHT - 30);
+    ctx.font = 'bold 16px monospace';
+    ctx.textAlign = 'center';
+    this._shadowText('← → to choose   ENTER to confirm', CANVAS_WIDTH / 2, CANVAS_HEIGHT - 30, 'rgba(255,255,255,0.85)', 2);
     ctx.textAlign = 'left';
+  }
+
+  // Subtle translucent rounded backing for HUD blocks
+  _hudPanel(x, y, w, h) {
+    const ctx = this.ctx;
+    const rr = 8;
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(x + rr, y);
+    ctx.lineTo(x + w - rr, y); ctx.quadraticCurveTo(x + w, y, x + w, y + rr);
+    ctx.lineTo(x + w, y + h - rr); ctx.quadraticCurveTo(x + w, y + h, x + w - rr, y + h);
+    ctx.lineTo(x + rr, y + h); ctx.quadraticCurveTo(x, y + h, x, y + h - rr);
+    ctx.lineTo(x, y + rr); ctx.quadraticCurveTo(x, y, x + rr, y);
+    ctx.closePath();
+    ctx.fillStyle = 'rgba(0,0,0,0.3)';
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,0.12)'; ctx.lineWidth = 1;
+    ctx.stroke();
+    ctx.restore();
   }
 
   _drawHUD() {
     const ctx = this.ctx;
+    // Backing panels so the HUD reads on bright skies
+    this._hudPanel(8, 8, 190, 66);
+    this._hudPanel(CANVAS_WIDTH - 246, 8, 238, 90);
     // Heart lives
     for (let i = 0; i < 3; i++) this._heart(24 + i * 34, 28, i < this.lives);
 
     ctx.fillStyle = '#fff';
-    ctx.strokeStyle = '#000'; ctx.lineWidth = 3;
+    ctx.strokeStyle = '#000'; ctx.lineWidth = 3; ctx.lineJoin = 'round';
     ctx.font = 'bold 22px monospace';
     ctx.textAlign = 'left';
 
@@ -2193,14 +2358,13 @@ export class Game {
     const ctx = this.ctx;
     ctx.fillStyle = 'rgba(0,0,0,0.88)';
     ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+    this._drawPanel(40, 20, CANVAS_WIDTH - 80, CANVAS_HEIGHT - 40);
 
-    ctx.fillStyle = '#ffd23b';
     ctx.font = 'bold 28px monospace';
     ctx.textAlign = 'center';
-    ctx.fillText('LEVEL SELECT', CANVAS_WIDTH / 2, 60);
+    this._shadowText('LEVEL SELECT', CANVAS_WIDTH / 2, 60, '#ffd23b', 3);
     ctx.font = '16px monospace';
-    ctx.fillStyle = '#aaa';
-    ctx.fillText('Click a level  |  P or ESC to close', CANVAS_WIDTH / 2, 88);
+    this._shadowText('Click a level  |  P or ESC to close', CANVAS_WIDTH / 2, 88, '#bbbbbb', 2);
 
     // One button per level — 4 per row, one world per row
     const levels = [];
@@ -2218,14 +2382,10 @@ export class Game {
       const bx = gx + col * (bw + gap);
       const by = gy + row * (bh + gap);
       this._levelSelectBtns.push({ ...lv, x: bx, y: by, w: bw, h: bh });
-      ctx.fillStyle = 'rgba(255,255,255,0.12)';
-      ctx.fillRect(bx, by, bw, bh);
-      ctx.strokeStyle = '#ffd23b'; ctx.lineWidth = 2;
-      ctx.strokeRect(bx, by, bw, bh);
-      ctx.fillStyle = '#fff';
+      this._drawPanel(bx, by, bw, bh, { fill: 'rgba(40,30,70,0.9)', border: 3 });
       ctx.font = 'bold 20px monospace';
       ctx.textAlign = 'center';
-      ctx.fillText(lv.label, bx + bw / 2, by + bh / 2 + 7);
+      this._shadowText(lv.label, bx + bw / 2, by + bh / 2 + 7, '#ffffff', 2);
     });
     ctx.textAlign = 'left';
   }
@@ -2236,18 +2396,15 @@ export class Game {
     const cy = CANVAS_HEIGHT / 2;
     ctx.fillStyle = 'rgba(0,0,0,0.65)';
     ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+    this._drawPanel(cx - 210, cy - 110, 420, 230);
     ctx.textAlign = 'center';
-    ctx.fillStyle = '#fff';
     ctx.font = 'bold 52px monospace';
-    ctx.fillText('PAUZA', cx, cy - 40);
+    this._shadowText('PAUZA', cx, cy - 40, '#ffffff', 3);
     ctx.font = 'bold 20px monospace';
-    ctx.fillStyle = '#ffe066';
-    ctx.fillText('ESC / P  →  wróć do gry', cx, cy + 16);
-    ctx.fillStyle = '#ff8888';
-    ctx.fillText('M  →  wyjdź do menu', cx, cy + 50);
-    ctx.fillStyle = '#aaa';
+    this._shadowText('ESC / P  →  wróć do gry', cx, cy + 16, '#ffe066', 2);
+    this._shadowText('M  →  wyjdź do menu', cx, cy + 50, '#ff8888', 2);
     ctx.font = 'bold 18px monospace';
-    ctx.fillText('SCORE ' + this.score, cx, cy + 90);
+    this._shadowText('SCORE ' + this.score, cx, cy + 90, '#cccccc', 2);
     ctx.textAlign = 'left';
   }
 
@@ -2423,20 +2580,28 @@ export class Game {
     else if (this.world === 6) worldLabel = `6-${this.world6Level + 1}`;
     else if (this.world === 7) worldLabel = `7-${this.world7Level + 1}`;
     else                       worldLabel = `8-${this.world8Level + 1}`;
-    ctx.fillStyle = '#fff';
-    ctx.font = 'bold 36px monospace';
+    const cx = CANVAS_WIDTH / 2, cy = CANVAS_HEIGHT / 2;
+    const setting = this.level?.setting || 'overworld';
+    const settingNames = { overworld: 'OVERWORLD', underworld: 'UNDERGROUND', castle: 'CASTLE',
+                           sky: 'SKY', underwater: 'UNDERWATER', night: 'NIGHT', trees: 'TREETOPS' };
+    const settingName = settingNames[setting] || String(setting).toUpperCase();
+    // Framed card with the world / level name
+    this._drawPanel(cx - 170, cy - 112, 340, 84);
     ctx.textAlign = 'center';
-    ctx.fillText(`WORLD ${worldLabel}`, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 60);
-    // Heart × lives
+    ctx.font = 'bold 36px monospace';
+    this._shadowText(`WORLD ${worldLabel}`, cx, cy - 66, '#ffffff', 3);
+    ctx.font = 'bold 14px monospace';
+    this._shadowText(settingName, cx, cy - 40, '#ffd23b', 2);
+    // Player sprite next to the lives counter
+    const char = this.selectedChar || 'eevee';
+    this._drawCharPreview(char, cx - 70, cy + 34, 1.5);
     ctx.font = 'bold 30px monospace';
-    ctx.fillStyle = '#e23b3b';
-    ctx.fillText('❤', CANVAS_WIDTH / 2 - 44, CANVAS_HEIGHT / 2 + 20);
-    ctx.fillStyle = '#fff';
-    ctx.fillText(`× ${this.lives}`, CANVAS_WIDTH / 2 + 20, CANVAS_HEIGHT / 2 + 20);
-    const charName = (this.selectedChar || 'eevee').toUpperCase();
+    ctx.textAlign = 'left';
+    this._shadowText(`×  ${this.lives}`, cx - 28, cy + 20, '#ffffff', 3);
+    ctx.textAlign = 'center';
+    const charName = char.toUpperCase();
     ctx.font = 'bold 18px monospace';
-    ctx.fillStyle = '#999';
-    ctx.fillText(charName, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 70);
+    this._shadowText(charName, cx, cy + 70, '#aaaaaa', 2);
     ctx.textAlign = 'left';
   }
 
@@ -2506,13 +2671,37 @@ export class Game {
     const wallH = 110;
 
     // White main building
+    const wallTop = bottomY - wallH;
     ctx.fillStyle = '#e8eaeb';
-    ctx.fillRect(x, bottomY - wallH, W, wallH);
+    ctx.fillRect(x, wallTop, W, wallH);
+    // Wall stone texture (staggered mortar lines)
+    ctx.fillStyle = 'rgba(150,158,170,0.35)';
+    let row = 0;
+    for (let yy = wallTop + 14; yy < bottomY - 4; yy += 14, row++) {
+      ctx.fillRect(x + 25, yy, W - 50, 1);
+      const off = row % 2 ? 14 : 0;
+      for (let xx = x + 25 + off; xx < x + W - 25; xx += 28) ctx.fillRect(xx, yy - 14, 1, 14);
+    }
+    // Wall bevel: light top, shaded bottom
+    ctx.fillStyle = 'rgba(255,255,255,0.8)';
+    ctx.fillRect(x + 25, wallTop, W - 50, 2);
+    ctx.fillStyle = 'rgba(60,70,90,0.25)';
+    ctx.fillRect(x, bottomY - 3, W, 3);
 
-    // Gray side trim
+    // Gray side trim (stone pillars with bevel and courses)
     ctx.fillStyle = '#b0b5ba';
-    ctx.fillRect(x, bottomY - wallH, 25, wallH);
-    ctx.fillRect(x + W - 25, bottomY - wallH, 25, wallH);
+    ctx.fillRect(x, wallTop, 25, wallH);
+    ctx.fillRect(x + W - 25, wallTop, 25, wallH);
+    ctx.fillStyle = '#d8dce0';
+    ctx.fillRect(x, wallTop, 25, 1); ctx.fillRect(x, wallTop, 1, wallH);
+    ctx.fillRect(x + W - 25, wallTop, 25, 1); ctx.fillRect(x + W - 25, wallTop, 1, wallH);
+    ctx.fillStyle = '#808890';
+    ctx.fillRect(x + 24, wallTop, 1, wallH); ctx.fillRect(x + W - 1, wallTop, 1, wallH);
+    ctx.fillStyle = 'rgba(90,98,110,0.5)';
+    for (let yy = wallTop + 10; yy < bottomY - 2; yy += 10) {
+      ctx.fillRect(x + 1, yy, 23, 1);
+      ctx.fillRect(x + W - 24, yy, 23, 1);
+    }
 
     // Blue side windows (tall)
     ctx.fillStyle = '#5baae7';
@@ -2566,6 +2755,40 @@ export class Game {
       ctx.lineTo(x + W / 2, bottomY - totalH - 9);
       ctx.stroke();
     }
+    // Roof tile courses (horizontal arcs) + highlight on the dome crown
+    ctx.strokeStyle = 'rgba(120,40,0,0.35)';
+    for (let i = 1; i <= 3; i++) {
+      const f = i / 4;
+      ctx.beginPath();
+      ctx.moveTo(x - 14 + (W / 2 + 14) * f, bottomY - wallH);
+      ctx.quadraticCurveTo(x + W / 2, bottomY - wallH - (totalH - wallH + 9) * (1 - f) * 0.9 - (totalH - wallH + 9) * f * 0.1,
+                           x + W + 14 - (W / 2 + 14) * f, bottomY - wallH);
+      ctx.stroke();
+    }
+    ctx.strokeStyle = 'rgba(255,170,120,0.55)'; ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(x - 12, bottomY - wallH - 1);
+    ctx.quadraticCurveTo(x + W / 2, bottomY - totalH - 7, x + W + 12, bottomY - wallH - 1);
+    ctx.stroke();
+    // Eave bevel: light top, dark bottom edge
+    ctx.fillStyle = 'rgba(255,150,100,0.5)';
+    ctx.fillRect(x - 14, bottomY - wallH, W + 28, 1);
+    ctx.fillStyle = '#5a1800';
+    ctx.fillRect(x - 14, bottomY - wallH + 13, W + 28, 1);
+
+    // 1px dark outlines: roof dome, eave band, walls
+    ctx.strokeStyle = '#2a1008'; ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(x - 14.5, bottomY - wallH + 0.5);
+    ctx.quadraticCurveTo(x + W / 2, bottomY - totalH - 9, x + W + 14.5, bottomY - wallH + 0.5);
+    ctx.lineTo(x + W + 14.5, bottomY - wallH + 14.5);
+    ctx.lineTo(x + W - 0.5, bottomY - wallH + 14.5);
+    ctx.lineTo(x + W - 0.5, bottomY);
+    ctx.moveTo(x + 0.5, bottomY);
+    ctx.lineTo(x + 0.5, bottomY - wallH + 14.5);
+    ctx.lineTo(x - 14.5, bottomY - wallH + 14.5);
+    ctx.closePath();
+    ctx.stroke();
   }
 
   _drawPokeShopBuilding(worldX) {
@@ -2703,13 +2926,37 @@ export class Game {
     ctx.fillRect(sx, top + T * 1.1 - 6, W, 6);
 
     // Main body (white/cream)
+    const bodyTop = top + T * 1.1, bodyH = H - T * 1.1;
     ctx.fillStyle = '#e8eaf0';
-    ctx.fillRect(sx, top + T * 1.1, W, H - T * 1.1);
+    ctx.fillRect(sx, bodyTop, W, bodyH);
 
-    // Body side panels (light grey vertical stripes)
+    // Body side panels (light grey stone pillars with bevel + mortar lines)
     ctx.fillStyle = '#d0d4e0';
-    ctx.fillRect(sx, top + T * 1.1, 18, H - T * 1.1);
-    ctx.fillRect(sx + W - 18, top + T * 1.1, 18, H - T * 1.1);
+    ctx.fillRect(sx, bodyTop, 18, bodyH);
+    ctx.fillRect(sx + W - 18, bodyTop, 18, bodyH);
+    ctx.fillStyle = '#f6f7fb';   // light bevel (top-left) of each pillar
+    ctx.fillRect(sx, bodyTop, 18, 1); ctx.fillRect(sx, bodyTop, 1, bodyH);
+    ctx.fillRect(sx + W - 18, bodyTop, 18, 1); ctx.fillRect(sx + W - 18, bodyTop, 1, bodyH);
+    ctx.fillStyle = '#a8aec0';   // dark bevel (bottom-right)
+    ctx.fillRect(sx + 17, bodyTop, 1, bodyH); ctx.fillRect(sx + W - 1, bodyTop, 1, bodyH);
+    ctx.fillStyle = 'rgba(120,128,150,0.45)';   // stone courses on pillars
+    for (let yy = bodyTop + 10; yy < groundY - 2; yy += 10) {
+      ctx.fillRect(sx + 1, yy, 16, 1);
+      ctx.fillRect(sx + W - 17, yy, 16, 1);
+    }
+    // Wall brick texture (staggered mortar lines, subtle)
+    ctx.fillStyle = 'rgba(150,158,180,0.35)';
+    let row = 0;
+    for (let yy = bodyTop + 12; yy < groundY - 4; yy += 12, row++) {
+      ctx.fillRect(sx + 18, yy, W - 36, 1);
+      const off = row % 2 ? 12 : 0;
+      for (let xx = sx + 18 + off; xx < sx + W - 18; xx += 24) ctx.fillRect(xx, yy - 12, 1, 12);
+    }
+    // Body top bevel + bottom shade
+    ctx.fillStyle = 'rgba(255,255,255,0.8)';
+    ctx.fillRect(sx + 18, bodyTop, W - 36, 2);
+    ctx.fillStyle = 'rgba(60,70,100,0.25)';
+    ctx.fillRect(sx, groundY - 3, W, 3);
 
     // Pokéball logo in center of roof
     const pbx = sx + W / 2, pby = top + T * 0.5;
@@ -2750,12 +2997,18 @@ export class Game {
     ctx.fillText('SHOP', signX + 6, signY + 13);
     ctx.textAlign = 'left';
 
-    // Building outline
-    ctx.strokeStyle = '#3a4a7a'; ctx.lineWidth = 2;
+    // Roof bevel: light top edge, dark under-edge
+    ctx.fillStyle = '#6a8ad0';
+    ctx.fillRect(sx + cut, top, W - cut * 2, 2);
+    ctx.fillStyle = '#121a3a';
+    ctx.fillRect(sx, top + T * 1.1 - 1, W, 1);
+
+    // Building outline (1px crisp dark outline)
+    ctx.strokeStyle = '#141a30'; ctx.lineWidth = 1;
     ctx.beginPath();
-    ctx.moveTo(sx + cut, top); ctx.lineTo(sx + W - cut, top);
-    ctx.lineTo(sx + W, top + cut); ctx.lineTo(sx + W, groundY);
-    ctx.lineTo(sx, groundY); ctx.lineTo(sx, top + cut);
+    ctx.moveTo(sx + cut, top + 0.5); ctx.lineTo(sx + W - cut, top + 0.5);
+    ctx.lineTo(sx + W - 0.5, top + cut); ctx.lineTo(sx + W - 0.5, groundY);
+    ctx.lineTo(sx + 0.5, groundY); ctx.lineTo(sx + 0.5, top + cut);
     ctx.closePath(); ctx.stroke();
   }
 
@@ -2920,13 +3173,11 @@ export class Game {
     const ctx = this.ctx;
     ctx.fillStyle = 'rgba(10,5,40,0.95)';
     ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+    this._drawPanel(CANVAS_WIDTH / 2 - 260, 80, 520, 460);
     ctx.textAlign = 'center';
 
-    ctx.fillStyle = '#ffd23b';
     ctx.font = 'bold 40px monospace';
-    ctx.strokeStyle = '#000'; ctx.lineWidth = 4;
-    ctx.strokeText('TOP 10 SCORES', CANVAS_WIDTH / 2, 60);
-    ctx.fillText('TOP 10 SCORES', CANVAS_WIDTH / 2, 60);
+    this._shadowText('TOP 10 SCORES', CANVAS_WIDTH / 2, 60, '#ffd23b', 3);
 
     const board = this._cachedBoard || [];
     if (this._leaderboardLoading) {
@@ -2973,23 +3224,36 @@ export class Game {
 
   _drawMenu() {
     const ctx = this.ctx;
-    // Dark overlay on sky background
+    const t = (this._uiAnim = (this._uiAnim || 0) + 1);
+    // Dark overlay + vignette on sky background (hills no longer peek through panels)
     ctx.fillStyle = 'rgba(0,0,18,0.72)';
+    ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+    const vig = ctx.createRadialGradient(CANVAS_WIDTH / 2, CANVAS_HEIGHT * 0.4, 160, CANVAS_WIDTH / 2, CANVAS_HEIGHT * 0.4, 620);
+    vig.addColorStop(0, 'rgba(0,0,0,0)');
+    vig.addColorStop(1, 'rgba(0,0,0,0.7)');
+    ctx.fillStyle = vig;
     ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
     ctx.textAlign = 'center';
 
-    // Title
-    ctx.shadowColor = '#ff8800'; ctx.shadowBlur = 18;
-    ctx.fillStyle = '#c8864a';
+    // Title: soft glow + hard pixel drop shadow
+    ctx.save();
+    ctx.shadowColor = 'rgba(255,140,0,0.55)'; ctx.shadowBlur = 16;
     ctx.font = 'bold 64px monospace';
+    ctx.fillStyle = '#2a1206';
     ctx.fillText("EEVEE'S", CANVAS_WIDTH / 2, 130);
-    ctx.fillStyle = '#b070e8';
     ctx.fillText('ADVENTURE', CANVAS_WIDTH / 2, 198);
-    ctx.shadowBlur = 0;
+    ctx.restore();
+    ctx.font = 'bold 64px monospace';
+    this._shadowText("EEVEE'S", CANVAS_WIDTH / 2, 130, '#d99452', 3, '#3a1a08');
+    this._shadowText('ADVENTURE', CANVAS_WIDTH / 2, 198, '#b878f0', 3, '#2a0a40');
+    // Thin outline for crispness
+    ctx.strokeStyle = 'rgba(0,0,0,0.55)'; ctx.lineWidth = 1.5; ctx.lineJoin = 'round';
+    ctx.strokeText("EEVEE'S", CANVAS_WIDTH / 2, 130);
+    ctx.strokeText('ADVENTURE', CANVAS_WIDTH / 2, 198);
 
-    ctx.fillStyle = '#fff';
     ctx.font = 'bold 26px monospace';
-    ctx.fillText('Press ENTER or SPACE to START', CANVAS_WIDTH / 2, 268);
+    const blink = Math.floor(t / 30) % 2 === 0;
+    this._shadowText('Press ENTER or SPACE to START', CANVAS_WIDTH / 2, 268, blink ? '#ffffff' : '#ffe9a0', 3);
 
     // Two panels: controls (left) + top scores (right)
     const panelY = 310, panelH = 240;
@@ -2997,13 +3261,9 @@ export class Game {
     const scX = 415, scW = 345;
 
     // ── Controls panel with drawn keyboard keys ──
-    ctx.fillStyle = 'rgba(0,0,0,0.55)';
-    ctx.fillRect(ctrlX, panelY, ctrlW, panelH);
-    ctx.strokeStyle = '#ffd23b'; ctx.lineWidth = 2;
-    ctx.strokeRect(ctrlX, panelY, ctrlW, panelH);
-    ctx.fillStyle = '#ffd23b';
+    this._drawPanel(ctrlX, panelY, ctrlW, panelH);
     ctx.font = 'bold 20px monospace';
-    ctx.fillText('STEROWANIE', ctrlX + ctrlW / 2, panelY + 28);
+    this._shadowText('STEROWANIE', ctrlX + ctrlW / 2, panelY + 30, '#ffd23b', 2);
 
     const rows = [
       { keys: ['←', '→'],   label: 'RUCH' },
@@ -3031,13 +3291,9 @@ export class Game {
 
     // ── Top scores panel ──
     const board = this._cachedBoard || [];
-    ctx.fillStyle = 'rgba(0,0,0,0.55)';
-    ctx.fillRect(scX, panelY, scW, panelH);
-    ctx.strokeStyle = '#ffd23b'; ctx.lineWidth = 2;
-    ctx.strokeRect(scX, panelY, scW, panelH);
-    ctx.fillStyle = '#ffd23b';
+    this._drawPanel(scX, panelY, scW, panelH);
     ctx.font = 'bold 20px monospace';
-    ctx.fillText('TOP SCORES', scX + scW / 2, panelY + 28);
+    this._shadowText('TOP SCORES', scX + scW / 2, panelY + 30, '#ffd23b', 2);
 
     if (board.length === 0 && !this._leaderboardLoading) {
       ctx.fillStyle = '#aaa'; ctx.font = '15px monospace';
