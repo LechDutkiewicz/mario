@@ -2410,15 +2410,17 @@ export class Game {
 
   _overlay(title, sub) {
     const ctx = this.ctx;
-    ctx.fillStyle = 'rgba(0,0,0,0.55)';
+    const cx = CANVAS_WIDTH / 2, cy = CANVAS_HEIGHT / 2;
+    ctx.fillStyle = 'rgba(0,0,0,0.6)';
     ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+    this._drawPanel(cx - 230, cy - 100, 460, 200);
     ctx.textAlign = 'center';
-    ctx.fillStyle = '#fff';
-    ctx.font = 'bold 56px monospace';
-    ctx.fillText(title, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 10);
-    ctx.font = 'bold 22px monospace';
-    ctx.fillText(sub, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 40);
-    ctx.fillText('SCORE ' + this.score, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 74);
+    ctx.font = 'bold 52px monospace';
+    this._shadowText(title, cx, cy - 32, '#ffffff', 3);
+    ctx.font = 'bold 20px monospace';
+    this._shadowText(sub, cx, cy + 16, '#ffe066', 2);
+    ctx.font = 'bold 18px monospace';
+    this._shadowText('SCORE ' + this.score, cx, cy + 56, '#cccccc', 2);
     ctx.textAlign = 'left';
   }
 
@@ -2605,62 +2607,90 @@ export class Game {
     ctx.textAlign = 'left';
   }
 
+  // Horizontal pipe pieces share one shaded-cylinder painter so they match
+  // PipeBlock.draw (src/entities/platform.js) tones: 2px near-black outline,
+  // top highlight band + specular line, mid green, darker lower shade.
+  // (x, y, w, h) = screen rect of the tube INCLUDING its outline.
+  _hPipeTube(x, y, w, h, { openLeft = false, openRight = false } = {}) {
+    const ctx = this.ctx;
+    const OUT = '#06200a';
+    const f = (fx, fy, fw, fh, c) => { ctx.fillStyle = c; ctx.fillRect(fx, fy, fw, fh); };
+    f(x, y, w, h, OUT);
+    const iy = y + 2, ih = h - 4;
+    let ix = x, iw = w;
+    if (!openLeft)  { ix += 2; iw -= 2; }
+    if (!openRight) { iw -= 2; }
+    f(ix, iy, iw, ih, '#2eb02e');                                   // mid
+    f(ix, iy, iw, 4, '#166a1a');                                    // top dark edge
+    f(ix, iy + 4, iw, Math.max(4, Math.floor(ih * 0.22)), '#62e062'); // highlight band
+    f(ix, iy + 4, iw, 2, '#9af09a');                                // specular line
+    f(ix, iy + ih - 11, iw, 7, '#1e8a22');                          // lower mid-dark
+    f(ix, iy + ih - 4, iw, 4, '#0f4a12');                           // bottom dark edge
+  }
+
+  // Bevelled ring (the pipe's lip/mouth) seen from the side: a shaded tube
+  // slightly taller than the body, light bevel on its outer face and a dark
+  // inner-rim shade on the body side, plus a thin dark mouth line.
+  _hPipeLip(x, y, w, h, mouthSide = 'left') {
+    const ctx = this.ctx;
+    this._hPipeTube(x, y, w, h);
+    const f = (fx, fy, fw, fh, c) => { ctx.fillStyle = c; ctx.fillRect(fx, fy, fw, fh); };
+    if (mouthSide === 'left') {
+      f(x + 2, y + 2, 2, h - 4, '#8ef08e');            // outer face highlight
+      f(x + w - 5, y + 2, 3, h - 4, '#0f4a12');        // inner rim shade
+    } else {
+      f(x + w - 4, y + 2, 2, h - 4, '#8ef08e');
+      f(x + 2, y + 2, 3, h - 4, '#0f4a12');
+    }
+  }
+
+  // Find the vertical PipeBlock the horizontal piece plugs into (screen x of
+  // its left edge), searching platforms near worldX. Returns null if none.
+  _findVerticalPipeX(worldX, worldY, searchW) {
+    const lvl = this.level;
+    if (!lvl || !lvl.platforms) return null;
+    let best = null;
+    for (const pl of lvl.platforms) {
+      if (pl._capOverhang === undefined) continue;         // only PipeBlock has this
+      if (pl.x < worldX - 8 || pl.x > worldX + searchW) continue;
+      if (worldY < pl.y - 4 || worldY > pl.y + pl.h + 4) continue;
+      if (best === null || pl.x < best) best = pl.x;
+    }
+    return best;
+  }
+
   _drawEntranceHPipe(lvl) {
-    const ctx2 = this.ctx;
     const hpx = Math.floor(lvl.entrancePipeX - this.cam.x);
-    const hpy = Math.floor(GROUND_Y - TILE * 1.5);
-    const hpw = TILE * 1.5;
-    const hph = TILE * 1.5;
-    ctx2.fillStyle = '#2ecc40';
-    ctx2.fillRect(hpx - hpw, hpy, hpw, hph);
-    ctx2.fillStyle = '#27ae35';
-    ctx2.fillRect(hpx - hpw, hpy, hpw, 6);
-    ctx2.fillRect(hpx - hpw, hpy + hph - 6, hpw, 6);
-    // Dark entry hole on the left face
-    ctx2.fillStyle = '#0c3a12';
-    ctx2.fillRect(hpx - hpw, hpy + 6, 8, hph - 12);
-    ctx2.fillStyle = '#1a7a28';
-    ctx2.fillRect(hpx - 4, hpy - 4, 8, hph + 8); // joint between H and V pipe
+    // When the entrance coincides with a horizontal exit zone (worlds 2/4/7)
+    // the whole thing is one long tube: lip left of the zone, body through it.
+    const exitHere = (lvl.hPipeExits || []).find(hp => hp.x === lvl.entrancePipeX);
+    const hph = exitHere ? TILE * 2 : TILE * 1.5;
+    const bodyTop = exitHere ? Math.floor(exitHere.y) : Math.floor(GROUND_Y - hph);
+    const LIP_W = 18, OVER = 4;
+    const lipX = hpx - TILE * 1.5;
+    // Body ends just inside the vertical pipe's outline so the join is clean
+    const vx = this._findVerticalPipeX(lvl.entrancePipeX - 4, bodyTop, exitHere ? TILE * 3 : TILE);
+    const joinX = vx !== null ? Math.floor(vx - this.cam.x) + 2
+                              : (exitHere ? hpx + TILE * 2 + 2 : hpx + 2);
+    this._hPipeTube(lipX + LIP_W - 2, bodyTop, joinX - (lipX + LIP_W - 2), hph, { openRight: true });
+    this._hPipeLip(lipX, bodyTop - OVER, LIP_W, hph + OVER * 2, 'left');
   }
 
   _drawHPipeCap(hp) {
-    const ctx2 = this.ctx;
     const BODY_H = TILE * 2;
-    const CAP_H  = BODY_H + 10;
-    const CAP_W  = TILE;
-    const BODY_W = TILE * 2;
-    const HOLE_W = 10;  // dark tunnel opening on the left face
+    const OVER   = 5;            // lip overhang above/below the body
+    const LIP_W  = 20;
 
+    // Covered entirely by the entrance tube when the two coincide
+    if (this.level?.entrancePipeX === hp.x) return;
     const openX   = Math.floor(hp.x - this.cam.x);
     const bodyTop = Math.floor(hp.y);
-    const capTop  = bodyTop - Math.floor((CAP_H - BODY_H) / 2);
-
-    // Body (extends right from cap)
-    ctx2.fillStyle = '#186018';
-    ctx2.fillRect(openX + CAP_W, bodyTop, BODY_W, BODY_H);
-    ctx2.fillStyle = '#1e7a1e';
-    ctx2.fillRect(openX + CAP_W, bodyTop + 3, BODY_W, 6);
-    ctx2.fillStyle = '#0f4010';
-    ctx2.fillRect(openX + CAP_W, bodyTop + BODY_H - 7, BODY_W, 5);
-    ctx2.fillStyle = '#0f4010';
-    ctx2.fillRect(openX + CAP_W + BODY_W - 5, bodyTop, 5, BODY_H);
-
-    // Cap rim
-    ctx2.fillStyle = '#2a9e2a';
-    ctx2.fillRect(openX, capTop, CAP_W, CAP_H);
-    ctx2.fillStyle = '#3ab83a';
-    ctx2.fillRect(openX, capTop + 3, CAP_W, 6);
-    ctx2.fillStyle = '#186018';
-    ctx2.fillRect(openX, capTop + CAP_H - 7, CAP_W, 5);
-
-    // Dark tunnel opening on the right face of the cap (where player enters)
-    ctx2.fillStyle = '#071a07';
-    ctx2.fillRect(openX + CAP_W - HOLE_W, bodyTop + 2, HOLE_W, BODY_H - 4);
-
-    ctx2.strokeStyle = '#0a2e0a'; ctx2.lineWidth = 1.5;
-    ctx2.strokeRect(openX, capTop, CAP_W, CAP_H);
-    ctx2.strokeRect(openX + CAP_W, bodyTop, BODY_W, BODY_H);
-    ctx2.lineWidth = 1;
+    // The body runs right until it meets the vertical pipe (2 tiles away by
+    // level layout); end 2px inside that pipe's outline so no box shows.
+    const vx = this._findVerticalPipeX(hp.x + TILE, hp.y, TILE * 3);
+    const joinX = vx !== null ? Math.floor(vx - this.cam.x) + 2 : openX + TILE * 2 + 2;
+    this._hPipeTube(openX + LIP_W - 2, bodyTop, joinX - (openX + LIP_W - 2), BODY_H, { openRight: true });
+    this._hPipeLip(openX, bodyTop - OVER, LIP_W, BODY_H + OVER * 2, 'left');
   }
 
   _drawPokeCenterBuilding(worldX) {
@@ -3173,97 +3203,132 @@ export class Game {
     const ctx = this.ctx;
     ctx.fillStyle = 'rgba(10,5,40,0.95)';
     ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
-    this._drawPanel(CANVAS_WIDTH / 2 - 260, 80, 520, 460);
+    const px0 = CANVAS_WIDTH / 2 - 260;
+    this._drawPanel(px0, 80, 520, 460);
     ctx.textAlign = 'center';
 
     ctx.font = 'bold 40px monospace';
     this._shadowText('TOP 10 SCORES', CANVAS_WIDTH / 2, 60, '#ffd23b', 3);
 
     const board = this._cachedBoard || [];
-    if (this._leaderboardLoading) {
-      ctx.fillStyle = 'rgba(255,255,255,0.6)';
+    const charColors = { eevee: '#c8864a', charmander: '#f07840', bulbasaur: '#68a858' };
+    // Column header
+    ctx.font = 'bold 13px monospace';
+    ctx.textAlign = 'left';
+    this._shadowText('#   NAME', px0 + 36, 106, 'rgba(255,255,255,0.55)', 2);
+    ctx.textAlign = 'right';
+    this._shadowText('SCORE', CANVAS_WIDTH / 2 + 160, 106, 'rgba(255,255,255,0.55)', 2);
+    ctx.textAlign = 'left';
+    this._shadowText('DATE', CANVAS_WIDTH / 2 + 170, 106, 'rgba(255,255,255,0.55)', 2);
+    ctx.fillStyle = 'rgba(255,255,255,0.18)';
+    ctx.fillRect(px0 + 20, 114, 480, 1);
+
+    if (this._leaderboardLoading && board.length === 0) {
       ctx.font = '20px monospace';
       ctx.textAlign = 'center';
-      ctx.fillText('Loading scores...', CANVAS_WIDTH / 2, 200);
+      this._shadowText('Loading scores...', CANVAS_WIDTH / 2, 220, 'rgba(255,255,255,0.6)', 2);
     }
-    const charColors = { eevee: '#c8864a', charmander: '#f07840', bulbasaur: '#68a858' };
     ctx.font = 'bold 18px monospace';
     for (let i = 0; i < Math.min(10, board.length); i++) {
       const e = board[i];
-      const y = 105 + i * 44;
-      const rowAlpha = i === 0 ? 1 : 0.85 - i * 0.04;
-      ctx.globalAlpha = rowAlpha;
-      ctx.fillStyle = i < 3 ? '#ffd23b' : '#ffffff';
+      const y = 146 + i * 38;
+      const rankCol = i < 3 ? '#ffd23b' : '#ffffff';
       ctx.textAlign = 'right';
-      ctx.fillText(`${i + 1}.`, CANVAS_WIDTH / 2 - 200, y);
-      ctx.fillStyle = charColors[e.char] || '#fff';
+      this._shadowText(`${i + 1}.`, CANVAS_WIDTH / 2 - 200, y, rankCol, 2);
       ctx.textAlign = 'left';
-      ctx.fillText(e.name, CANVAS_WIDTH / 2 - 185, y);
-      ctx.fillStyle = '#fff';
+      this._shadowText(String(e.name || '???').slice(0, 12), CANVAS_WIDTH / 2 - 185, y, charColors[e.char] || '#fff', 2);
       ctx.textAlign = 'right';
-      ctx.fillText(String(e.score).padStart(7, '0'), CANVAS_WIDTH / 2 + 160, y);
-      ctx.fillStyle = 'rgba(255,255,255,0.5)';
+      this._shadowText(String(e.score).padStart(7, '0'), CANVAS_WIDTH / 2 + 160, y, '#ffffff', 2);
       ctx.font = '13px monospace';
       ctx.textAlign = 'left';
-      ctx.fillText(this._fmtDate(e.date), CANVAS_WIDTH / 2 + 170, y);
+      this._shadowText(this._fmtDate(e.date), CANVAS_WIDTH / 2 + 170, y, 'rgba(255,255,255,0.5)', 2);
       ctx.font = 'bold 18px monospace';
     }
-    ctx.globalAlpha = 1;
-    if (board.length === 0) {
-      ctx.fillStyle = 'rgba(255,255,255,0.5)';
-      ctx.font = '20px monospace';
+    if (board.length === 0 && !this._leaderboardLoading) {
+      // Empty state: dashed placeholder rows + framed hint
+      ctx.font = 'bold 18px monospace';
+      for (let i = 0; i < 3; i++) {
+        const y = 146 + i * 38;
+        ctx.textAlign = 'right';
+        this._shadowText(`${i + 1}.`, CANVAS_WIDTH / 2 - 200, y, 'rgba(255,255,255,0.3)', 2, 'rgba(0,0,0,0.5)');
+        ctx.textAlign = 'left';
+        this._shadowText('---', CANVAS_WIDTH / 2 - 185, y, 'rgba(255,255,255,0.3)', 2, 'rgba(0,0,0,0.5)');
+        ctx.textAlign = 'right';
+        this._shadowText('000000', CANVAS_WIDTH / 2 + 160, y, 'rgba(255,255,255,0.3)', 2, 'rgba(0,0,0,0.5)');
+      }
       ctx.textAlign = 'center';
-      ctx.fillText('No scores yet!', CANVAS_WIDTH / 2, 200);
+      this._drawPanel(CANVAS_WIDTH / 2 - 170, 300, 340, 70, { fill: 'rgba(40,30,70,0.9)', border: 3 });
+      ctx.font = 'bold 18px monospace';
+      this._shadowText('No scores yet!', CANVAS_WIDTH / 2, 330, '#ffe9a0', 2);
+      ctx.font = 'bold 14px monospace';
+      this._shadowText('Finish a run to get on the board', CANVAS_WIDTH / 2, 354, '#ffffff', 2);
     }
-    ctx.fillStyle = '#b0e0ff';
     ctx.font = 'bold 20px monospace';
     ctx.textAlign = 'center';
-    ctx.fillText('Press ENTER or SPACE to continue', CANVAS_WIDTH / 2, CANVAS_HEIGHT - 30);
+    this._shadowText('Press ENTER or SPACE to continue', CANVAS_WIDTH / 2, CANVAS_HEIGHT - 30, '#b0e0ff', 2);
     ctx.textAlign = 'left';
   }
 
   _drawMenu() {
     const ctx = this.ctx;
     const t = (this._uiAnim = (this._uiAnim || 0) + 1);
-    // Dark overlay + vignette on sky background (hills no longer peek through panels)
-    ctx.fillStyle = 'rgba(0,0,18,0.72)';
+    // Light dusk tint + soft vignette: the sky, clouds and hills stay visible
+    // above and between the panels.
+    ctx.fillStyle = 'rgba(6,4,30,0.34)';
     ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
-    const vig = ctx.createRadialGradient(CANVAS_WIDTH / 2, CANVAS_HEIGHT * 0.4, 160, CANVAS_WIDTH / 2, CANVAS_HEIGHT * 0.4, 620);
+    const vig = ctx.createRadialGradient(CANVAS_WIDTH / 2, CANVAS_HEIGHT * 0.45, 220, CANVAS_WIDTH / 2, CANVAS_HEIGHT * 0.45, 640);
     vig.addColorStop(0, 'rgba(0,0,0,0)');
-    vig.addColorStop(1, 'rgba(0,0,0,0.7)');
+    vig.addColorStop(1, 'rgba(0,0,0,0.42)');
     ctx.fillStyle = vig;
     ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+    // Scrolling ground strip along the bottom with an idle Eevee preview
+    this._drawMenuGround(t);
+
     ctx.textAlign = 'center';
 
-    // Title: soft glow + hard pixel drop shadow
-    ctx.save();
-    ctx.shadowColor = 'rgba(255,140,0,0.55)'; ctx.shadowBlur = 16;
-    ctx.font = 'bold 64px monospace';
-    ctx.fillStyle = '#2a1206';
-    ctx.fillText("EEVEE'S", CANVAS_WIDTH / 2, 130);
-    ctx.fillText('ADVENTURE', CANVAS_WIDTH / 2, 198);
-    ctx.restore();
-    ctx.font = 'bold 64px monospace';
-    this._shadowText("EEVEE'S", CANVAS_WIDTH / 2, 130, '#d99452', 3, '#3a1a08');
-    this._shadowText('ADVENTURE', CANVAS_WIDTH / 2, 198, '#b878f0', 3, '#2a0a40');
-    // Thin outline for crispness
-    ctx.strokeStyle = 'rgba(0,0,0,0.55)'; ctx.lineWidth = 1.5; ctx.lineJoin = 'round';
-    ctx.strokeText("EEVEE'S", CANVAS_WIDTH / 2, 130);
-    ctx.strokeText('ADVENTURE', CANVAS_WIDTH / 2, 198);
+    // Title: faint glow, then 3px hard drop shadow, 2px dark outline, fill
+    const titleLine = (txt, y, fill, shadow) => {
+      ctx.font = 'bold 64px monospace';
+      ctx.lineJoin = 'round';
+      ctx.save();
+      ctx.shadowColor = 'rgba(255,170,40,0.35)'; ctx.shadowBlur = 14;
+      ctx.fillStyle = shadow;
+      ctx.fillText(txt, CANVAS_WIDTH / 2, y);
+      ctx.restore();
+      // drop shadow block (outlined too, so it reads as a solid slab)
+      ctx.strokeStyle = '#0a0612'; ctx.lineWidth = 4;
+      ctx.strokeText(txt, CANVAS_WIDTH / 2 + 3, y + 3);
+      ctx.fillStyle = shadow;
+      ctx.fillText(txt, CANVAS_WIDTH / 2 + 3, y + 3);
+      // main letters: 2px outline + fill
+      ctx.strokeStyle = '#0a0612'; ctx.lineWidth = 4;
+      ctx.strokeText(txt, CANVAS_WIDTH / 2, y);
+      ctx.fillStyle = fill;
+      ctx.fillText(txt, CANVAS_WIDTH / 2, y);
+      // top-edge highlight (clipped to the upper third of the glyphs)
+      ctx.save();
+      ctx.beginPath(); ctx.rect(0, y - 52, CANVAS_WIDTH, 18); ctx.clip();
+      ctx.fillStyle = 'rgba(255,255,255,0.28)';
+      ctx.fillText(txt, CANVAS_WIDTH / 2, y);
+      ctx.restore();
+    };
+    titleLine("EEVEE'S", 124, '#e8a45a', '#5a2a10');
+    titleLine('ADVENTURE', 192, '#c488f8', '#3a1060');
 
-    ctx.font = 'bold 26px monospace';
+    ctx.font = 'bold 24px monospace';
     const blink = Math.floor(t / 30) % 2 === 0;
-    this._shadowText('Press ENTER or SPACE to START', CANVAS_WIDTH / 2, 268, blink ? '#ffffff' : '#ffe9a0', 3);
+    this._shadowText('Press ENTER or SPACE to START', CANVAS_WIDTH / 2, 254, blink ? '#ffffff' : '#ffe9a0', 3);
 
     // Two panels: controls (left) + top scores (right)
-    const panelY = 310, panelH = 240;
+    const panelY = 286, panelH = 218;
     const ctrlX = 40, ctrlW = 345;
     const scX = 415, scW = 345;
 
     // ── Controls panel with drawn keyboard keys ──
     this._drawPanel(ctrlX, panelY, ctrlW, panelH);
     ctx.font = 'bold 20px monospace';
-    this._shadowText('STEROWANIE', ctrlX + ctrlW / 2, panelY + 30, '#ffd23b', 2);
+    this._shadowText('STEROWANIE', ctrlX + ctrlW / 2, panelY + 28, '#ffd23b', 2);
 
     const rows = [
       { keys: ['←', '→'],   label: 'RUCH' },
@@ -3273,7 +3338,7 @@ export class Game {
       { keys: ['ALT'],      label: 'STRZAŁ' },
       { keys: ['M'],        label: 'MUZYKA ON/OFF' },
     ];
-    let ry = panelY + 52;
+    let ry = panelY + 44;
     for (const row of rows) {
       let kx = ctrlX + 16;
       for (const k of row.keys) {
@@ -3281,42 +3346,83 @@ export class Game {
         this._drawKeycap(ctx, kx, ry, kw, k);
         kx += kw + 6;
       }
-      ctx.fillStyle = '#fff';
       ctx.font = 'bold 15px monospace';
       ctx.textAlign = 'left';
-      ctx.fillText(row.label, ctrlX + 155, ry + 17);
+      this._shadowText(row.label, ctrlX + 155, ry + 17, '#ffffff', 2);
       ctx.textAlign = 'center';
-      ry += 31;
+      ry += 27;
     }
 
     // ── Top scores panel ──
     const board = this._cachedBoard || [];
     this._drawPanel(scX, panelY, scW, panelH);
     ctx.font = 'bold 20px monospace';
-    this._shadowText('TOP SCORES', scX + scW / 2, panelY + 30, '#ffd23b', 2);
+    this._shadowText('TOP SCORES', scX + scW / 2, panelY + 28, '#ffd23b', 2);
 
-    if (board.length === 0 && !this._leaderboardLoading) {
-      ctx.fillStyle = '#aaa'; ctx.font = '15px monospace';
-      ctx.fillText('No scores yet —', scX + scW / 2, panelY + 80);
-      ctx.fillText('play a game first!', scX + scW / 2, panelY + 102);
-    } else if (this._leaderboardLoading) {
+    if (this._leaderboardLoading && board.length === 0) {
       ctx.fillStyle = '#aaa'; ctx.font = '15px monospace';
       ctx.fillText('Loading scores...', scX + scW / 2, panelY + 80);
+    } else if (board.length === 0) {
+      // Empty state: three dashed placeholder rows + a small framed hint
+      ctx.font = 'bold 15px monospace';
+      for (let i = 0; i < 3; i++) {
+        const rowY = panelY + 60 + i * 26;
+        ctx.textAlign = 'left';
+        this._shadowText(`${i + 1}. ---`, scX + 24, rowY, 'rgba(255,255,255,0.32)', 2, 'rgba(0,0,0,0.5)');
+        ctx.textAlign = 'right';
+        this._shadowText('000000', scX + scW - 24, rowY, 'rgba(255,255,255,0.32)', 2, 'rgba(0,0,0,0.5)');
+      }
+      ctx.textAlign = 'center';
+      this._drawPanel(scX + 30, panelY + 136, scW - 60, 58,
+        { fill: 'rgba(40,30,70,0.9)', border: 3 });
+      ctx.font = 'bold 14px monospace';
+      this._shadowText('No scores yet —', scX + scW / 2, panelY + 160, '#ffe9a0', 2);
+      this._shadowText('play a game first!', scX + scW / 2, panelY + 180, '#ffffff', 2);
     } else {
       const top5 = board.slice(0, 5);
       ctx.font = 'bold 15px monospace';
       top5.forEach((e, i) => {
-        const rowY = panelY + 58 + i * 34;
-        ctx.fillStyle = i === 0 ? '#ffd23b' : i === 1 ? '#c8c8c8' : '#cd7f32';
+        const rowY = panelY + 58 + i * 30;
+        const col = i === 0 ? '#ffd23b' : i === 1 ? '#c8c8c8' : i === 2 ? '#cd7f32' : '#ffffff';
         ctx.textAlign = 'left';
-        ctx.fillText(`${i + 1}. ${(e.name || '???').slice(0, 10)}`, scX + 20, rowY);
+        this._shadowText(`${i + 1}. ${(e.name || '???').slice(0, 10)}`, scX + 20, rowY, col, 2);
         ctx.textAlign = 'right';
-        ctx.fillStyle = '#fff';
-        ctx.fillText(String(e.score || 0).padStart(7, '0'), scX + scW - 20, rowY);
+        this._shadowText(String(e.score || 0).padStart(7, '0'), scX + scW - 20, rowY, '#ffffff', 2);
       });
       ctx.textAlign = 'center';
     }
     ctx.textAlign = 'left'; ctx.shadowBlur = 0;
+  }
+
+  // Menu-only ground strip: grass lip, dirt with pebbles scrolling slowly,
+  // and the selected character idling on it.
+  _drawMenuGround(t) {
+    const ctx = this.ctx;
+    const top = CANVAS_HEIGHT - 44;
+    const scroll = Math.floor(t * 0.6) % 32;
+    ctx.fillStyle = '#06200a';
+    ctx.fillRect(0, top, CANVAS_WIDTH, 1);
+    ctx.fillStyle = '#3aa845';
+    ctx.fillRect(0, top + 1, CANVAS_WIDTH, 7);
+    ctx.fillStyle = '#62d062';
+    ctx.fillRect(0, top + 1, CANVAS_WIDTH, 2);
+    ctx.fillStyle = '#2a7a30';
+    for (let x = -scroll; x < CANVAS_WIDTH; x += 32) ctx.fillRect(x + 10, top + 5, 6, 3);
+    ctx.fillStyle = '#4a2a10';
+    ctx.fillRect(0, top + 8, CANVAS_WIDTH, 1);
+    ctx.fillStyle = '#b8742c';
+    ctx.fillRect(0, top + 9, CANVAS_WIDTH, CANVAS_HEIGHT - top - 9);
+    ctx.fillStyle = '#9a5c1e';
+    for (let x = -scroll; x < CANVAS_WIDTH + 32; x += 32) {
+      ctx.fillRect(x + 4, top + 16, 5, 3);
+      ctx.fillRect(x + 20, top + 28, 4, 3);
+      ctx.fillRect(x + 12, top + 38, 6, 2);
+    }
+    ctx.fillStyle = 'rgba(0,0,0,0.18)';
+    ctx.fillRect(0, CANVAS_HEIGHT - 10, CANVAS_WIDTH, 10);
+    // Idle character on the ground (tiny bob)
+    const bob = Math.floor(t / 24) % 2;
+    this._drawCharPreview(this.selectedChar || 'eevee', CANVAS_WIDTH / 2, top + 1 + bob, 1.25);
   }
 
   // Drawn keyboard keycap — light plastic cap with a darker base edge
