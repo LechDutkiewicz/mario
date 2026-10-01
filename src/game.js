@@ -3141,8 +3141,8 @@ export class Game {
       ctx.fillStyle = '#ffffff';
       ctx.font = 'bold 26px monospace';
       ctx.strokeStyle = '#000'; ctx.lineWidth = 3;
-      ctx.strokeText('Świat 1 ukończony!', CANVAS_WIDTH / 2, 140);
-      ctx.fillText('Świat 1 ukończony!', CANVAS_WIDTH / 2, 140);
+      ctx.strokeText('Wszystkie światy ukończone!', CANVAS_WIDTH / 2, 140);
+      ctx.fillText('Wszystkie światy ukończone!', CANVAS_WIDTH / 2, 140);
     }
 
     // Score

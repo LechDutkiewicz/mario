@@ -37,7 +37,9 @@ export function resolveCollisions(ent, solids) {
   ent.y += ent.vy;
   for (const s of solids) {
     if (s.dead) continue;
-    if (s.hidden) continue;  // hidden blocks are non-solid until revealed
+    // Hidden blocks are non-solid until revealed, except for the player's
+    // head hitting them from below (FSM: that is how they are found)
+    if (s.hidden && !(ent.bumpsHidden && ent.vy < 0)) continue;
     if (aabb(ent, s)) {
       if (ent.vy > 0) {
         ent.y = s.y - ent.h;

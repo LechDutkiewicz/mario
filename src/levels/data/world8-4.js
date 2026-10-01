@@ -28,7 +28,7 @@ export const world84Data = {
         { "macro": "Fill", "thing": "Goomba", "x": 532, "y": 8, "xnum": 3, "xwidth": 12 },
         { "macro": "Floor", "x": 584, "y": 24, "width": 32 },
         { "macro": "Water", "x": 616, "width": 272 },
-        { "thing": "Platform", "x": 648, "width": 16, "sliding": true, "begin": 636, "end": 728 },
+        { "thing": "Platform", "x": 648, "y": 24, "width": 16, "sliding": true, "begin": 636, "end": 728 },
         { "macro": "Floor", "x": 752, "y": 24, "width": 48 },
         { "thing": "Stone", "x": 760, "y": 56, "width": 32 },
         { "macro": "Pipe", "x": 800, "height": 40, "piranha": true, "transport": 2 },
@@ -55,9 +55,9 @@ export const world84Data = {
         { "macro": "Pipe", "x": 456, "height": 24, "piranha": true, "transport": 1 },
         { "macro": "Water", "x": 472, "width": 48 },
         { "macro": "Floor", "x": 496, "width": 344 },
-        { "thing": "Block", "x": 520, "y": 32, "contents": "Coin", "hidden": true },
-        { "thing": "Stone", "x": 536, "y": 32, "width": 16 },
-        { "macro": "Pipe", "x": 536, "y": 32, "height": 24, "piranha": true, "transport": 3 },
+        { "thing": "Block", "x": 528, "y": 24, "contents": "Coin", "hidden": true },
+        { "thing": "Stone", "x": 536, "y": 24, "width": 16 },
+        { "macro": "Pipe", "x": 536, "y": 24, "height": 24, "piranha": true, "transport": 3 },
         { "thing": "Koopa", "x": 560, "y": 20, "jumping": true },
         { "thing": "Koopa", "x": 576, "y": 24, "jumping": true }
       ]

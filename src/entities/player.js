@@ -68,6 +68,7 @@ export class Player {
   constructor(x, y) {
     this.startX = x;
     this.startY = y;
+    this.bumpsHidden = true;   // only the player reveals hidden blocks (physics.js)
     this.reset(x, y);
   }
 
@@ -275,7 +276,7 @@ export class Player {
     // Wider proximity bump check for Q-blocks when jumping up
     if (this.vy < 0) {
       for (const s of solids) {
-        if (s.dead || s.used || !s.onBump || s.kind !== 'qblock') continue;
+        if (s.dead || s.used || s.hidden || !s.onBump || s.kind !== 'qblock') continue;
         const blockBottom = s.y + s.h;
         const playerTop = this.y;
         if (Math.abs(playerTop - blockBottom) < 10 &&

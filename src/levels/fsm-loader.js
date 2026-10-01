@@ -256,8 +256,12 @@ function processMacro(e, out) {
       const w = ux(e.width || 0);
       if (w <= 0) break;
       if (e.y) {
-        // Elevated floor (castle shelves, raised sections) — thin platform
-        out.platforms.push(new Platform(ux(x), GY - e.y * 4, w, T, COLORS.brick));
+        // Elevated floor (castle shelves, raised sections) — FSM fills it
+        // from its top down to the bottom of the screen (DtB), so there is
+        // no walkable gap underneath. A thin shelf here let the player walk
+        // under raised castle floors straight into lava (8-4).
+        const top = GY - e.y * 4;
+        out.platforms.push(new Platform(ux(x), top, w, (GY + 120) - top, COLORS.brick));
       } else {
         out.platforms.push(new Platform(ux(x), GY, w, 120, COLORS.ground));
       }
