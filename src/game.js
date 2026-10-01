@@ -19,6 +19,7 @@ import { buildWorld6, WORLD62_RETURN_X } from './levels/world6.js';
 import { buildWorld7 } from './levels/world7.js';
 import { buildWorld8 } from './levels/world8.js';
 import { aabb }     from './physics.js';
+import { drawTrainer } from './entities/trainer.js';
 
 // Pokémon type of each playable line — controls which evolution stone
 // spawns from ? blocks and what the fired projectile looks like.
@@ -305,7 +306,7 @@ export class Game {
   }
 
   _enterNameAndSave(isWin) {
-    const name = (prompt('Enter your name for the leaderboard:', 'Player') || 'Player').slice(0, 12);
+    const name = (prompt('Wpisz swoje imię do tablicy wyników:', 'Gracz') || 'Gracz').slice(0, 12);
     this._cachedBoard = this._cachedBoard || [];
     this._leaderboardIsWin = isWin;
     this._leaderboardLoading = true;
@@ -503,7 +504,7 @@ export class Game {
             sub: curSub,
             x: this._safeGroundX(lvl, lvl.width * 0.5),
           };
-          this._showMsg('CHECKPOINT!', 60);
+          this._showMsg('PUNKT KONTROLNY!', 60);
         }
       }
     }
@@ -988,7 +989,7 @@ export class Game {
             p.x = pl.exitX;
             p.y = GROUND_Y - p.h - 5;
             this.cam.x = Math.max(0, pl.exitX - 200);
-            this._showMsg('BACK ON TRACK!', 90);
+            this._showMsg('Z POWROTEM NA TRASIE!', 90);
             break;
           }
         }
@@ -1113,7 +1114,7 @@ export class Game {
         if (this._rescueName) {
           p.x = this.pcEnterX;   // stand right next to them, don't overshoot
           p.vx = 0;
-          this._showMsg(`${this._rescueName} IS SAFE!`, 170);
+          this._showMsg(`${this._rescueName} JEST BEZPIECZNY!`, 170);
           this._rescueName = null;
         }
       }
@@ -1930,7 +1931,7 @@ export class Game {
     if (this.worldClearTimer > 0)    this._drawWorldClear();
     if (this.walkToPCTimer > 0)      this._drawScoreTally();
     if (this.state === STATE.PAUSED)    this._drawPauseMenu();
-    if (this.state === STATE.GAME_OVER) this._overlay('GAME OVER', 'Press ENTER to save score');
+    if (this.state === STATE.GAME_OVER) this._overlay('KONIEC GRY', 'Naciśnij ENTER, aby zapisać wynik');
     if (this.state === STATE.WIN)       this._drawWin();
     if (this.state === STATE.LEVEL_SELECT) this._drawLevelSelect();
 
@@ -2237,7 +2238,7 @@ export class Game {
     ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 
     ctx.textAlign = 'center';
-    this._pixelText('choose', 'CHOOSE YOUR PARTNER!', CANVAS_WIDTH / 2, 70, 36, '#ffd23b', '#3a1a00');
+    this._pixelText('choose', 'WYBIERZ PARTNERA!', CANVAS_WIDTH / 2, 70, 36, '#ffd23b', '#3a1a00');
 
     const chars = [
       { key: 'eevee',      name: 'EEVEE',      evolves: 'UMBREON / FLAREON' },
@@ -2288,7 +2289,7 @@ export class Game {
     }
     ctx.font = 'bold 16px monospace';
     ctx.textAlign = 'center';
-    this._shadowText('← → to choose   ENTER to confirm', CANVAS_WIDTH / 2, CANVAS_HEIGHT - 30, 'rgba(255,255,255,0.85)', 2);
+    this._shadowText('← →  wybierz    ENTER  zatwierdź', CANVAS_WIDTH / 2, CANVAS_HEIGHT - 30, 'rgba(255,255,255,0.85)', 2);
     ctx.textAlign = 'left';
   }
 
@@ -2315,7 +2316,7 @@ export class Game {
     const ctx = this.ctx;
     // Backing panels so the HUD reads on bright skies
     this._hudPanel(8, 8, 190, 66);
-    this._hudPanel(CANVAS_WIDTH - 246, 8, 238, 90);
+    this._hudPanel(CANVAS_WIDTH - 262, 8, 254, 90);
     // Heart lives
     for (let i = 0; i < 3; i++) this._heart(24 + i * 34, 28, i < this.lives);
 
@@ -2324,13 +2325,13 @@ export class Game {
     ctx.font = 'bold 22px monospace';
     ctx.textAlign = 'left';
 
-    const sTxt = 'SCORE ' + String(this.score).padStart(6, '0');
-    ctx.strokeText(sTxt, CANVAS_WIDTH - 234, 36);
-    ctx.fillText(sTxt,   CANVAS_WIDTH - 234, 36);
+    const sTxt = 'WYNIK ' + String(this.score).padStart(6, '0');
+    ctx.strokeText(sTxt, CANVAS_WIDTH - 250, 36);
+    ctx.fillText(sTxt,   CANVAS_WIDTH - 250, 36);
 
     ctx.font = 'bold 20px monospace';
-    ctx.strokeText('BALLS ' + this.coinsCollected, CANVAS_WIDTH - 234, 62);
-    ctx.fillText('BALLS ' + this.coinsCollected,   CANVAS_WIDTH - 234, 62);
+    ctx.strokeText('POKÉBALLE ' + this.coinsCollected, CANVAS_WIDTH - 250, 62);
+    ctx.fillText('POKÉBALLE ' + this.coinsCollected,   CANVAS_WIDTH - 250, 62);
 
     const pw    = this.player.power;
     const charNames = {
@@ -2366,8 +2367,8 @@ export class Game {
     const areaIdx = this.level ? (this.level.areaIndex ?? this.world2Area ?? 0) : 0;
     ctx.fillStyle = '#fff';
     ctx.font = 'bold 20px monospace';
-    ctx.strokeText(`WORLD ${worldLabel}  AREA ${areaIdx}`, CANVAS_WIDTH - 234, 88);
-    ctx.fillText(`WORLD ${worldLabel}  AREA ${areaIdx}`,   CANVAS_WIDTH - 234, 88);
+    ctx.strokeText(`ŚWIAT ${worldLabel}  OBSZAR ${areaIdx}`, CANVAS_WIDTH - 250, 88);
+    ctx.fillText(`ŚWIAT ${worldLabel}  OBSZAR ${areaIdx}`,   CANVAS_WIDTH - 250, 88);
 
     // LEVELS button (top-left, below char name) — visible only after TAB
     if (this.debugMode) {
@@ -2379,7 +2380,7 @@ export class Game {
       ctx.fillStyle = '#ffd23b';
       ctx.font = 'bold 14px monospace';
       ctx.textAlign = 'center';
-      ctx.fillText('LEVELS', bx + bw / 2, by + 15);
+      ctx.fillText('POZIOMY', bx + bw / 2, by + 15);
       ctx.textAlign = 'left';
       this._levelsBtnRect = { x: bx, y: by, w: bw, h: bh };
     } else {
@@ -2406,10 +2407,10 @@ export class Game {
     ctx.fillStyle = 'rgba(0,0,0,0.45)';
     ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
     ctx.textAlign = 'center';
-    this._pixelText('goal', 'GOAL!', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 20, 54, '#ffd23b', '#5a3a00');
+    this._pixelText('goal', 'META!', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 20, 54, '#ffd23b', '#5a3a00');
     ctx.fillStyle = '#fff';
     ctx.font = 'bold 24px monospace';
-    ctx.fillText('Score: ' + this.score, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 30);
+    ctx.fillText('Wynik: ' + this.score, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 30);
     ctx.textAlign = 'left';
   }
 
@@ -2482,9 +2483,9 @@ export class Game {
 
     ctx.font = 'bold 28px monospace';
     ctx.textAlign = 'center';
-    this._shadowText('LEVEL SELECT', CANVAS_WIDTH / 2, 60, '#ffd23b', 3);
+    this._shadowText('WYBÓR POZIOMU', CANVAS_WIDTH / 2, 60, '#ffd23b', 3);
     ctx.font = '16px monospace';
-    this._shadowText('Click a level  |  P or ESC to close', CANVAS_WIDTH / 2, 88, '#bbbbbb', 2);
+    this._shadowText('Kliknij poziom  |  P lub ESC zamyka', CANVAS_WIDTH / 2, 88, '#bbbbbb', 2);
 
     // One button per level — 4 per row, one world per row
     const levels = [];
@@ -2524,7 +2525,7 @@ export class Game {
     this._shadowText('ESC / P  →  wróć do gry', cx, cy + 16, '#ffe066', 2);
     this._shadowText('M  →  wyjdź do menu', cx, cy + 50, '#ff8888', 2);
     ctx.font = 'bold 18px monospace';
-    this._shadowText('SCORE ' + this.score, cx, cy + 90, '#cccccc', 2);
+    this._shadowText('WYNIK ' + this.score, cx, cy + 90, '#cccccc', 2);
     ctx.textAlign = 'left';
   }
 
@@ -2540,7 +2541,7 @@ export class Game {
     ctx.font = 'bold 20px monospace';
     this._shadowText(sub, cx, cy + 16, '#ffe066', 2);
     ctx.font = 'bold 18px monospace';
-    this._shadowText('SCORE ' + this.score, cx, cy + 56, '#cccccc', 2);
+    this._shadowText('WYNIK ' + this.score, cx, cy + 56, '#cccccc', 2);
     ctx.textAlign = 'left';
   }
 
@@ -2552,19 +2553,19 @@ export class Game {
 
     ctx.fillStyle = '#ffd23b';
     ctx.font = 'bold 58px monospace';
-    ctx.fillText("EEVEE WINS!", CANVAS_WIDTH / 2, 190);
+    ctx.fillText('EEVEE WYGRYWA!', CANVAS_WIDTH / 2, 190);
 
     ctx.fillStyle = '#a9e0ff';
     ctx.font = 'bold 26px monospace';
-    ctx.fillText('Giovanni is defeated!', CANVAS_WIDTH / 2, 258);
+    ctx.fillText('Giovanni pokonany!', CANVAS_WIDTH / 2, 258);
 
     ctx.fillStyle = '#fff';
-    ctx.fillText('Final Score: ' + this.score, CANVAS_WIDTH / 2, 308);
-    ctx.fillText('Pokeballs: ' + this.coinsCollected, CANVAS_WIDTH / 2, 346);
+    ctx.fillText('Wynik końcowy: ' + this.score, CANVAS_WIDTH / 2, 308);
+    ctx.fillText('Pokéballe: ' + this.coinsCollected, CANVAS_WIDTH / 2, 346);
 
     ctx.font = 'bold 22px monospace';
     ctx.fillStyle = '#b0e0ff';
-    ctx.fillText('Press ENTER to play again', CANVAS_WIDTH / 2, 420);
+    ctx.fillText('Naciśnij ENTER, aby zagrać ponownie', CANVAS_WIDTH / 2, 420);
     ctx.textAlign = 'left';
   }
 
@@ -2575,72 +2576,7 @@ export class Game {
 
   // Simple cartoon trainer, ~48px tall, facing left toward the arriving player.
   // cx = horizontal center, footY = ground line. who: 'ash' | 'goh' | 'friede'
-  _drawTrainer(ctx, cx, footY, who) {
-    const PAL = {
-      ash:    { hair: '#1a1a1a', cap: '#d82020', capPeak: '#f0f0f0', jacket: '#2858c8', trim: '#f0f0f0', pants: '#4a68b0', shoes: '#222',    skin: '#f0c8a0' },
-      goh:    { hair: '#20304a', cap: null,      capPeak: null,      jacket: '#f4f4f4', trim: '#d82020', pants: '#607080', shoes: '#f0f0f0', skin: '#f0c8a0' },
-      friede: { hair: '#e8e8e8', cap: null,      capPeak: null,      jacket: '#284898', trim: '#101828', pants: '#282838', shoes: '#503818', skin: '#e8b890' },
-    };
-    const c = PAL[who] || PAL.ash;
-    const H = 48;
-    const top = footY - H;
-    const wave = Math.sin((this._lavaAnim || 0) * 0.1);   // waving arm
-
-    // Shoes
-    ctx.fillStyle = c.shoes;
-    ctx.fillRect(cx - 9, footY - 5, 8, 5);
-    ctx.fillRect(cx + 1, footY - 5, 8, 5);
-    // Legs
-    ctx.fillStyle = c.pants;
-    ctx.fillRect(cx - 7, top + 28, 6, H - 33);
-    ctx.fillRect(cx + 1, top + 28, 6, H - 33);
-    // Jacket torso
-    ctx.fillStyle = c.jacket;
-    ctx.fillRect(cx - 8, top + 14, 16, 15);
-    // Trim stripe down the middle
-    ctx.fillStyle = c.trim;
-    ctx.fillRect(cx - 1.5, top + 14, 3, 15);
-    // Static arm (left side, hangs down)
-    ctx.fillStyle = c.jacket;
-    ctx.fillRect(cx - 12, top + 15, 4, 11);
-    ctx.fillStyle = c.skin;
-    ctx.fillRect(cx - 12, top + 26, 4, 3);
-    // Waving arm (right side, raised, swings)
-    ctx.save();
-    ctx.translate(cx + 10, top + 17);
-    ctx.rotate(-2.3 + wave * 0.45);
-    ctx.fillStyle = c.jacket;
-    ctx.fillRect(-2, 0, 4, 12);
-    ctx.fillStyle = c.skin;
-    ctx.fillRect(-2, 12, 4, 4);
-    ctx.restore();
-    // Head
-    ctx.fillStyle = c.skin;
-    ctx.beginPath(); ctx.arc(cx, top + 8, 7.5, 0, Math.PI * 2); ctx.fill();
-    // Hair (back and top)
-    ctx.fillStyle = c.hair;
-    ctx.beginPath(); ctx.arc(cx + 1.5, top + 6, 7.5, Math.PI * 0.85, Math.PI * 2.05); ctx.fill();
-    if (who === 'friede') {
-      // Spiky white tufts
-      ctx.beginPath();
-      ctx.moveTo(cx - 6, top + 3); ctx.lineTo(cx - 9, top - 4); ctx.lineTo(cx - 2, top + 1);
-      ctx.lineTo(cx + 1, top - 5); ctx.lineTo(cx + 5, top + 1); ctx.lineTo(cx + 9, top - 2);
-      ctx.lineTo(cx + 7, top + 5); ctx.closePath(); ctx.fill();
-    }
-    // Cap (Ash)
-    if (c.cap) {
-      ctx.fillStyle = c.cap;
-      ctx.beginPath(); ctx.arc(cx, top + 4, 7.5, Math.PI, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = c.capPeak;
-      ctx.fillRect(cx - 12, top + 3, 8, 3);   // peak points left, toward player
-    }
-    // Eye (facing left)
-    ctx.fillStyle = '#111';
-    ctx.beginPath(); ctx.arc(cx - 4, top + 8.5, 1.4, 0, Math.PI * 2); ctx.fill();
-    // Smile
-    ctx.strokeStyle = '#111'; ctx.lineWidth = 1;
-    ctx.beginPath(); ctx.arc(cx - 3, top + 11, 2.5, 0.2, Math.PI * 0.8); ctx.stroke();
-  }
+  _drawTrainer(ctx, cx, footY, who) { drawTrainer(ctx, cx, footY, who); }
 
   // Light approximations of FSM background patterns (clouds/bushes/fences).
   // Each pattern spans ~384px (BackFence 512) and repeats `repeat` times.
@@ -2704,13 +2640,13 @@ export class Game {
     else                       worldLabel = `8-${this.world8Level + 1}`;
     const cx = CANVAS_WIDTH / 2, cy = CANVAS_HEIGHT / 2;
     const setting = this.level?.setting || 'overworld';
-    const settingNames = { overworld: 'OVERWORLD', underworld: 'UNDERGROUND', castle: 'CASTLE',
-                           sky: 'SKY', underwater: 'UNDERWATER', night: 'NIGHT', trees: 'TREETOPS' };
+    const settingNames = { overworld: 'POWIERZCHNIA', underworld: 'PODZIEMIA', castle: 'ZAMEK',
+                           sky: 'NIEBO', underwater: 'POD WODĄ', night: 'NOC', trees: 'KORONY DRZEW' };
     const settingName = settingNames[setting] || String(setting).toUpperCase();
     // Framed card with the world / level name
     this._drawPanel(cx - 170, cy - 112, 340, 84);
     ctx.textAlign = 'center';
-    this._pixelText('world:' + worldLabel, `WORLD ${worldLabel}`, cx, cy - 66, 36, '#ffffff', '#2a2040');
+    this._pixelText('world:' + worldLabel, `ŚWIAT ${worldLabel}`, cx, cy - 66, 36, '#ffffff', '#2a2040');
     ctx.font = 'bold 14px monospace';
     this._shadowText(settingName, cx, cy - 40, '#ffd23b', 2);
     // Player sprite next to the lives counter
@@ -2981,7 +2917,7 @@ export class Game {
     ctx.fillStyle = '#3a7abf';
     ctx.font = 'bold 24px monospace';
     ctx.textAlign = 'left';
-    ctx.fillText('SHOP', x + 28, bottomY - 18);
+    ctx.fillText('SKLEP', x + 28, bottomY - 18);
 
     // Door (teal/blue)
     ctx.fillStyle = '#4ab8c0';
@@ -3018,21 +2954,21 @@ export class Game {
     ctx.textAlign = 'center';
     ctx.fillStyle = '#ffd23b';
     ctx.font = 'bold 48px monospace';
-    ctx.fillText('COURSE CLEAR!', CANVAS_WIDTH / 2, 180);
+    ctx.fillText('POZIOM UKOŃCZONY!', CANVAS_WIDTH / 2, 180);
     const progress = 1 - this.walkToPCTimer / 180;
     const shownScore = Math.floor(this.score * progress);
     ctx.fillStyle = '#fff';
     ctx.font = 'bold 28px monospace';
-    ctx.fillText('SCORE', CANVAS_WIDTH / 2, 260);
+    ctx.fillText('WYNIK', CANVAS_WIDTH / 2, 260);
     ctx.fillStyle = '#ffd23b';
     ctx.font = 'bold 36px monospace';
     ctx.fillText(String(shownScore).padStart(7, '0'), CANVAS_WIDTH / 2, 305);
     ctx.fillStyle = '#fff';
     ctx.font = 'bold 24px monospace';
-    ctx.fillText(`POKÉBALLS  ×${this.coinsCollected}`, CANVAS_WIDTH / 2, 360);
+    ctx.fillText(`POKÉBALLE  ×${this.coinsCollected}`, CANVAS_WIDTH / 2, 360);
     ctx.fillStyle = '#aaa';
     ctx.font = '18px monospace';
-    ctx.fillText('Press ENTER to continue', CANVAS_WIDTH / 2, 440);
+    ctx.fillText('Naciśnij ENTER, aby kontynuować', CANVAS_WIDTH / 2, 440);
     ctx.textAlign = 'left';
   }
 
@@ -3143,7 +3079,7 @@ export class Game {
     ctx.fillStyle = '#cc0000';
     ctx.font = 'bold 12px monospace';
     ctx.textAlign = 'left';
-    ctx.fillText('SHOP', signX + 6, signY + 13);
+    ctx.fillText('SKLEP', signX + 6, signY + 13);
     ctx.textAlign = 'left';
 
     // Roof bevel: light top edge, dark under-edge
@@ -3190,8 +3126,8 @@ export class Game {
     ctx.font = 'bold 44px monospace';
     ctx.strokeStyle = '#000'; ctx.lineWidth = 5;
     ctx.textAlign = 'center';
-    ctx.strokeText('YOU WIN!', CANVAS_WIDTH / 2, titleY);
-    ctx.fillText('YOU WIN!', CANVAS_WIDTH / 2, titleY);
+    ctx.strokeText('WYGRANA!', CANVAS_WIDTH / 2, titleY);
+    ctx.fillText('WYGRANA!', CANVAS_WIDTH / 2, titleY);
 
     // Pikachu — drawn procedurally, appears after title
     if (t > 30) {
@@ -3205,8 +3141,8 @@ export class Game {
       ctx.fillStyle = '#ffffff';
       ctx.font = 'bold 26px monospace';
       ctx.strokeStyle = '#000'; ctx.lineWidth = 3;
-      ctx.strokeText('World 1 Complete!', CANVAS_WIDTH / 2, 140);
-      ctx.fillText('World 1 Complete!', CANVAS_WIDTH / 2, 140);
+      ctx.strokeText('Świat 1 ukończony!', CANVAS_WIDTH / 2, 140);
+      ctx.fillText('Świat 1 ukończony!', CANVAS_WIDTH / 2, 140);
     }
 
     // Score
@@ -3214,8 +3150,8 @@ export class Game {
       ctx.fillStyle = '#ffd23b';
       ctx.font = '22px monospace';
       ctx.strokeStyle = '#000'; ctx.lineWidth = 2;
-      ctx.strokeText(`Score: ${String(this.score).padStart(7, '0')}`, CANVAS_WIDTH / 2, CANVAS_HEIGHT - 120);
-      ctx.fillText(`Score: ${String(this.score).padStart(7, '0')}`, CANVAS_WIDTH / 2, CANVAS_HEIGHT - 120);
+      ctx.strokeText(`Wynik: ${String(this.score).padStart(7, '0')}`, CANVAS_WIDTH / 2, CANVAS_HEIGHT - 120);
+      ctx.fillText(`Wynik: ${String(this.score).padStart(7, '0')}`, CANVAS_WIDTH / 2, CANVAS_HEIGHT - 120);
     }
 
     // Press ENTER prompt
@@ -3224,8 +3160,8 @@ export class Game {
       ctx.fillStyle = '#ffffff';
       ctx.font = 'bold 20px monospace';
       ctx.strokeStyle = '#000'; ctx.lineWidth = 2;
-      ctx.strokeText('Press ENTER to save score', CANVAS_WIDTH / 2, CANVAS_HEIGHT - 80);
-      ctx.fillText('Press ENTER to save score', CANVAS_WIDTH / 2, CANVAS_HEIGHT - 80);
+      ctx.strokeText('Naciśnij ENTER, aby zapisać wynik', CANVAS_WIDTH / 2, CANVAS_HEIGHT - 80);
+      ctx.fillText('Naciśnij ENTER, aby zapisać wynik', CANVAS_WIDTH / 2, CANVAS_HEIGHT - 80);
       ctx.globalAlpha = 1;
     }
     ctx.textAlign = 'left';
@@ -3327,25 +3263,25 @@ export class Game {
     ctx.textAlign = 'center';
 
     ctx.font = 'bold 40px monospace';
-    this._shadowText('TOP 10 SCORES', CANVAS_WIDTH / 2, 60, '#ffd23b', 3);
+    this._shadowText('TOP 10 WYNIKÓW', CANVAS_WIDTH / 2, 60, '#ffd23b', 3);
 
     const board = this._cachedBoard || [];
     const charColors = { eevee: '#c8864a', charmander: '#f07840', bulbasaur: '#68a858' };
     // Column header
     ctx.font = 'bold 13px monospace';
     ctx.textAlign = 'left';
-    this._shadowText('#   NAME', px0 + 36, 106, 'rgba(255,255,255,0.55)', 2);
+    this._shadowText('#   IMIĘ', px0 + 36, 106, 'rgba(255,255,255,0.55)', 2);
     ctx.textAlign = 'right';
-    this._shadowText('SCORE', CANVAS_WIDTH / 2 + 160, 106, 'rgba(255,255,255,0.55)', 2);
+    this._shadowText('WYNIK', CANVAS_WIDTH / 2 + 160, 106, 'rgba(255,255,255,0.55)', 2);
     ctx.textAlign = 'left';
-    this._shadowText('DATE', CANVAS_WIDTH / 2 + 170, 106, 'rgba(255,255,255,0.55)', 2);
+    this._shadowText('DATA', CANVAS_WIDTH / 2 + 170, 106, 'rgba(255,255,255,0.55)', 2);
     ctx.fillStyle = 'rgba(255,255,255,0.18)';
     ctx.fillRect(px0 + 20, 114, 480, 1);
 
     if (this._leaderboardLoading && board.length === 0) {
       ctx.font = '20px monospace';
       ctx.textAlign = 'center';
-      this._shadowText('Loading scores...', CANVAS_WIDTH / 2, 220, 'rgba(255,255,255,0.6)', 2);
+      this._shadowText('Wczytywanie wyników...', CANVAS_WIDTH / 2, 220, 'rgba(255,255,255,0.6)', 2);
     }
     ctx.font = 'bold 18px monospace';
     for (let i = 0; i < Math.min(10, board.length); i++) {
@@ -3378,13 +3314,13 @@ export class Game {
       ctx.textAlign = 'center';
       this._drawPanel(CANVAS_WIDTH / 2 - 170, 300, 340, 70, { fill: 'rgba(40,30,70,0.9)', border: 3 });
       ctx.font = 'bold 18px monospace';
-      this._shadowText('No scores yet!', CANVAS_WIDTH / 2, 330, '#ffe9a0', 2);
+      this._shadowText('Brak wyników!', CANVAS_WIDTH / 2, 330, '#ffe9a0', 2);
       ctx.font = 'bold 14px monospace';
-      this._shadowText('Finish a run to get on the board', CANVAS_WIDTH / 2, 354, '#ffffff', 2);
+      this._shadowText('Ukończ grę, aby trafić na listę', CANVAS_WIDTH / 2, 354, '#ffffff', 2);
     }
     ctx.font = 'bold 20px monospace';
     ctx.textAlign = 'center';
-    this._shadowText('Press ENTER or SPACE to continue', CANVAS_WIDTH / 2, CANVAS_HEIGHT - 30, '#b0e0ff', 2);
+    this._shadowText('Naciśnij ENTER lub SPACJĘ, aby kontynuować', CANVAS_WIDTH / 2, CANVAS_HEIGHT - 30, '#b0e0ff', 2);
     ctx.textAlign = 'left';
   }
 
@@ -3430,12 +3366,12 @@ export class Game {
       ctx.restore();
     }
     // Title as pixel text (cached offscreen at 1/3 scale, blitted x3)
-    this._pixelText('title1', "EEVEE'S",  CANVAS_WIDTH / 2, 124, 64, '#e8a45a', '#5a2a10', { highlight: true });
-    this._pixelText('title2', 'ADVENTURE', CANVAS_WIDTH / 2, 192, 64, '#c488f8', '#3a1060', { highlight: true });
+    this._pixelText('title1', 'PRZYGODA', CANVAS_WIDTH / 2, 124, 64, '#e8a45a', '#5a2a10', { highlight: true });
+    this._pixelText('title2', 'EEVEE',    CANVAS_WIDTH / 2, 192, 64, '#c488f8', '#3a1060', { highlight: true });
 
     ctx.font = 'bold 24px monospace';
     const blink = Math.floor(t / 30) % 2 === 0;
-    this._shadowText('Press ENTER or SPACE to START', CANVAS_WIDTH / 2, 254, blink ? '#ffffff' : '#ffe9a0', 3);
+    this._shadowText('Naciśnij ENTER lub SPACJĘ, aby zacząć', CANVAS_WIDTH / 2, 254, blink ? '#ffffff' : '#ffe9a0', 3);
 
     // Two panels: controls (left) + top scores (right)
     const panelY = 286, panelH = 218;
@@ -3474,11 +3410,11 @@ export class Game {
     const board = this._cachedBoard || [];
     this._drawPanel(scX, panelY, scW, panelH);
     ctx.font = 'bold 20px monospace';
-    this._shadowText('TOP SCORES', scX + scW / 2, panelY + 28, '#ffd23b', 2);
+    this._shadowText('NAJLEPSZE WYNIKI', scX + scW / 2, panelY + 28, '#ffd23b', 2);
 
     if (this._leaderboardLoading && board.length === 0) {
       ctx.fillStyle = '#aaa'; ctx.font = '15px monospace';
-      ctx.fillText('Loading scores...', scX + scW / 2, panelY + 80);
+      ctx.fillText('Wczytywanie wyników...', scX + scW / 2, panelY + 80);
     } else if (board.length === 0) {
       // Empty state: three dashed placeholder rows + a small framed hint
       ctx.font = 'bold 15px monospace';
@@ -3493,8 +3429,8 @@ export class Game {
       this._drawPanel(scX + 30, panelY + 136, scW - 60, 58,
         { fill: 'rgba(40,30,70,0.9)', border: 3 });
       ctx.font = 'bold 14px monospace';
-      this._shadowText('No scores yet —', scX + scW / 2, panelY + 160, '#ffe9a0', 2);
-      this._shadowText('play a game first!', scX + scW / 2, panelY + 180, '#ffffff', 2);
+      this._shadowText('Brak wyników —', scX + scW / 2, panelY + 160, '#ffe9a0', 2);
+      this._shadowText('zagraj najpierw!', scX + scW / 2, panelY + 180, '#ffffff', 2);
     } else {
       const top5 = board.slice(0, 5);
       ctx.font = 'bold 15px monospace';
