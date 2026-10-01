@@ -1807,6 +1807,7 @@ export class Game {
       ctx2.strokeStyle = '#2e9e40'; ctx2.lineWidth = 4;
       ctx2.beginPath(); ctx2.arc(vx2 + 5, v.topY, 6, Math.PI * 0.9, Math.PI * 1.9); ctx2.stroke();
     }
+    this._drawAmbient(lvl.setting || 'overworld');
     for (const pl of lvl.platforms)  pl.draw(r, this.cam);
     if (lvl.movingPlatforms) for (const mp of lvl.movingPlatforms) mp.draw(r, this.cam);
     for (const q  of lvl.qblocks)    q.draw(r, this.cam);
@@ -2021,6 +2022,71 @@ export class Game {
 
   // SNES-style framed panel: dark fill, 2-tone bevel (light top-left,
   // dark bottom-right) and a 1px dark outer outline.
+  // Cheap ambient specks behind the platforms: petals/dandelion seeds
+  // (overworld, sky, trees), fireflies (night), dust motes (underworld),
+  // embers (castle). Deterministic per index, animated by this._fxAnim.
+  _drawAmbient(setting) {
+    if (setting === 'underwater') return;
+    const ctx = this.ctx;
+    const t = (this._fxAnim = (this._fxAnim || 0) + 1);
+    const camx = this.cam.x;
+    const hash = (i, k) => { const v = Math.sin(i * 127.1 + k * 311.7) * 43758.5453; return v - Math.floor(v); };
+    ctx.save();
+    if (setting === 'night') {
+      for (let i = 0; i < 7; i++) {
+        const sp = 0.4 + hash(i, 1) * 0.5;
+        const bx = hash(i, 2) * 1400 + Math.sin(t * 0.01 * sp + i) * 40;
+        const x = ((bx - camx * 0.6) % 1400 + 1400) % 1400 - 300;
+        const y = 200 + hash(i, 3) * 300 + Math.sin(t * 0.02 * sp + i * 2) * 14;
+        const a = Math.max(0, Math.sin(t * 0.03 * sp + i * 1.7));
+        if (a < 0.05) continue;
+        ctx.globalAlpha = a * 0.85;
+        ctx.fillStyle = '#ffe66a';
+        ctx.fillRect(Math.floor(x), Math.floor(y), 2, 2);
+        ctx.globalAlpha = a * 0.25;
+        ctx.fillRect(Math.floor(x) - 1, Math.floor(y) - 1, 4, 4);
+      }
+    } else if (setting === 'underworld') {
+      for (let i = 0; i < 7; i++) {
+        const sp = 0.3 + hash(i, 1) * 0.4;
+        const bx = hash(i, 2) * 1400 + t * 0.12 * sp;
+        const x = ((bx - camx * 0.7) % 1400 + 1400) % 1400 - 300;
+        const y = 60 + hash(i, 3) * 440 + Math.sin(t * 0.015 * sp + i) * 10;
+        ctx.globalAlpha = 0.18 + hash(i, 4) * 0.14;
+        ctx.fillStyle = '#d8c8b0';
+        ctx.fillRect(Math.floor(x), Math.floor(y), 2, 2);
+      }
+    } else if (setting === 'castle') {
+      for (let i = 0; i < 8; i++) {
+        const sp = 0.5 + hash(i, 1) * 0.6;
+        const cyc = 420 / sp;
+        const ph = ((t + hash(i, 2) * cyc) % cyc) / cyc;   // 0..1 rising
+        const bx = hash(i, 3) * 1400 + Math.sin(t * 0.03 * sp + i) * 12;
+        const x = ((bx - camx * 0.7) % 1400 + 1400) % 1400 - 300;
+        const y = 540 - ph * 460;
+        const a = ph < 0.15 ? ph / 0.15 : ph > 0.7 ? (1 - ph) / 0.3 : 1;
+        ctx.globalAlpha = a * 0.75;
+        ctx.fillStyle = ph < 0.5 ? '#ffb24a' : '#ff6a2a';
+        ctx.fillRect(Math.floor(x), Math.floor(y), 2, 2);
+        ctx.globalAlpha = a * 0.2;
+        ctx.fillRect(Math.floor(x) - 1, Math.floor(y) - 1, 4, 4);
+      }
+    } else {
+      // overworld / sky / trees: drifting petals + dandelion seeds
+      for (let i = 0; i < 8; i++) {
+        const sp = 0.4 + hash(i, 1) * 0.6;
+        const bx = hash(i, 2) * 1400 + t * 0.25 * sp;
+        const x = ((bx - camx * 0.8) % 1400 + 1400) % 1400 - 300;
+        const y = 40 + hash(i, 3) * 400 + Math.sin(t * 0.02 * sp + i * 1.3) * 16;
+        ctx.globalAlpha = 0.45 + hash(i, 4) * 0.25;
+        ctx.fillStyle = i % 2 ? '#ffffff' : '#cfeec0';
+        const sz = i % 3 === 0 ? 3 : 2;
+        ctx.fillRect(Math.floor(x), Math.floor(y), sz, sz);
+      }
+    }
+    ctx.restore();
+  }
+
   _drawPanel(x, y, w, h, opts = {}) {
     const ctx = this.ctx;
     const fill  = opts.fill  || 'rgba(12,10,34,0.86)';
@@ -2062,6 +2128,63 @@ export class Game {
     ctx.fillText(text, x + off, y + off);
     ctx.fillStyle = color;
     ctx.fillText(text, x, y);
+  }
+
+  // Pixel-style text: the string (with hard drop shadow + outline) is drawn
+  // once into a small offscreen canvas at 1/3 scale, cached by key, and then
+  // blitted back at 3x with smoothing off so the glyph edges are blocky like
+  // the rest of the sprite art. `size` is the final on-screen font size.
+  _pixelTextSprite(key, txt, size, fill, shadow, opts = {}) {
+    if (!this._titleCache) this._titleCache = {};
+    const cached = this._titleCache[key];
+    if (cached && cached.txt === txt && cached.fill === fill) return cached.canvas;
+    const S = 3;
+    const fs = Math.max(4, Math.round(size / S));
+    const off = opts.off ?? 1;              // drop shadow offset (small px)
+    const lw  = opts.outline ?? 1;          // outline width (small px)
+    const pad = off + lw + 2;
+    const c = document.createElement('canvas');
+    const g = c.getContext('2d');
+    g.font = `bold ${fs}px monospace`;
+    const tw = Math.ceil(g.measureText(txt).width);
+    c.width  = tw + pad * 2 + 2;
+    c.height = fs + pad * 2 + 2;
+    g.font = `bold ${fs}px monospace`;
+    g.textAlign = 'left'; g.textBaseline = 'alphabetic';
+    g.lineJoin = 'miter'; g.miterLimit = 2;
+    const bx = pad, by = pad + Math.round(fs * 0.78);
+    if (shadow) {
+      g.strokeStyle = '#0a0612'; g.lineWidth = lw * 2;
+      g.strokeText(txt, bx + off, by + off);
+      g.fillStyle = shadow; g.fillText(txt, bx + off, by + off);
+    }
+    g.strokeStyle = '#0a0612'; g.lineWidth = lw * 2;
+    g.strokeText(txt, bx, by);
+    g.fillStyle = fill; g.fillText(txt, bx, by);
+    if (opts.highlight) {
+      g.save();
+      g.beginPath(); g.rect(0, by - fs * 0.8, c.width, fs * 0.28); g.clip();
+      g.fillStyle = 'rgba(255,255,255,0.28)';
+      g.fillText(txt, bx, by);
+      g.restore();
+    }
+    this._titleCache[key] = { txt, fill, canvas: c, baseline: by, pad };
+    return c;
+  }
+
+  // Draw a cached pixel-text sprite centred horizontally on cx with its
+  // text baseline at y (matches the coordinates _shadowText uses).
+  _pixelText(key, txt, cx, y, size, fill, shadow, opts = {}) {
+    const ctx = this.ctx;
+    const c = this._pixelTextSprite(key, txt, size, fill, shadow, opts);
+    const info = this._titleCache[key];
+    const S = 3;
+    const dx = Math.floor(cx - (c.width * S) / 2);
+    const dy = Math.floor(y - info.baseline * S);
+    ctx.save();
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(c, dx, dy, c.width * S, c.height * S);
+    ctx.restore();
   }
 
   // Cached preview Player for a character (used by char-select / intro card)
@@ -2114,8 +2237,7 @@ export class Game {
     ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 
     ctx.textAlign = 'center';
-    ctx.font = 'bold 34px monospace';
-    this._shadowText('CHOOSE YOUR PARTNER!', CANVAS_WIDTH / 2, 70, '#ffd23b', 3, '#3a1a00');
+    this._pixelText('choose', 'CHOOSE YOUR PARTNER!', CANVAS_WIDTH / 2, 70, 36, '#ffd23b', '#3a1a00');
 
     const chars = [
       { key: 'eevee',      name: 'EEVEE',      evolves: 'UMBREON / FLAREON' },
@@ -2284,9 +2406,7 @@ export class Game {
     ctx.fillStyle = 'rgba(0,0,0,0.45)';
     ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
     ctx.textAlign = 'center';
-    ctx.fillStyle = '#ffd23b';
-    ctx.font = 'bold 52px monospace';
-    ctx.fillText('GOAL!', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 20);
+    this._pixelText('goal', 'GOAL!', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 20, 54, '#ffd23b', '#5a3a00');
     ctx.fillStyle = '#fff';
     ctx.font = 'bold 24px monospace';
     ctx.fillText('Score: ' + this.score, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 30);
@@ -2590,8 +2710,7 @@ export class Game {
     // Framed card with the world / level name
     this._drawPanel(cx - 170, cy - 112, 340, 84);
     ctx.textAlign = 'center';
-    ctx.font = 'bold 36px monospace';
-    this._shadowText(`WORLD ${worldLabel}`, cx, cy - 66, '#ffffff', 3);
+    this._pixelText('world:' + worldLabel, `WORLD ${worldLabel}`, cx, cy - 66, 36, '#ffffff', '#2a2040');
     ctx.font = 'bold 14px monospace';
     this._shadowText(settingName, cx, cy - 40, '#ffd23b', 2);
     // Player sprite next to the lives counter
@@ -3287,34 +3406,32 @@ export class Game {
 
     ctx.textAlign = 'center';
 
-    // Title: faint glow, then 3px hard drop shadow, 2px dark outline, fill
-    const titleLine = (txt, y, fill, shadow) => {
-      ctx.font = 'bold 64px monospace';
-      ctx.lineJoin = 'round';
+    // Title plate: a soft dark band so the background clouds/moon never
+    // show through the letters (hills and sky stay visible elsewhere).
+    {
+      const px = 70, py = 56, pw = CANVAS_WIDTH - 140, ph = 164;
       ctx.save();
-      ctx.shadowColor = 'rgba(255,170,40,0.35)'; ctx.shadowBlur = 14;
-      ctx.fillStyle = shadow;
-      ctx.fillText(txt, CANVAS_WIDTH / 2, y);
+      ctx.fillStyle = 'rgba(6,4,24,0.74)';
+      ctx.fillRect(px, py, pw, ph);
+      // bevel: light top/left, dark bottom/right, 1px outline
+      ctx.fillStyle = 'rgba(255,232,138,0.35)';
+      ctx.fillRect(px, py, pw, 2); ctx.fillRect(px, py, 2, ph);
+      ctx.fillStyle = 'rgba(0,0,0,0.5)';
+      ctx.fillRect(px, py + ph - 2, pw, 2); ctx.fillRect(px + pw - 2, py, 2, ph);
+      ctx.fillStyle = 'rgba(5,3,8,0.8)';
+      ctx.fillRect(px - 1, py - 1, pw + 2, 1); ctx.fillRect(px - 1, py + ph, pw + 2, 1);
+      ctx.fillRect(px - 1, py - 1, 1, ph + 2); ctx.fillRect(px + pw, py - 1, 1, ph + 2);
+      // faint warm glow behind the letters
+      const glow = ctx.createRadialGradient(CANVAS_WIDTH / 2, 150, 20, CANVAS_WIDTH / 2, 150, 300);
+      glow.addColorStop(0, 'rgba(255,170,40,0.16)');
+      glow.addColorStop(1, 'rgba(255,170,40,0)');
+      ctx.fillStyle = glow;
+      ctx.fillRect(px, py, pw, ph);
       ctx.restore();
-      // drop shadow block (outlined too, so it reads as a solid slab)
-      ctx.strokeStyle = '#0a0612'; ctx.lineWidth = 4;
-      ctx.strokeText(txt, CANVAS_WIDTH / 2 + 3, y + 3);
-      ctx.fillStyle = shadow;
-      ctx.fillText(txt, CANVAS_WIDTH / 2 + 3, y + 3);
-      // main letters: 2px outline + fill
-      ctx.strokeStyle = '#0a0612'; ctx.lineWidth = 4;
-      ctx.strokeText(txt, CANVAS_WIDTH / 2, y);
-      ctx.fillStyle = fill;
-      ctx.fillText(txt, CANVAS_WIDTH / 2, y);
-      // top-edge highlight (clipped to the upper third of the glyphs)
-      ctx.save();
-      ctx.beginPath(); ctx.rect(0, y - 52, CANVAS_WIDTH, 18); ctx.clip();
-      ctx.fillStyle = 'rgba(255,255,255,0.28)';
-      ctx.fillText(txt, CANVAS_WIDTH / 2, y);
-      ctx.restore();
-    };
-    titleLine("EEVEE'S", 124, '#e8a45a', '#5a2a10');
-    titleLine('ADVENTURE', 192, '#c488f8', '#3a1060');
+    }
+    // Title as pixel text (cached offscreen at 1/3 scale, blitted x3)
+    this._pixelText('title1', "EEVEE'S",  CANVAS_WIDTH / 2, 124, 64, '#e8a45a', '#5a2a10', { highlight: true });
+    this._pixelText('title2', 'ADVENTURE', CANVAS_WIDTH / 2, 192, 64, '#c488f8', '#3a1060', { highlight: true });
 
     ctx.font = 'bold 24px monospace';
     const blink = Math.floor(t / 30) % 2 === 0;
