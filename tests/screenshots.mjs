@@ -102,9 +102,14 @@ for (const sc of SCENES) {
       inp.p = {}; inp.k = { R: f < frames - 30 ? 1 : 0 };
       p.invincible = 0;
       g.update();
-      if (p.dead) { p.dead = false; p.deathTimer = 0; }
+      // Keep the player alive and on screen (bot may walk into enemies or pits)
+      if (p.dead || p.y > 650) { p.dead = false; p.deathTimer = 0; p.vy = 0; p.y = 200; if (px != null) p.x = px; }
     }
-    g.update(); g.render();
+    for (let f = 0; f < 60 && !p.onGround; f++) { inp.p = {}; inp.k = {}; p.invincible = 0; g.update(); if (p.y > 650) { p.y = 200; p.vy = 0; } }
+    g.update();
+    // Make the player visible in the captured frame (no post-hit blinking)
+    p.invincible = 0; p.dead = false; p.deathTimer = 0;
+    g.render();
   }, sc);
   await page.locator('#shot').screenshot({ path: path.join(OUT, `${name}.png`) });
   console.log('shot', name);
