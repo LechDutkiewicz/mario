@@ -896,50 +896,69 @@ export class Enemy {
     ctx.restore();
   }
 
-  // Zubat — blue bat hovering above (Lakitu role)
+  // Zubat — blue bat hovering above (Lakitu role). Big outlined membrane
+  // wings (3 ribs each) spanning the hitbox width, small round body, ears,
+  // open fanged mouth and no eyes.
   _drawZubat(ctx, x, y, w, h) {
     const OL = '#1c1640';
     const flap = Math.sin(this.animTimer * 0.5);
-    const BLUE = '#5a7ccc', PURP = '#7a5ab0';
+    const BLUE = '#5a7ccc', PURP = '#7a5ab0', PURP_D = tint('#7a5ab0', 0.62);
     const cx = x + w / 2;
+    const by = y + h * 0.58;        // body centre
+    const sx = w * 0.12, sy = by - h * 0.1;    // wing shoulder (relative to cx)
 
-    // Wings — big membranes with ribs, flap
+    // Wings — built for the right side in +x, mirrored for the left; the
+    // membrane hangs from a leading edge that pivots at the shoulder
     const wing = (side) => {
       ctx.save();
-      ctx.translate(cx + side * w * 0.2, y + h * 0.45);
+      ctx.translate(cx + side * sx, sy);
       ctx.scale(side, 1);
-      ctx.rotate(flap * 0.35);
+      ctx.rotate(-flap * 0.42);
+      const tipX = w * 0.34, tipY = -h * 0.36;      // wing tip (upper outer corner)
+      const f1 = [w * 0.37, -h * 0.02], f2 = [w * 0.3, h * 0.24], f3 = [w * 0.14, h * 0.36];   // finger tips along the trailing edge
       const build = () => {
-        ctx.moveTo(0, -3);
-        ctx.lineTo(-w * 0.55, -h * 0.5);
-        ctx.quadraticCurveTo(-w * 0.52, -h * 0.1, -w * 0.46, h * 0.08);
-        ctx.quadraticCurveTo(-w * 0.3, 0, -w * 0.24, h * 0.14);
-        ctx.quadraticCurveTo(-w * 0.1, h * 0.06, 0, h * 0.2);
+        ctx.moveTo(0, -2);
+        ctx.quadraticCurveTo(tipX * 0.45, tipY * 0.95, tipX, tipY);    // leading edge (bone)
+        ctx.lineTo(f1[0], f1[1]);
+        ctx.quadraticCurveTo(f1[0] - 4, (f1[1] + f2[1]) * 0.5 - 2, f2[0], f2[1]);   // scalloped trailing edge
+        ctx.quadraticCurveTo((f2[0] + f3[0]) * 0.5 - 2, (f2[1] + f3[1]) * 0.5 - 2, f3[0], f3[1]);
+        ctx.quadraticCurveTo(f3[0] * 0.5 - 1, f3[1] * 0.6, 0, 3);
         ctx.closePath();
       };
-      shape(ctx, build, PURP, OL, { sh: 0.72, dy: 3, lw: 1.3 });
-      ctx.strokeStyle = tint(PURP, 0.6); ctx.lineWidth = 1;
-      ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(-w * 0.46, h * 0.06); ctx.moveTo(0, -1); ctx.lineTo(-w * 0.52, -h * 0.4); ctx.stroke();
+      shape(ctx, build, PURP, OL, { sh: 0.74, dx: -1, dy: 2.6, lw: 1.4 });
+      // ribs (wing fingers) from the shoulder to each scallop point
+      ctx.strokeStyle = PURP_D; ctx.lineWidth = 1.2; ctx.lineCap = 'round';
+      ctx.beginPath();
+      for (const [fx, fy] of [f1, f2, f3]) { ctx.moveTo(0, 0); ctx.lineTo(fx, fy); }
+      ctx.stroke();
+      // thicker leading-edge bone
+      ctx.strokeStyle = tint(BLUE, 0.8); ctx.lineWidth = 1.6;
+      ctx.beginPath(); ctx.moveTo(0, -2); ctx.quadraticCurveTo(tipX * 0.45, tipY * 0.95, tipX, tipY); ctx.stroke();
+      hilite(ctx, tipX * 0.5, tipY * 0.55, 3, 1.3, 0.22);
       ctx.restore();
     };
     wing(-1); wing(1);
 
-    // Ears — pointed, then body
-    poly(ctx, [cx - w * 0.18, y + h * 0.2, cx - w * 0.28, y - h * 0.15, cx - w * 0.04, y + h * 0.12], BLUE, OL, { lw: 1.3 });
-    poly(ctx, [cx + w * 0.18, y + h * 0.2, cx + w * 0.28, y - h * 0.15, cx + w * 0.04, y + h * 0.12], BLUE, OL, { lw: 1.3 });
-    poly(ctx, [cx - w * 0.17, y + h * 0.17, cx - w * 0.24, y - h * 0.06, cx - w * 0.1, y + h * 0.12], PURP, null, { sh: 0 });
-    poly(ctx, [cx + w * 0.17, y + h * 0.17, cx + w * 0.24, y - h * 0.06, cx + w * 0.1, y + h * 0.12], PURP, null, { sh: 0 });
-    ell(ctx, cx, y + h * 0.5, w * 0.36, h * 0.42, 0, BLUE, OL, { sh: 0.72, dy: 3.5 });
-    hilite(ctx, cx - 5, y + h * 0.3, 3.5, 1.8);
-    // Tiny tail legs
-    ell(ctx, cx - 4, y + h * 0.92, 2.2, 2.6, 0.3, BLUE, OL, { lw: 1, sh: 0 });
-    ell(ctx, cx + 4, y + h * 0.92, 2.2, 2.6, -0.3, BLUE, OL, { lw: 1, sh: 0 });
+    // Ears — tall pointed, purple inner
+    poly(ctx, [cx - w * 0.2, by - h * 0.22, cx - w * 0.24, by - h * 0.62, cx - w * 0.03, by - h * 0.3], BLUE, OL, { sh: 0.74, dy: 2, lw: 1.3 });
+    poly(ctx, [cx + w * 0.2, by - h * 0.22, cx + w * 0.24, by - h * 0.62, cx + w * 0.03, by - h * 0.3], BLUE, OL, { sh: 0.74, dy: 2, lw: 1.3 });
+    poly(ctx, [cx - w * 0.17, by - h * 0.26, cx - w * 0.2, by - h * 0.5, cx - w * 0.08, by - h * 0.3], PURP, null, { sh: 0 });
+    poly(ctx, [cx + w * 0.17, by - h * 0.26, cx + w * 0.2, by - h * 0.5, cx + w * 0.08, by - h * 0.3], PURP, null, { sh: 0 });
+    // Tiny dangling feet
+    ell(ctx, cx - 3.5, by + h * 0.36, 2.2, 2.6, 0.3, BLUE, OL, { lw: 1, sh: 0 });
+    ell(ctx, cx + 3.5, by + h * 0.36, 2.2, 2.6, -0.3, BLUE, OL, { lw: 1, sh: 0 });
+    // Round body
+    ell(ctx, cx, by, w * 0.27, h * 0.33, 0, BLUE, OL, { sh: 0.72, dy: 3 });
+    hilite(ctx, cx - 3.5, by - h * 0.18, 3, 1.6);
 
-    // No eyes (Zubat!) — open mouth with fangs
-    ell(ctx, cx, y + h * 0.62, w * 0.18, h * 0.14, 0, '#2a1240', OL, { sh: 0, lw: 1.2 });
+    // No eyes (Zubat!) — open mouth with four fangs
+    ell(ctx, cx, by + h * 0.1, w * 0.17, h * 0.13, 0, '#2a1240', OL, { sh: 0, lw: 1.2 });
     ctx.fillStyle = '#fff';
-    ctx.beginPath(); ctx.moveTo(cx - 3.5, y + h * 0.52); ctx.lineTo(cx - 2, y + h * 0.66); ctx.lineTo(cx - 0.5, y + h * 0.52); ctx.closePath(); ctx.fill();
-    ctx.beginPath(); ctx.moveTo(cx + 0.5, y + h * 0.52); ctx.lineTo(cx + 2, y + h * 0.66); ctx.lineTo(cx + 3.5, y + h * 0.52); ctx.closePath(); ctx.fill();
+    const mt = by + h * 0.1 - h * 0.11, mb = by + h * 0.1 + h * 0.11;
+    ctx.beginPath(); ctx.moveTo(cx - 3.6, mt); ctx.lineTo(cx - 2.4, mt + 3.2); ctx.lineTo(cx - 1.2, mt); ctx.closePath(); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(cx + 1.2, mt); ctx.lineTo(cx + 2.4, mt + 3.2); ctx.lineTo(cx + 3.6, mt); ctx.closePath(); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(cx - 2.4, mb); ctx.lineTo(cx - 1.6, mb - 2.2); ctx.lineTo(cx - 0.8, mb); ctx.closePath(); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(cx + 0.8, mb); ctx.lineTo(cx + 1.6, mb - 2.2); ctx.lineTo(cx + 2.4, mb); ctx.closePath(); ctx.fill();
   }
 
   // Cubone — brown, skull helmet, holds a bone (Hammer Bro role)
