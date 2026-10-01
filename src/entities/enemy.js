@@ -1,5 +1,6 @@
 import { GRAVITY, MAX_FALL_SPEED, GROUND_Y } from '../constants.js';
 import { resolveCollisions } from '../physics.js';
+import { TAU, tint, shape, ell, poly, hilite, shadow, eye } from './sprite-utils.js';
 
 // type: 'ekans' (stompable purple snake) | 'koffing' (floating toxic ball, fireball only) | 'squirtle' (shell mechanic)
 export class Enemy {
@@ -442,553 +443,603 @@ export class Enemy {
     }
   }
 
+  // Soft contact shadow for walkers: resolveCollisions zeroes vy on landing,
+  // so vy === 0 is the "standing on something" notion for ground enemies
+  _groundShadow(ctx, x, y, w, h) {
+    if (this.dying || this.flying || this.vy !== 0 || this.squashTimer > 0) return;
+    shadow(ctx, x + w / 2, y + h + 1, w * 0.42);
+  }
+
+  // Ekans — purple snake coiled on its tail, head raised, rattle wagging
   _drawEkans(ctx, x, y, w, h) {
+    const PUR = '#a05cc0', OL = '#3a1650', YEL = '#f1c40f', BELLY = '#ecd27a', EYE = '#f9e46a';
     if (this.squashTimer > 0) {
-      // Flatten + X eyes
-      const fh = 10;
-      const fy = y + h - fh;
-      ctx.fillStyle = '#9b59b6';
-      ctx.fillRect(x, fy, w, fh);
-      // X eyes
-      ctx.strokeStyle = '#f44'; ctx.lineWidth = 2;
-      for (const ex of [x + 4, x + w - 12]) {
-        ctx.beginPath(); ctx.moveTo(ex, fy + 1); ctx.lineTo(ex + 7, fy + 8); ctx.stroke();
-        ctx.beginPath(); ctx.moveTo(ex + 7, fy + 1); ctx.lineTo(ex, fy + 8); ctx.stroke();
+      // Flattened coil + X eyes
+      const fh = 10, fy = y + h - fh, cx = x + w / 2;
+      ell(ctx, cx, fy + 5, w * 0.5, 5, 0, PUR, OL, { dy: 2 });
+      ell(ctx, cx, fy + 6.5, w * 0.3, 2, 0, BELLY, null, { sh: 0 });
+      ctx.strokeStyle = '#ff5050'; ctx.lineWidth = 2; ctx.lineCap = 'round';
+      for (const ex of [cx - 9, cx + 3]) {
+        ctx.beginPath(); ctx.moveTo(ex, fy + 1); ctx.lineTo(ex + 6, fy + 7); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(ex + 6, fy + 1); ctx.lineTo(ex, fy + 7); ctx.stroke();
       }
       return;
     }
 
+    this._groundShadow(ctx, x, y, w, h);
+    ctx.save();
     if (this.dying) {
-      ctx.save();
       ctx.translate(x + w / 2, y + h / 2);
       ctx.rotate(this.animTimer * 0.2);
       ctx.translate(-(x + w / 2), -(y + h / 2));
     }
+    // local coords: origin top-centre, +x = facing direction
+    const dir = this.vx > 0 ? 1 : -1;
+    ctx.translate(x + w / 2, y); ctx.scale(dir, 1);
+    const moving = Math.abs(this.vx) > 0.3;
+    const sl = moving ? Math.sin(this.animTimer * 0.25) : 0;   // slither wiggle
+    const bob = moving ? Math.abs(Math.sin(this.animTimer * 0.125)) * 1.2 : 0;
 
-    // Body: purple oval / elongated shape
-    ctx.fillStyle = '#9b59b6';
-    ctx.beginPath();
-    ctx.ellipse(x + w / 2, y + h * 0.55, w * 0.48, h * 0.38, 0, 0, Math.PI * 2);
-    ctx.fill();
+    // Tail rising behind the coil, yellow rattle on the tip
+    ell(ctx, -11 + sl * 0.6, h * 0.56, 3.4, 7.5, 0.32 - sl * 0.12, PUR, OL, { lw: 1.3 });
+    ell(ctx, -13.5 + sl * 1.2, h * 0.27, 3, 3.8, 0, YEL, OL, { sh: 0.8, lw: 1.3 });
+    ctx.strokeStyle = tint(YEL, 0.7); ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(-16 + sl * 1.2, h * 0.27); ctx.lineTo(-11 + sl * 1.2, h * 0.27); ctx.stroke();
 
-    // Neck / head
-    ctx.fillStyle = '#7d3c98';
-    ctx.beginPath();
-    ctx.ellipse(x + w * 0.5, y + h * 0.22, w * 0.3, h * 0.2, 0, 0, Math.PI * 2);
-    ctx.fill();
+    // Rear coil loop
+    ell(ctx, -1, h * 0.77, 13.5, 5.8, 0, PUR, OL);
+    ell(ctx, 0, h * 0.81, 9.5, 2.3, 0, BELLY, null, { sh: 0 });
+    // Front coil (overlapping, slightly higher — gives the body volume)
+    ell(ctx, 2 - sl, h * 0.66, 9.5, 4.6, 0, PUR, OL, { lw: 1.3 });
+    ell(ctx, 3 - sl, h * 0.69, 6.5, 1.8, 0, BELLY, null, { sh: 0 });
 
-    // Yellow slit eyes
-    ctx.fillStyle = '#f1c40f';
-    ctx.fillRect(x + 7, y + h * 0.15, 5, 7);
-    ctx.fillRect(x + w - 12, y + h * 0.15, 5, 7);
-    ctx.fillStyle = '#000';
-    ctx.fillRect(x + 9, y + h * 0.16, 2, 6); // slit pupil
-    ctx.fillRect(x + w - 10, y + h * 0.16, 2, 6);
+    // Neck rising from the front of the coil
+    ell(ctx, 5, h * 0.5 - bob * 0.5, 5, 8.8, -0.28, PUR, OL);
+    ell(ctx, 6.4, h * 0.48 - bob * 0.5, 3.6, 1.7, -0.28, YEL, null, { sh: 0 });
 
-    // Tongue flick (sine wave animation)
-    const tongueOut = Math.sin(this.animTimer * 0.18) > 0.5;
-    if (tongueOut) {
-      ctx.strokeStyle = '#e74c3c';
-      ctx.lineWidth = 2;
+    // Head
+    const hy = h * 0.27 - bob;
+    ell(ctx, 6, hy, 9, 7.2, 0, PUR, OL);
+    hilite(ctx, 3, hy - 3, 3, 1.4);
+    // Big yellow eyes with slit pupils
+    ell(ctx, 8.8, hy - 0.5, 3, 3.6, 0, EYE, OL, { sh: 0, lw: 1 });
+    ell(ctx, 2.2, hy - 1, 2.5, 3.3, 0, EYE, OL, { sh: 0, lw: 1 });
+    ctx.fillStyle = '#111';
+    ctx.fillRect(8.3, hy - 3, 1.5, 4.6);
+    ctx.fillRect(2.2, hy - 3.2, 1.3, 4.2);
+    // Nostril + mouth line
+    ctx.fillRect(12.5, hy + 0.5, 1.2, 1.2);
+    ctx.strokeStyle = OL; ctx.lineWidth = 1; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(9, hy + 3.8); ctx.quadraticCurveTo(12, hy + 4.4, 14, hy + 2.6); ctx.stroke();
+    // Forked tongue flick
+    if (Math.sin(this.animTimer * 0.18) > 0.5) {
+      ctx.strokeStyle = '#e7403c'; ctx.lineWidth = 1.5;
       ctx.beginPath();
-      ctx.moveTo(x + w / 2, y + h * 0.38);
-      ctx.lineTo(x + w / 2, y + h * 0.48);
-      ctx.moveTo(x + w / 2, y + h * 0.48);
-      ctx.lineTo(x + w / 2 - 4, y + h * 0.54);
-      ctx.moveTo(x + w / 2, y + h * 0.48);
-      ctx.lineTo(x + w / 2 + 4, y + h * 0.54);
+      ctx.moveTo(13.5, hy + 3); ctx.lineTo(18, hy + 2.5);
+      ctx.moveTo(18, hy + 2.5); ctx.lineTo(20, hy + 0.5);
+      ctx.moveTo(18, hy + 2.5); ctx.lineTo(20.5, hy + 4);
       ctx.stroke();
     }
-
-    // Belly lighter
-    ctx.fillStyle = '#c39bd3';
-    ctx.beginPath();
-    ctx.ellipse(x + w / 2, y + h * 0.6, w * 0.28, h * 0.24, 0, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Stub legs / slithers
-    const wig = Math.floor(this.animTimer / 10) % 2;
-    ctx.fillStyle = '#7d3c98';
-    ctx.fillRect(x + (wig ? 4 : 8), y + h - 6, 7, 6);
-    ctx.fillRect(x + w - (wig ? 11 : 15), y + h - 6, 7, 6);
-
-    if (this.dying) ctx.restore();
+    ctx.restore();
   }
 
+  // Koffing — floating purple gas ball: craters, angry grin, skull mark, puffs
   _drawKoffing(ctx, x, y, w, h) {
-    // Floating bob
     const bobY = Math.sin(this.animTimer * 0.06) * 4;
     const cx = x + w / 2;
     const cy = y + h / 2 + bobY;
-    const r = w / 2;
+    const r = w / 2 - 1;
+    const PUR = '#8a4fb0', OL = '#2e1246', BONE = '#f3eedd';
 
     if (this.dying) {
       ctx.globalAlpha = this.deathAlpha;
-      // Flash white
       const flash = Math.floor(this.animTimer / 4) % 2;
       if (flash) {
         ctx.fillStyle = '#ffffff';
-        ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(cx, cy, r, 0, TAU); ctx.fill();
         ctx.globalAlpha = 1;
         return;
       }
     }
 
-    // Dark purple body
-    ctx.fillStyle = '#6c3483';
-    ctx.beginPath();
-    ctx.arc(cx, cy, r, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Skull mark — eyes (two white circles)
-    ctx.fillStyle = '#fff';
-    ctx.beginPath(); ctx.arc(cx - 6, cy - 3, 5, 0, Math.PI * 2); ctx.fill();
-    ctx.beginPath(); ctx.arc(cx + 6, cy - 3, 5, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = '#000';
-    ctx.beginPath(); ctx.arc(cx - 6, cy - 3, 2.5, 0, Math.PI * 2); ctx.fill();
-    ctx.beginPath(); ctx.arc(cx + 6, cy - 3, 2.5, 0, Math.PI * 2); ctx.fill();
-
-    // Skull teeth
-    ctx.fillStyle = '#fff';
-    for (let i = 0; i < 3; i++) {
-      ctx.fillRect(cx - 8 + i * 6, cy + 4, 4, 5);
+    // Toxic gas puffs drifting around the body (behind)
+    const t = this.animTimer * 0.05;
+    for (const [a, d, pr] of [[-2.1, 1.0, 6], [0.6, 1.05, 5.5], [-0.9, 1.1, 4.5], [2.4, 1.0, 5]]) {
+      const px = cx + Math.cos(a + Math.sin(t + a) * 0.2) * r * d;
+      const py = cy + Math.sin(a + Math.sin(t + a) * 0.2) * r * d - 2;
+      ctx.fillStyle = 'rgba(190,130,230,0.55)';
+      ctx.beginPath(); ctx.arc(px, py, pr, 0, TAU); ctx.fill();
+      ctx.strokeStyle = 'rgba(80,30,120,0.45)'; ctx.lineWidth = 1;
+      ctx.stroke();
     }
 
-    // Toxic gas puffs around body
-    ctx.fillStyle = 'rgba(160,80,200,0.5)';
-    const puffPositions = [[-r * 0.7, -r * 0.5], [r * 0.7, -r * 0.4], [0, -r * 0.9]];
-    for (const [dx, dy] of puffPositions) {
-      ctx.beginPath();
-      ctx.arc(cx + dx, cy + dy + bobY, 6, 0, Math.PI * 2);
-      ctx.fill();
+    // Body — sphere with bumpy craters on the silhouette (one outline)
+    const bumps = [[-2.3, 3.8], [-1.3, 3.2], [-0.2, 3.6], [0.9, 3.0], [2.0, 3.4], [3.1, 3.0]];
+    const build = () => {
+      ctx.moveTo(cx + r, cy); ctx.arc(cx, cy, r, 0, TAU);
+      for (const [a, br] of bumps) {
+        const bx = cx + Math.cos(a) * (r - 1), by = cy + Math.sin(a) * (r - 1);
+        ctx.moveTo(bx + br, by); ctx.arc(bx, by, br, 0, TAU);
+      }
+    };
+    shape(ctx, build, PUR, OL, { sh: 0.7, dy: 3 });
+    hilite(ctx, cx - 6, cy - 8, 4.5, 2.2);
+    // Crater dimples
+    ctx.fillStyle = tint(PUR, 0.68);
+    for (const [dx, dy, cr] of [[-10, 2, 1.8], [10, -1, 1.6], [-4, 9, 1.5], [7, 8, 1.4], [0, -11, 1.3]]) {
+      ctx.beginPath(); ctx.ellipse(cx + dx, cy + dy, cr, cr * 0.8, 0, 0, TAU); ctx.fill();
     }
+
+    // Eyes — wide, with angry brows
+    eye(ctx, cx - 6, cy - 3, 3.6);
+    eye(ctx, cx + 6, cy - 3, 3.6);
+    ctx.strokeStyle = OL; ctx.lineWidth = 2; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(cx - 10, cy - 9); ctx.lineTo(cx - 3, cy - 6.5); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(cx + 10, cy - 9); ctx.lineTo(cx + 3, cy - 6.5); ctx.stroke();
+
+    // Wide grin with teeth
+    const my = cy + 3;
+    shape(ctx, () => { ctx.moveTo(cx - 9, my); ctx.quadraticCurveTo(cx, my + 11, cx + 9, my); ctx.closePath(); },
+          '#2a1038', OL, { sh: 0, lw: 1.3 });
+    ctx.fillStyle = BONE;
+    for (let i = 0; i < 4; i++) {
+      const tx = cx - 7 + i * 4;
+      ctx.beginPath(); ctx.moveTo(tx, my + 0.5); ctx.lineTo(tx + 1.8, my + 3.5); ctx.lineTo(tx + 3.6, my + 0.5); ctx.closePath(); ctx.fill();
+    }
+
+    // Skull-and-crossbones mark under the mouth
+    ctx.strokeStyle = BONE; ctx.lineWidth = 1.4;
+    ctx.beginPath(); ctx.moveTo(cx - 4, cy + 9); ctx.lineTo(cx + 4, cy + 13); ctx.moveTo(cx + 4, cy + 9); ctx.lineTo(cx - 4, cy + 13); ctx.stroke();
+    ell(ctx, cx, cy + 10.5, 2.6, 2.4, 0, BONE, null, { sh: 0 });
+    ctx.fillStyle = OL;
+    ctx.fillRect(cx - 1.6, cy + 9.6, 1.1, 1.1); ctx.fillRect(cx + 0.5, cy + 9.6, 1.1, 1.1);
 
     ctx.globalAlpha = 1;
   }
 
-  // Sandshrew — sandy armadillo; curls into a ball (shell mechanic)
+  // Sandshrew — sandy armadillo on all fours; curls into a plated ball
   _drawSquirtle(ctx, x, y, w, h) {
-    const SAND = '#e0c068', SAND_D = '#b89440', BELLY = '#f8ecc8', OL = '#111';
+    const SAND = '#e6c86e', SAND_D = '#a8843a', BELLY = '#f8ecc8', OL = '#4a3010';
 
     if (this.inShell) {
-      // Curled-up ball with brick-pattern plates
       // FSM: from frame 350 the shell "peeks" — wiggle warns it's waking up
       if (!this.shellSliding && this.shellCounter > 350) {
         x += Math.sin(this.animTimer * 0.8) * 1.5;
       }
-      const cy2 = y + h - 13;
-      ctx.fillStyle = SAND;
-      ctx.beginPath(); ctx.arc(x + w / 2, cy2, 13, 0, Math.PI * 2); ctx.fill();
-      ctx.strokeStyle = OL; ctx.lineWidth = 1.5; ctx.stroke();
-      // Brick plate lines (rotate when sliding)
+      const cx = x + w / 2, cy2 = y + h - 13;
+      this._groundShadow(ctx, x, y, w, h);
       const rot = this.shellSliding ? this.animTimer * 0.35 * (this.vx > 0 ? 1 : -1) : 0;
       ctx.save();
-      ctx.translate(x + w / 2, cy2);
-      ctx.rotate(rot);
-      ctx.strokeStyle = SAND_D; ctx.lineWidth = 1.5;
-      for (let i = -1; i <= 1; i++) {
-        ctx.beginPath(); ctx.moveTo(-11, i * 6); ctx.lineTo(11, i * 6); ctx.stroke();
+      ctx.translate(cx, cy2); ctx.rotate(rot);
+      // Ball
+      ell(ctx, 0, 0, 13, 13, 0, SAND, OL, { sh: 0.76, dy: 4 });
+      // Brick plates — carved grooves (dark line + light line)
+      ctx.save();
+      ctx.beginPath(); ctx.arc(0, 0, 12.2, 0, TAU); ctx.clip();
+      for (let row = -2; row <= 2; row++) {
+        const yy = row * 5.2;
+        ctx.strokeStyle = SAND_D; ctx.lineWidth = 1.4;
+        ctx.beginPath(); ctx.moveTo(-13, yy); ctx.lineTo(13, yy); ctx.stroke();
+        ctx.strokeStyle = 'rgba(255,255,255,0.3)'; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(-13, yy + 1.3); ctx.lineTo(13, yy + 1.3); ctx.stroke();
+        const off = row % 2 ? 3.5 : 0;
+        ctx.strokeStyle = SAND_D; ctx.lineWidth = 1.4;
+        for (let c = -2; c <= 2; c++) {
+          const xx = c * 7 + off;
+          ctx.beginPath(); ctx.moveTo(xx, yy); ctx.lineTo(xx, yy + 5.2); ctx.stroke();
+        }
       }
-      ctx.beginPath(); ctx.moveTo(-5, -6); ctx.lineTo(-5, 0); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(5, 0); ctx.lineTo(5, 6); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(0, -12); ctx.lineTo(0, -6); ctx.stroke();
+      ctx.restore();
+      hilite(ctx, -5, -6, 4, 2);
+      // Tucked head peeking at the lower front + ear nub + curled tail nub
+      ell(ctx, 6, 6, 5, 3.8, -0.3, BELLY, OL, { sh: 0.9, lw: 1.2 });
+      ctx.strokeStyle = OL; ctx.lineWidth = 1.2; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(5, 5); ctx.lineTo(8, 5.5); ctx.stroke();   // closed eye
+      ell(ctx, 2, 1.5, 2.2, 2.8, 0.3, SAND, OL, { sh: 0.85, lw: 1 });       // ear
+      ell(ctx, -8, 7, 4, 2.6, 0.5, SAND, OL, { sh: 0.85, lw: 1.1 });        // tail
       ctx.restore();
       // Motion lines when sliding
       if (this.shellSliding) {
-        ctx.strokeStyle = 'rgba(255,255,255,0.5)'; ctx.lineWidth = 2;
-        const dir = this.vx > 0 ? -1 : 1;
+        ctx.strokeStyle = 'rgba(255,255,255,0.55)'; ctx.lineWidth = 2; ctx.lineCap = 'round';
+        const d = this.vx > 0 ? -1 : 1;
         for (let i = 1; i <= 3; i++) {
           ctx.beginPath();
-          ctx.moveTo(x + w / 2 + dir * (14 + i * 6), cy2 - 6 + i * 3);
-          ctx.lineTo(x + w / 2 + dir * (14 + i * 6 + 12), cy2 - 6 + i * 3);
+          ctx.moveTo(cx + d * (14 + i * 6), cy2 - 6 + i * 3);
+          ctx.lineTo(cx + d * (14 + i * 6 + 12), cy2 - 6 + i * 3);
           ctx.stroke();
         }
       }
       return;
     }
 
-    // Wings for the flying variant
-    if (this.flying) {
-      const wingFlap = Math.floor(this.animTimer / 8) % 2;
-      ctx.fillStyle = '#e8e8ff';
-      ctx.strokeStyle = '#8888cc'; ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.ellipse(x - 8 + wingFlap * 3, y + h * 0.35, 10, 6, -0.4, 0, Math.PI * 2);
-      ctx.fill(); ctx.stroke();
-      ctx.beginPath();
-      ctx.ellipse(x + w + 8 - wingFlap * 3, y + h * 0.35, 10, 6, 0.4, 0, Math.PI * 2);
-      ctx.fill(); ctx.stroke();
-    }
-
+    this._groundShadow(ctx, x, y, w, h);
     const dir = this.vx <= 0 ? -1 : 1;   // face direction of travel
     const fx = (ux) => x + w / 2 + dir * (ux - 0.5) * w;  // mirrorable x
 
-    // Walking Sandshrew — low, on all fours
-    // Back armor dome with brick pattern
-    ctx.fillStyle = SAND;
-    ctx.beginPath(); ctx.ellipse(x + w / 2, y + h * 0.52, w * 0.46, h * 0.4, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.strokeStyle = OL; ctx.lineWidth = 1.5; ctx.stroke();
-    ctx.strokeStyle = SAND_D; ctx.lineWidth = 1.2;
-    ctx.beginPath(); ctx.moveTo(x + w * 0.1, y + h * 0.38); ctx.lineTo(x + w * 0.9, y + h * 0.38); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(x + w * 0.08, y + h * 0.55); ctx.lineTo(x + w * 0.92, y + h * 0.55); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(fx(0.35), y + h * 0.38); ctx.lineTo(fx(0.35), y + h * 0.55); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(fx(0.6), y + h * 0.22); ctx.lineTo(fx(0.6), y + h * 0.38); ctx.stroke();
+    // Feathered wings for the flying variant (behind the body)
+    if (this.flying) {
+      const flap = Math.sin(this.animTimer * 0.4);
+      const wing = (side) => {
+        ctx.save();
+        ctx.translate(x + w / 2 + side * w * 0.2, y + h * 0.32);
+        ctx.scale(side, 1);
+        ctx.rotate(-0.25 + flap * 0.4);
+        const build = () => {
+          ctx.moveTo(0, 0);
+          ctx.quadraticCurveTo(-8, -9, -19, -8);
+          ctx.quadraticCurveTo(-21, -3, -17, 1);
+          ctx.quadraticCurveTo(-13, 4, -11, 3);
+          ctx.quadraticCurveTo(-7, 6, -5, 4.5);
+          ctx.quadraticCurveTo(-2, 6, 0, 3.5);
+          ctx.closePath();
+        };
+        shape(ctx, build, '#f4f4ff', '#4a4a78', { sh: 0.84, dy: 3, lw: 1.3 });
+        ctx.strokeStyle = 'rgba(90,90,140,0.5)'; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(-2, 1); ctx.lineTo(-11, -4); ctx.moveTo(-3, 2.5); ctx.lineTo(-15, -1); ctx.stroke();
+        ctx.restore();
+      };
+      wing(-1); wing(1);
+    }
 
-    // Pale belly (front-lower part)
-    ctx.fillStyle = BELLY;
-    ctx.beginPath(); ctx.ellipse(fx(0.62), y + h * 0.7, w * 0.24, h * 0.18, 0, 0, Math.PI * 2); ctx.fill();
+    // Legs (animated) with white claws
+    const step = Math.abs(this.vx) > 0.3 ? Math.floor(this.animTimer / 8) % 2 : 0;
+    const legs = [[x + w * 0.24 + step * 3, 1], [x + w * 0.72 - step * 3, -1]];
+    for (const [lx] of legs) {
+      ell(ctx, lx, y + h * 0.88, 5, 4, 0, SAND, OL, { lw: 1.2, sh: 0.8 });
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(lx - 4, y + h * 0.9, 2, 3.5);
+      ctx.fillRect(lx - 0.5, y + h * 0.92, 2, 3.5);
+      ctx.fillRect(lx + 3, y + h * 0.9, 2, 3.5);
+    }
+
+    // Tail (behind, trailing side)
+    ell(ctx, fx(0.06), y + h * 0.6, 6, 3.4, dir * 0.5, SAND, OL, { lw: 1.2 });
+
+    // Armoured back dome with brick plates
+    ell(ctx, x + w / 2, y + h * 0.52, w * 0.46, h * 0.4, 0, SAND, OL, { sh: 0.76, dy: 3.5 });
+    ctx.save();
+    ctx.beginPath(); ctx.ellipse(x + w / 2, y + h * 0.52, w * 0.44, h * 0.38, 0, 0, TAU); ctx.clip();
+    ctx.strokeStyle = SAND_D; ctx.lineWidth = 1.3;
+    for (const yy of [0.3, 0.46, 0.62]) {
+      ctx.beginPath(); ctx.moveTo(x, y + h * yy); ctx.lineTo(x + w, y + h * yy); ctx.stroke();
+    }
+    ctx.beginPath(); ctx.moveTo(fx(0.3), y + h * 0.3); ctx.lineTo(fx(0.3), y + h * 0.46); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(fx(0.55), y + h * 0.46); ctx.lineTo(fx(0.55), y + h * 0.62); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(fx(0.5), y + h * 0.1); ctx.lineTo(fx(0.5), y + h * 0.3); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(fx(0.15), y + h * 0.46); ctx.lineTo(fx(0.15), y + h * 0.62); ctx.stroke();
+    ctx.restore();
+    hilite(ctx, fx(0.38), y + h * 0.26, 4, 1.8);
+
+    // Pale belly
+    ell(ctx, fx(0.6), y + h * 0.72, w * 0.24, h * 0.16, 0, BELLY, null, { sh: 0.9 });
 
     // Snout + face on the leading side
-    ctx.fillStyle = BELLY;
-    ctx.beginPath(); ctx.ellipse(fx(0.82), y + h * 0.42, w * 0.16, h * 0.16, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.strokeStyle = OL; ctx.lineWidth = 1; ctx.stroke();
-    // Ear nub
-    ctx.fillStyle = SAND;
-    ctx.beginPath(); ctx.ellipse(fx(0.72), y + h * 0.2, 3.5, 4.5, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.strokeStyle = OL; ctx.lineWidth = 1; ctx.stroke();
+    ell(ctx, fx(0.8), y + h * 0.42, w * 0.17, h * 0.17, 0, BELLY, OL, { sh: 0.88, lw: 1.2 });
+    ell(ctx, fx(0.7), y + h * 0.18, 3.5, 4.5, 0, SAND, OL, { lw: 1.1 });     // ear
+    ell(ctx, fx(0.7), y + h * 0.2, 1.6, 2.4, 0, '#c88a60', null, { sh: 0 }); // inner ear
     // Eye — narrow, mischievous
-    ctx.fillStyle = '#111';
-    ctx.beginPath(); ctx.ellipse(fx(0.8), y + h * 0.36, 2.2, 3, 0, 0, Math.PI * 2); ctx.fill();
+    ell(ctx, fx(0.8), y + h * 0.37, 2.3, 3, 0, '#111', null, { sh: 0 });
     ctx.fillStyle = '#fff';
-    ctx.fillRect(fx(0.8) - 1, y + h * 0.32, 1.5, 1.5);
-    // Nose tip
-    ctx.fillStyle = '#333';
-    ctx.beginPath(); ctx.arc(fx(0.95), y + h * 0.44, 1.5, 0, Math.PI * 2); ctx.fill();
-
-    // Claws / legs (animated)
-    const step = Math.abs(this.vx) > 0.3 ? Math.floor(this.animTimer / 8) % 2 : 0;
-    ctx.fillStyle = SAND;
+    ctx.fillRect(fx(0.8) - 1.2, y + h * 0.32, 1.5, 1.5);
+    // Nose tip + mouth
+    ell(ctx, fx(0.95), y + h * 0.45, 1.6, 1.4, 0, '#333', null, { sh: 0 });
     ctx.strokeStyle = OL; ctx.lineWidth = 1;
-    ctx.beginPath(); ctx.ellipse(x + w * 0.24 + step * 3, y + h * 0.9, 5, 4, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-    ctx.beginPath(); ctx.ellipse(x + w * 0.7 - step * 3, y + h * 0.9, 5, 4, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-    // White claws
-    ctx.fillStyle = '#fff';
-    ctx.fillRect(x + w * 0.2 + step * 3, y + h * 0.94, 2, 3);
-    ctx.fillRect(x + w * 0.26 + step * 3, y + h * 0.94, 2, 3);
-    ctx.fillRect(x + w * 0.66 - step * 3, y + h * 0.94, 2, 3);
-    ctx.fillRect(x + w * 0.72 - step * 3, y + h * 0.94, 2, 3);
+    ctx.beginPath(); ctx.moveTo(fx(0.9), y + h * 0.52); ctx.lineTo(fx(0.84), y + h * 0.54); ctx.stroke();
   }
 
   // Tentacool — blue jellyfish with red crystals, dangling tentacles
   _drawBlooper(ctx, x, y, w, h) {
-    const OL = '#111';
+    const OL = '#162a52', BELL = '#6fb0e0', BELL_L = '#a6d6f0', RED = '#d82424';
     const sway = Math.sin(this.animTimer * 0.1) * 2;
-    // Squeeze (FSM sinking state) — flatten the bell
+    const cx = x + w / 2;
     if (this.squeeze) {
       ctx.save();
-      ctx.translate(x + w / 2, y + h);
+      ctx.translate(cx, y + h);
       ctx.scale(1.12, 0.78);
-      ctx.translate(-(x + w / 2), -(y + h));
+      ctx.translate(-cx, -(y + h));
     }
 
-    // Tentacles — two long wavy ones
-    ctx.strokeStyle = '#4878b8'; ctx.lineWidth = 2.5; ctx.lineCap = 'round';
-    ctx.beginPath();
-    ctx.moveTo(x + w * 0.3, y + h * 0.7);
-    ctx.quadraticCurveTo(x + w * 0.2 + sway, y + h * 1.1, x + w * 0.28 - sway, y + h * 1.5);
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(x + w * 0.7, y + h * 0.7);
-    ctx.quadraticCurveTo(x + w * 0.8 - sway, y + h * 1.1, x + w * 0.72 + sway, y + h * 1.5);
-    ctx.stroke();
+    // Tentacles — two long wavy ones + two short inner, outlined
+    const tent = (sx, sy, c1x, c1y, ex, ey, lw) => {
+      ctx.lineCap = 'round';
+      ctx.strokeStyle = OL; ctx.lineWidth = lw + 2;
+      ctx.beginPath(); ctx.moveTo(sx, sy); ctx.quadraticCurveTo(c1x, c1y, ex, ey); ctx.stroke();
+      ctx.strokeStyle = '#4a84c8'; ctx.lineWidth = lw;
+      ctx.beginPath(); ctx.moveTo(sx, sy); ctx.quadraticCurveTo(c1x, c1y, ex, ey); ctx.stroke();
+      ctx.strokeStyle = 'rgba(255,255,255,0.35)'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(sx - 1, sy); ctx.quadraticCurveTo(c1x - 1, c1y, ex - 1, ey); ctx.stroke();
+    };
+    tent(x + w * 0.28, y + h * 0.7, x + w * 0.18 + sway, y + h * 1.1, x + w * 0.26 - sway, y + h * 1.5, 3);
+    tent(x + w * 0.72, y + h * 0.7, x + w * 0.82 - sway, y + h * 1.1, x + w * 0.74 + sway, y + h * 1.5, 3);
+    tent(x + w * 0.44, y + h * 0.78, x + w * 0.4 - sway, y + h * 1.0, x + w * 0.46 + sway * 0.5, y + h * 1.2, 2);
+    tent(x + w * 0.56, y + h * 0.78, x + w * 0.6 + sway, y + h * 1.0, x + w * 0.54 - sway * 0.5, y + h * 1.2, 2);
 
-    // Bell — light blue dome
-    ctx.fillStyle = '#68a8d8';
-    ctx.beginPath();
-    ctx.ellipse(x + w / 2, y + h * 0.42, w * 0.42, h * 0.4, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.strokeStyle = OL; ctx.lineWidth = 1.5; ctx.stroke();
-    // Lighter blue base band
-    ctx.fillStyle = '#90c8e8';
-    ctx.beginPath();
-    ctx.ellipse(x + w / 2, y + h * 0.62, w * 0.36, h * 0.14, 0, 0, Math.PI * 2);
-    ctx.fill();
+    // Lower body lobes (sides), then the bell dome
+    ell(ctx, x + w * 0.22, y + h * 0.62, w * 0.2, h * 0.18, 0.3, BELL, OL, { lw: 1.3 });
+    ell(ctx, x + w * 0.78, y + h * 0.62, w * 0.2, h * 0.18, -0.3, BELL, OL, { lw: 1.3 });
+    ell(ctx, cx, y + h * 0.42, w * 0.52, h * 0.43, 0, BELL, OL, { sh: 0.76, dy: 3.5 });
+    // Pale translucent band around the base of the bell
+    ell(ctx, cx, y + h * 0.62, w * 0.4, h * 0.13, 0, BELL_L, null, { sh: 0.9, dy: 1.5 });
+    hilite(ctx, x + w * 0.32, y + h * 0.22, 4, 2);
 
-    // Red crystal orbs — one big center-top, two small sides
-    ctx.fillStyle = '#d02020';
-    ctx.beginPath(); ctx.ellipse(x + w / 2, y + h * 0.2, 5, 5.5, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.strokeStyle = OL; ctx.lineWidth = 1; ctx.stroke();
-    ctx.beginPath(); ctx.ellipse(x + w * 0.26, y + h * 0.42, 3.5, 4, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-    ctx.beginPath(); ctx.ellipse(x + w * 0.74, y + h * 0.42, 3.5, 4, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-    // Crystal shine
-    ctx.fillStyle = '#ff9090';
-    ctx.fillRect(x + w / 2 - 2, y + h * 0.14, 2, 2);
+    // Red crystal orbs — one big on top, two on the sides, with shine
+    ell(ctx, cx, y + h * 0.16, 5.5, 6, 0, RED, OL, { sh: 0.7, lw: 1.2 });
+    hilite(ctx, cx - 2, y + h * 0.1, 1.8, 1, 0.6);
+    ell(ctx, x + w * 0.22, y + h * 0.4, 3.8, 4.4, 0, RED, OL, { sh: 0.7, lw: 1.1 });
+    ell(ctx, x + w * 0.78, y + h * 0.4, 3.8, 4.4, 0, RED, OL, { sh: 0.7, lw: 1.1 });
+    hilite(ctx, x + w * 0.2, y + h * 0.35, 1.3, 0.8, 0.6);
+    hilite(ctx, x + w * 0.76, y + h * 0.35, 1.3, 0.8, 0.6);
 
-    // Eyes — small, between crystals
-    ctx.fillStyle = '#111';
-    ctx.beginPath(); ctx.ellipse(x + w * 0.42, y + h * 0.5, 1.8, 2.5, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.beginPath(); ctx.ellipse(x + w * 0.58, y + h * 0.5, 1.8, 2.5, 0, 0, Math.PI * 2); ctx.fill();
+    // Eyes — between the crystals
+    ell(ctx, x + w * 0.4, y + h * 0.48, 2, 2.8, 0, '#111', null, { sh: 0 });
+    ell(ctx, x + w * 0.6, y + h * 0.48, 2, 2.8, 0, '#111', null, { sh: 0 });
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(x + w * 0.4 - 1.5, y + h * 0.43, 1.3, 1.3);
+    ctx.fillRect(x + w * 0.6 - 1.5, y + h * 0.43, 1.3, 1.3);
     if (this.squeeze) ctx.restore();
   }
 
   // Magikarp — red fish with whiskers and crown fin
   _drawCheepCheep(ctx, x, y, w, h) {
-    const OL = '#111';
+    const OL = '#5a1408', RED = '#e8412a', FIN = '#f6e6b8', FIN_OL = '#9a7a40';
     const flop = Math.sin(this.animTimer * 0.15) * 2;
 
-    // Tail fin — pale yellow-white fan on the left
-    ctx.fillStyle = '#f8e8c0';
-    ctx.beginPath();
-    ctx.moveTo(x + 3, y + h * 0.3);
-    ctx.lineTo(x - 8, y - 2 + flop);
-    ctx.lineTo(x - 6, y + h * 0.5);
-    ctx.lineTo(x - 8, y + h + 2 - flop);
-    ctx.lineTo(x + 3, y + h * 0.7);
-    ctx.closePath(); ctx.fill();
-    ctx.strokeStyle = OL; ctx.lineWidth = 1; ctx.stroke();
+    // Tail fin — pale fan on the left
+    poly(ctx, [x + 3, y + h * 0.3, x - 8, y - 2 + flop, x - 6, y + h * 0.5, x - 8, y + h + 2 - flop, x + 3, y + h * 0.7],
+         FIN, FIN_OL, { lw: 1.2, sh: 0.86 });
+    ctx.strokeStyle = 'rgba(120,90,40,0.5)'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(x + 1, y + h * 0.5); ctx.lineTo(x - 6, y + 2 + flop); ctx.moveTo(x + 1, y + h * 0.5); ctx.lineTo(x - 6, y + h - 2 - flop); ctx.stroke();
 
-    // Body — red, rounded
-    ctx.fillStyle = '#e83820';
-    ctx.beginPath(); ctx.ellipse(x + w * 0.52, y + h * 0.5, w * 0.44, h * 0.44, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.strokeStyle = OL; ctx.lineWidth = 1.5; ctx.stroke();
+    // Crown fin on top — spiky, behind the body
+    poly(ctx, [x + w * 0.32, y + h * 0.16, x + w * 0.4, y - 5 + flop * 0.5, x + w * 0.5, y + h * 0.08,
+               x + w * 0.6, y - 5 + flop * 0.5, x + w * 0.68, y + h * 0.16], FIN, FIN_OL, { lw: 1.2, sh: 0.86 });
+    // Ventral fin
+    poly(ctx, [x + w * 0.36, y + h * 0.86, x + w * 0.44, y + h + 3, x + w * 0.56, y + h + 2, x + w * 0.6, y + h * 0.86],
+         FIN, FIN_OL, { lw: 1.1, sh: 0.86 });
 
-    // Crown fin on top — spiky pale yellow
-    ctx.fillStyle = '#f8e8c0';
-    ctx.beginPath();
-    ctx.moveTo(x + w * 0.32, y + h * 0.14);
-    ctx.lineTo(x + w * 0.4, y - 5 + flop * 0.5);
-    ctx.lineTo(x + w * 0.5, y + h * 0.08);
-    ctx.lineTo(x + w * 0.6, y - 5 + flop * 0.5);
-    ctx.lineTo(x + w * 0.68, y + h * 0.14);
-    ctx.closePath(); ctx.fill();
-    ctx.strokeStyle = OL; ctx.lineWidth = 1; ctx.stroke();
+    // Body — red, rounded, shaded underside
+    ell(ctx, x + w * 0.52, y + h * 0.5, w * 0.44, h * 0.44, 0, RED, OL, { sh: 0.72, dy: 3 });
+    // Scales
+    ctx.save();
+    ctx.beginPath(); ctx.ellipse(x + w * 0.52, y + h * 0.5, w * 0.42, h * 0.42, 0, 0, TAU); ctx.clip();
+    ctx.strokeStyle = 'rgba(90,20,8,0.4)'; ctx.lineWidth = 1;
+    for (let row = 0; row < 3; row++) {
+      for (let c = 0; c < 4; c++) {
+        const sx2 = x + w * 0.2 + c * 6 + (row % 2) * 3, sy2 = y + h * 0.25 + row * 5;
+        ctx.beginPath(); ctx.arc(sx2, sy2, 3, 0.2, Math.PI - 0.2); ctx.stroke();
+      }
+    }
+    ctx.restore();
+    hilite(ctx, x + w * 0.4, y + h * 0.22, 4, 2);
 
     // White belly
-    ctx.fillStyle = '#f8f0e0';
-    ctx.beginPath(); ctx.ellipse(x + w * 0.56, y + h * 0.68, w * 0.3, h * 0.2, 0, 0, Math.PI * 2); ctx.fill();
+    ell(ctx, x + w * 0.56, y + h * 0.7, w * 0.3, h * 0.18, 0, '#f8f0e0', null, { sh: 0.9, dy: 1.5 });
 
     // Side fin
-    ctx.fillStyle = '#f8e8c0';
-    ctx.beginPath(); ctx.ellipse(x + w * 0.45, y + h * 0.62, 5, 3.5, 0.4 + flop * 0.1, 0, Math.PI * 2); ctx.fill();
-    ctx.strokeStyle = OL; ctx.lineWidth = 0.8; ctx.stroke();
+    ell(ctx, x + w * 0.45, y + h * 0.62, 5.5, 3.5, 0.4 + flop * 0.1, FIN, FIN_OL, { lw: 1, sh: 0.86 });
 
     // Big round eye
-    ctx.fillStyle = '#fff';
-    ctx.beginPath(); ctx.ellipse(x + w * 0.72, y + h * 0.34, 5, 5.5, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.strokeStyle = OL; ctx.lineWidth = 1; ctx.stroke();
-    ctx.fillStyle = '#111';
-    ctx.beginPath(); ctx.ellipse(x + w * 0.73, y + h * 0.35, 2.5, 3, 0, 0, Math.PI * 2); ctx.fill();
+    eye(ctx, x + w * 0.72, y + h * 0.34, 5, '#111', '#fff', 0.5);
 
     // Open mouth — big lips
-    ctx.strokeStyle = OL; ctx.lineWidth = 1.5;
-    ctx.beginPath(); ctx.arc(x + w * 0.94, y + h * 0.52, 4, Math.PI * 0.6, Math.PI * 1.4, true); ctx.stroke();
+    shape(ctx, () => ctx.arc(x + w * 0.94, y + h * 0.52, 4, Math.PI * 0.6, Math.PI * 1.4, true), '#7a1810', OL, { sh: 0, lw: 1.4 });
 
-    // Whiskers — yellow, drooping from mouth
+    // Whiskers — yellow, drooping from the mouth
+    ctx.strokeStyle = OL; ctx.lineWidth = 3; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(x + w * 0.9, y + h * 0.58);
+    ctx.quadraticCurveTo(x + w * 0.98, y + h * 0.8, x + w * 0.9 + flop * 0.5, y + h * 0.95); ctx.stroke();
     ctx.strokeStyle = '#f0d060'; ctx.lineWidth = 1.5;
-    ctx.beginPath();
-    ctx.moveTo(x + w * 0.9, y + h * 0.58);
-    ctx.quadraticCurveTo(x + w * 0.98, y + h * 0.8, x + w * 0.9 + flop * 0.5, y + h * 0.95);
-    ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x + w * 0.9, y + h * 0.58);
+    ctx.quadraticCurveTo(x + w * 0.98, y + h * 0.8, x + w * 0.9 + flop * 0.5, y + h * 0.95); ctx.stroke();
   }
 
   // Beldum — metallic bullet (Bullet Bill role)
   _drawBulletBill(ctx, x, y, w, h) {
-    const OL = '#111';
+    const OL = '#121a28', STEEL = '#5f80a8', FIN = '#3a5878';
     const dir = this.vx < 0 ? -1 : 1;
     const cx = x + w / 2, cy = y + h / 2;
     ctx.save();
     ctx.translate(cx, cy);
     ctx.scale(dir, 1);
+    // Rear claw fins
+    poly(ctx, [-w * 0.2, -h * 0.3, -w * 0.46, -h * 0.5, -w * 0.3, -h * 0.1], FIN, OL, { lw: 1.3 });
+    poly(ctx, [-w * 0.2, h * 0.3, -w * 0.46, h * 0.5, -w * 0.3, h * 0.1], FIN, OL, { lw: 1.3 });
+    poly(ctx, [-w * 0.24, -h * 0.12, -w * 0.5, 0, -w * 0.24, h * 0.12], FIN, OL, { lw: 1.3 });
     // Body — rounded steel capsule, nose leading
-    ctx.fillStyle = '#5878a0';
-    ctx.beginPath();
-    ctx.moveTo(-w * 0.20, -h * 0.42);
-    ctx.lineTo(w * 0.10, -h * 0.42);
-    ctx.quadraticCurveTo(w * 0.50, 0, w * 0.10, h * 0.42);
-    ctx.lineTo(-w * 0.20, h * 0.42);
-    ctx.quadraticCurveTo(-w * 0.42, 0, -w * 0.20, -h * 0.42);
-    ctx.closePath(); ctx.fill();
-    ctx.strokeStyle = OL; ctx.lineWidth = 1.5; ctx.stroke();
-    // Steel sheen
-    ctx.fillStyle = '#8ab0d0';
-    ctx.beginPath(); ctx.ellipse(-w * 0.05, -h * 0.20, w * 0.22, h * 0.12, 0, 0, Math.PI * 2); ctx.fill();
-    // Fins at the tail
-    ctx.fillStyle = '#3a5878';
-    ctx.beginPath();
-    ctx.moveTo(-w * 0.20, -h * 0.30); ctx.lineTo(-w * 0.44, -h * 0.50); ctx.lineTo(-w * 0.30, -h * 0.10);
-    ctx.closePath(); ctx.fill();
-    ctx.beginPath();
-    ctx.moveTo(-w * 0.20, h * 0.30); ctx.lineTo(-w * 0.44, h * 0.50); ctx.lineTo(-w * 0.30, h * 0.10);
-    ctx.closePath(); ctx.fill();
+    shape(ctx, () => {
+      ctx.moveTo(-w * 0.20, -h * 0.42);
+      ctx.lineTo(w * 0.10, -h * 0.42);
+      ctx.quadraticCurveTo(w * 0.50, 0, w * 0.10, h * 0.42);
+      ctx.lineTo(-w * 0.20, h * 0.42);
+      ctx.quadraticCurveTo(-w * 0.42, 0, -w * 0.20, -h * 0.42);
+      ctx.closePath();
+    }, STEEL, OL, { sh: 0.7, dy: 3.5 });
+    // Steel sheen + rivets
+    hilite(ctx, -w * 0.05, -h * 0.22, w * 0.2, h * 0.09, 0.45);
+    ctx.fillStyle = tint(STEEL, 0.75);
+    for (const rx of [-w * 0.12, w * 0.02]) { ctx.beginPath(); ctx.arc(rx, h * 0.3, 1.3, 0, TAU); ctx.fill(); }
     // Single glowing red eye
-    ctx.fillStyle = '#e02020';
-    ctx.beginPath(); ctx.arc(w * 0.12, 0, 5, 0, Math.PI * 2); ctx.fill();
-    ctx.strokeStyle = OL; ctx.lineWidth = 1; ctx.stroke();
-    ctx.fillStyle = '#ff9090';
-    ctx.beginPath(); ctx.arc(w * 0.10, -1.5, 2, 0, Math.PI * 2); ctx.fill();
+    ell(ctx, w * 0.12, 0, 5.2, 5.2, 0, '#e02020', OL, { sh: 0.7, lw: 1.2 });
+    ctx.fillStyle = 'rgba(255,120,120,0.35)';
+    ctx.beginPath(); ctx.arc(w * 0.12, 0, 7, 0, TAU); ctx.fill();
+    ell(ctx, w * 0.1, -1.5, 2, 2, 0, '#ffb0b0', null, { sh: 0 });
     ctx.restore();
   }
 
   // Zubat — blue bat hovering above (Lakitu role)
   _drawZubat(ctx, x, y, w, h) {
-    const OL = '#111';
-    const flap = Math.floor(this.animTimer / 6) % 2;
-    const BLUE = '#5878c8', PURP = '#7858a8';
+    const OL = '#1c1640';
+    const flap = Math.sin(this.animTimer * 0.5);
+    const BLUE = '#5a7ccc', PURP = '#7a5ab0';
+    const cx = x + w / 2;
 
-    // Wings — big, flap
-    ctx.fillStyle = PURP;
-    ctx.strokeStyle = OL; ctx.lineWidth = 1.2;
-    // left wing
-    ctx.beginPath();
-    ctx.moveTo(x + w * 0.3, y + h * 0.45);
-    ctx.lineTo(x - w * 0.35, y + (flap ? h * 0.05 : h * 0.55));
-    ctx.lineTo(x - w * 0.15, y + h * 0.6);
-    ctx.lineTo(x + w * 0.25, y + h * 0.65);
-    ctx.closePath(); ctx.fill(); ctx.stroke();
-    // right wing
-    ctx.beginPath();
-    ctx.moveTo(x + w * 0.7, y + h * 0.45);
-    ctx.lineTo(x + w * 1.35, y + (flap ? h * 0.05 : h * 0.55));
-    ctx.lineTo(x + w * 1.15, y + h * 0.6);
-    ctx.lineTo(x + w * 0.75, y + h * 0.65);
-    ctx.closePath(); ctx.fill(); ctx.stroke();
+    // Wings — big membranes with ribs, flap
+    const wing = (side) => {
+      ctx.save();
+      ctx.translate(cx + side * w * 0.2, y + h * 0.45);
+      ctx.scale(side, 1);
+      ctx.rotate(flap * 0.35);
+      const build = () => {
+        ctx.moveTo(0, -3);
+        ctx.lineTo(-w * 0.55, -h * 0.5);
+        ctx.quadraticCurveTo(-w * 0.52, -h * 0.1, -w * 0.46, h * 0.08);
+        ctx.quadraticCurveTo(-w * 0.3, 0, -w * 0.24, h * 0.14);
+        ctx.quadraticCurveTo(-w * 0.1, h * 0.06, 0, h * 0.2);
+        ctx.closePath();
+      };
+      shape(ctx, build, PURP, OL, { sh: 0.72, dy: 3, lw: 1.3 });
+      ctx.strokeStyle = tint(PURP, 0.6); ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(-w * 0.46, h * 0.06); ctx.moveTo(0, -1); ctx.lineTo(-w * 0.52, -h * 0.4); ctx.stroke();
+      ctx.restore();
+    };
+    wing(-1); wing(1);
 
-    // Body — round blue
-    ctx.fillStyle = BLUE;
-    ctx.beginPath(); ctx.ellipse(x + w / 2, y + h * 0.5, w * 0.36, h * 0.42, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.strokeStyle = OL; ctx.lineWidth = 1.4; ctx.stroke();
-
-    // Ears — pointed
-    ctx.fillStyle = BLUE;
-    ctx.beginPath();
-    ctx.moveTo(x + w * 0.32, y + h * 0.2); ctx.lineTo(x + w * 0.22, y - h * 0.15); ctx.lineTo(x + w * 0.46, y + h * 0.12);
-    ctx.closePath(); ctx.fill(); ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(x + w * 0.68, y + h * 0.2); ctx.lineTo(x + w * 0.78, y - h * 0.15); ctx.lineTo(x + w * 0.54, y + h * 0.12);
-    ctx.closePath(); ctx.fill(); ctx.stroke();
+    // Ears — pointed, then body
+    poly(ctx, [cx - w * 0.18, y + h * 0.2, cx - w * 0.28, y - h * 0.15, cx - w * 0.04, y + h * 0.12], BLUE, OL, { lw: 1.3 });
+    poly(ctx, [cx + w * 0.18, y + h * 0.2, cx + w * 0.28, y - h * 0.15, cx + w * 0.04, y + h * 0.12], BLUE, OL, { lw: 1.3 });
+    poly(ctx, [cx - w * 0.17, y + h * 0.17, cx - w * 0.24, y - h * 0.06, cx - w * 0.1, y + h * 0.12], PURP, null, { sh: 0 });
+    poly(ctx, [cx + w * 0.17, y + h * 0.17, cx + w * 0.24, y - h * 0.06, cx + w * 0.1, y + h * 0.12], PURP, null, { sh: 0 });
+    ell(ctx, cx, y + h * 0.5, w * 0.36, h * 0.42, 0, BLUE, OL, { sh: 0.72, dy: 3.5 });
+    hilite(ctx, cx - 5, y + h * 0.3, 3.5, 1.8);
+    // Tiny tail legs
+    ell(ctx, cx - 4, y + h * 0.92, 2.2, 2.6, 0.3, BLUE, OL, { lw: 1, sh: 0 });
+    ell(ctx, cx + 4, y + h * 0.92, 2.2, 2.6, -0.3, BLUE, OL, { lw: 1, sh: 0 });
 
     // No eyes (Zubat!) — open mouth with fangs
-    ctx.fillStyle = '#301848';
-    ctx.beginPath(); ctx.ellipse(x + w / 2, y + h * 0.62, w * 0.18, h * 0.14, 0, 0, Math.PI * 2); ctx.fill();
+    ell(ctx, cx, y + h * 0.62, w * 0.18, h * 0.14, 0, '#2a1240', OL, { sh: 0, lw: 1.2 });
     ctx.fillStyle = '#fff';
-    ctx.beginPath();
-    ctx.moveTo(x + w * 0.42, y + h * 0.53); ctx.lineTo(x + w * 0.46, y + h * 0.63); ctx.lineTo(x + w * 0.50, y + h * 0.53);
-    ctx.closePath(); ctx.fill();
-    ctx.beginPath();
-    ctx.moveTo(x + w * 0.52, y + h * 0.53); ctx.lineTo(x + w * 0.56, y + h * 0.63); ctx.lineTo(x + w * 0.60, y + h * 0.53);
-    ctx.closePath(); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(cx - 3.5, y + h * 0.52); ctx.lineTo(cx - 2, y + h * 0.66); ctx.lineTo(cx - 0.5, y + h * 0.52); ctx.closePath(); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(cx + 0.5, y + h * 0.52); ctx.lineTo(cx + 2, y + h * 0.66); ctx.lineTo(cx + 3.5, y + h * 0.52); ctx.closePath(); ctx.fill();
   }
 
   // Cubone — brown, skull helmet, holds a bone (Hammer Bro role)
   _drawCubone(ctx, x, y, w, h) {
-    const OL = '#111';
-    const BODY = '#b8905c', BELLY = '#e8d0a0', SKULL = '#f0ece0';
+    const OL = '#3a2410', BODY = '#c09868', BELLY = '#ecd8a8', SKULL = '#f3eee0', SKULL_OL = '#6a5a40';
     const throwing = this.boneTimer < 12;
-
-    // Body
-    ctx.fillStyle = BODY;
-    ctx.beginPath(); ctx.ellipse(x + w / 2, y + h * 0.62, w * 0.42, h * 0.34, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.strokeStyle = OL; ctx.lineWidth = 1.4; ctx.stroke();
-    // Belly
-    ctx.fillStyle = BELLY;
-    ctx.beginPath(); ctx.ellipse(x + w / 2, y + h * 0.68, w * 0.26, h * 0.22, 0, 0, Math.PI * 2); ctx.fill();
+    const cx = x + w / 2;
+    this._groundShadow(ctx, x, y, w, h);
 
     // Feet
-    ctx.fillStyle = BODY;
-    const step = Math.floor(this.animTimer / 10) % 2;
-    ctx.beginPath(); ctx.ellipse(x + w * 0.3 + step * 2, y + h * 0.95, 5, 3.5, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.strokeStyle = OL; ctx.lineWidth = 1; ctx.stroke();
-    ctx.beginPath(); ctx.ellipse(x + w * 0.7 - step * 2, y + h * 0.95, 5, 3.5, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-
-    // Bone in hand — raised when about to throw
+    const step = Math.abs(this.vx) > 0.3 ? Math.floor(this.animTimer / 10) % 2 : 0;
+    ell(ctx, x + w * 0.3 + step * 2, y + h * 0.94, 5.5, 3.8, 0, BODY, OL, { lw: 1.2 });
+    ell(ctx, x + w * 0.7 - step * 2, y + h * 0.94, 5.5, 3.8, 0, BODY, OL, { lw: 1.2 });
+    // Tail
+    ell(ctx, x + w * 0.1, y + h * 0.74, 5, 2.6, -0.4, BODY, OL, { lw: 1.2 });
+    // Body + belly
+    ell(ctx, cx, y + h * 0.62, w * 0.42, h * 0.33, 0, BODY, OL, { sh: 0.74, dy: 3 });
+    ell(ctx, cx, y + h * 0.68, w * 0.26, h * 0.2, 0, BELLY, null, { sh: 0.9, dy: 1.5 });
+    // Arm + bone — raised when about to throw
+    ell(ctx, x + w * 0.86, y + h * (throwing ? 0.42 : 0.6), 4, 3, throwing ? -0.8 : 0.3, BODY, OL, { lw: 1.1 });
     ctx.save();
     ctx.translate(x + w * 0.94, y + h * (throwing ? 0.30 : 0.52));
     ctx.rotate(throwing ? -0.9 : 0.5);
-    ctx.strokeStyle = '#f0ece0'; ctx.lineWidth = 3; ctx.lineCap = 'round';
+    ctx.strokeStyle = SKULL_OL; ctx.lineWidth = 5; ctx.lineCap = 'round';
     ctx.beginPath(); ctx.moveTo(-6, 0); ctx.lineTo(6, 0); ctx.stroke();
-    ctx.fillStyle = '#f0ece0';
+    ctx.strokeStyle = SKULL; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.moveTo(-6, 0); ctx.lineTo(6, 0); ctx.stroke();
     for (const [bx2, by2] of [[-7, -2], [-7, 2], [7, -2], [7, 2]]) {
-      ctx.beginPath(); ctx.arc(bx2, by2, 2.2, 0, Math.PI * 2); ctx.fill();
+      ell(ctx, bx2, by2, 2.3, 2.3, 0, SKULL, SKULL_OL, { lw: 1, sh: 0.9 });
     }
     ctx.restore();
 
     // Skull helmet head
-    ctx.fillStyle = SKULL;
-    ctx.beginPath(); ctx.ellipse(x + w / 2, y + h * 0.24, w * 0.40, h * 0.24, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.strokeStyle = OL; ctx.lineWidth = 1.4; ctx.stroke();
-    // Skull snout
-    ctx.fillStyle = SKULL;
-    ctx.beginPath(); ctx.ellipse(x + w * 0.78, y + h * 0.32, w * 0.14, h * 0.10, 0.2, 0, Math.PI * 2); ctx.fill();
-    ctx.strokeStyle = OL; ctx.lineWidth = 1; ctx.stroke();
-    // Skull horn nubs
-    ctx.fillStyle = SKULL;
-    ctx.beginPath(); ctx.moveTo(x + w * 0.30, y + h * 0.10); ctx.lineTo(x + w * 0.24, y - h * 0.03); ctx.lineTo(x + w * 0.40, y + h * 0.06);
-    ctx.closePath(); ctx.fill(); ctx.stroke();
-    // Eye holes — dark triangle-ish
-    ctx.fillStyle = '#1a1a1a';
-    ctx.beginPath(); ctx.ellipse(x + w * 0.60, y + h * 0.24, 3.2, 4, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.beginPath(); ctx.ellipse(x + w * 0.36, y + h * 0.24, 3.2, 4, 0, 0, Math.PI * 2); ctx.fill();
-    // Green glint in the eye hole
-    ctx.fillStyle = '#68c058';
-    ctx.beginPath(); ctx.arc(x + w * 0.61, y + h * 0.25, 1.3, 0, Math.PI * 2); ctx.fill();
-    ctx.beginPath(); ctx.arc(x + w * 0.37, y + h * 0.25, 1.3, 0, Math.PI * 2); ctx.fill();
+    ell(ctx, cx, y + h * 0.25, w * 0.4, h * 0.24, 0, SKULL, SKULL_OL, { sh: 0.84, dy: 3 });
+    ell(ctx, x + w * 0.78, y + h * 0.33, w * 0.14, h * 0.1, 0.2, SKULL, SKULL_OL, { lw: 1, sh: 0.84 });
+    poly(ctx, [x + w * 0.30, y + h * 0.1, x + w * 0.22, y - h * 0.03, x + w * 0.4, y + h * 0.06], SKULL, SKULL_OL, { lw: 1.1, sh: 0.84 });
+    poly(ctx, [x + w * 0.66, y + h * 0.08, x + w * 0.74, y - h * 0.03, x + w * 0.56, y + h * 0.05], SKULL, SKULL_OL, { lw: 1.1, sh: 0.84 });
+    hilite(ctx, x + w * 0.4, y + h * 0.14, 3.5, 1.6, 0.5);
+    // Skull cracks
+    ctx.strokeStyle = SKULL_OL; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(cx, y + h * 0.06); ctx.lineTo(cx + 1, y + h * 0.13); ctx.lineTo(cx - 1, y + h * 0.18); ctx.stroke();
+    // Eye holes with green glint
+    ell(ctx, x + w * 0.6, y + h * 0.25, 3.4, 4.2, 0, '#1a1410', null, { sh: 0 });
+    ell(ctx, x + w * 0.36, y + h * 0.25, 3.4, 4.2, 0, '#1a1410', null, { sh: 0 });
+    ell(ctx, x + w * 0.61, y + h * 0.26, 1.4, 1.4, 0, '#68c058', null, { sh: 0 });
+    ell(ctx, x + w * 0.37, y + h * 0.26, 1.4, 1.4, 0, '#68c058', null, { sh: 0 });
   }
 
-  // Pineco — spiky pinecone ball (Spiny role; hurts to stomp)
+  // Pineco — blue-grey pinecone with layered scales (Spiny role; hurts to stomp)
   _drawPineco(ctx, x, y, w, h) {
-    const OL = '#111';
+    const OL = '#14223c', BODY = '#5c7cae', SCALE = '#46648f';
     const cx = x + w / 2, cy = y + h / 2;
-    const r = Math.min(w, h) * 0.42;
-
-    // Spikes around the body
-    ctx.fillStyle = '#3a5a8a';
-    const spikes = 8;
-    const rot = this.type === 'pinecoegg' ? this.animTimer * 0.2 : 0;
+    const rx = w * 0.46, ry = h * 0.48;
+    const egg = this.type === 'pinecoegg';
+    if (!egg) this._groundShadow(ctx, x, y, w, h);
+    ctx.save();
+    ctx.translate(cx, cy);
+    if (egg) ctx.rotate(this.animTimer * 0.2);
+    // Scale tips poking out of the silhouette
+    const spikes = 9;
     for (let i = 0; i < spikes; i++) {
-      const a = rot + (i / spikes) * Math.PI * 2;
-      const sx2 = cx + Math.cos(a) * r, sy2 = cy + Math.sin(a) * r;
-      const tx = cx + Math.cos(a) * (r + 5), ty = cy + Math.sin(a) * (r + 5);
-      const px = Math.cos(a + Math.PI / 2), py = Math.sin(a + Math.PI / 2);
-      ctx.beginPath();
-      ctx.moveTo(sx2 + px * 3, sy2 + py * 3);
-      ctx.lineTo(tx, ty);
-      ctx.lineTo(sx2 - px * 3, sy2 - py * 3);
-      ctx.closePath(); ctx.fill();
+      const a = -Math.PI / 2 + (i / spikes) * TAU;
+      const sx2 = Math.cos(a) * rx * 0.86, sy2 = Math.sin(a) * ry * 0.86;
+      const tx = Math.cos(a) * (rx + 3.5), ty = Math.sin(a) * (ry + 3.5);
+      const px = Math.cos(a + Math.PI / 2) * 3.2, py = Math.sin(a + Math.PI / 2) * 3.2;
+      poly(ctx, [sx2 + px, sy2 + py, tx, ty, sx2 - px, sy2 - py], SCALE, OL, { lw: 1.2, sh: 0 });
     }
-    // Body — layered blue-grey cone scales
-    ctx.fillStyle = '#5878a8';
-    ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fill();
-    ctx.strokeStyle = OL; ctx.lineWidth = 1.3; ctx.stroke();
-    ctx.strokeStyle = '#3a5a8a'; ctx.lineWidth = 1;
-    ctx.beginPath(); ctx.arc(cx, cy - r * 0.3, r * 0.7, 0.3, Math.PI - 0.3); ctx.stroke();
-    ctx.beginPath(); ctx.arc(cx, cy + r * 0.1, r * 0.7, 0.3, Math.PI - 0.3); ctx.stroke();
-    // Eyes
-    ctx.fillStyle = '#111';
-    ctx.beginPath(); ctx.ellipse(cx - 4, cy - 2, 2, 2.8, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.beginPath(); ctx.ellipse(cx + 4, cy - 2, 2, 2.8, 0, 0, Math.PI * 2); ctx.fill();
+    // Body with underside shade
+    ell(ctx, 0, 0, rx, ry, 0, BODY, OL, { sh: 0.72, dy: 3.5 });
+    // Overlapping scale rows (clipped to the body)
+    ctx.save();
+    ctx.beginPath(); ctx.ellipse(0, 0, rx - 0.8, ry - 0.8, 0, 0, TAU); ctx.clip();
+    for (let row = 0; row < 4; row++) {
+      const yy = -ry + 4 + row * 5;
+      const off = row % 2 ? 3 : 0;
+      for (let c = -3; c <= 3; c++) {
+        const xx = c * 6 + off;
+        ctx.fillStyle = tint(BODY, 0.82);
+        ctx.beginPath(); ctx.moveTo(xx - 3, yy); ctx.quadraticCurveTo(xx, yy + 1, xx + 3, yy); ctx.lineTo(xx, yy + 4.5); ctx.closePath(); ctx.fill();
+        ctx.strokeStyle = 'rgba(20,34,60,0.55)'; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(xx - 3, yy); ctx.lineTo(xx, yy + 4.5); ctx.lineTo(xx + 3, yy); ctx.stroke();
+      }
+    }
+    ctx.restore();
+    hilite(ctx, -rx * 0.4, -ry * 0.5, 3.5, 1.8);
+    // Eyes — two dark ovals with glints on the lighter face patch
+    ell(ctx, 0, 0.5, rx * 0.55, ry * 0.42, 0, BODY, null, { sh: 0 });
+    ell(ctx, -4, -1, 2.1, 3, 0, '#111', null, { sh: 0 });
+    ell(ctx, 4, -1, 2.1, 3, 0, '#111', null, { sh: 0 });
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(-4.8, -2.6, 1.3, 1.3); ctx.fillRect(3.2, -2.6, 1.3, 1.3);
+    ctx.restore();
   }
 
   // Slugma — lava slug with droopy eyes, rises from the lava
   _drawPodoboo(ctx, x, y, w, h) {
     if (!this.isJumping && !this.dying) return; // hidden below the lava surface
-    const OL = '#111';
+    const OL = '#5a1000';
     const flicker = Math.floor(this.animTimer / 4) % 2;
+    const cx = x + w / 2;
+
+    // Heat glow
+    const glow = ctx.createRadialGradient(cx, y + h * 0.5, 4, cx, y + h * 0.5, w * 0.95);
+    glow.addColorStop(0, 'rgba(255,140,40,0.45)'); glow.addColorStop(1, 'rgba(255,100,0,0)');
+    ctx.fillStyle = glow;
+    ctx.beginPath(); ctx.arc(cx, y + h * 0.5, w * 0.95, 0, TAU); ctx.fill();
 
     // Dripping magma blobs beneath
-    ctx.fillStyle = flicker ? '#ff5500' : '#e84010';
-    ctx.beginPath(); ctx.ellipse(x + w * 0.3, y + h * 0.95, 3, 4, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.beginPath(); ctx.ellipse(x + w * 0.7, y + h * 1.0, 2.5, 3.5, 0, 0, Math.PI * 2); ctx.fill();
+    const DRIP = flicker ? '#ff5a10' : '#e84214';
+    ell(ctx, x + w * 0.3, y + h * 0.95, 3, 4, 0, DRIP, OL, { lw: 1.1, sh: 0.8 });
+    ell(ctx, x + w * 0.7, y + h * 1.0, 2.5, 3.5, 0, DRIP, OL, { lw: 1.1, sh: 0.8 });
 
     // Body — teardrop magma blob leaning up
-    ctx.fillStyle = flicker ? '#f04818' : '#e03810';
-    ctx.beginPath();
-    ctx.moveTo(x + w * 0.5, y - h * 0.15);
-    ctx.bezierCurveTo(x + w * 1.05, y + h * 0.15, x + w * 1.0, y + h * 0.9, x + w * 0.5, y + h * 0.95);
-    ctx.bezierCurveTo(x + w * 0.0, y + h * 0.9, x - w * 0.05, y + h * 0.15, x + w * 0.5, y - h * 0.15);
-    ctx.closePath(); ctx.fill();
-    ctx.strokeStyle = OL; ctx.lineWidth = 1.3; ctx.stroke();
-
-    // Inner glow
-    ctx.fillStyle = flicker ? '#ff9030' : '#ff7020';
-    ctx.beginPath(); ctx.ellipse(x + w * 0.5, y + h * 0.55, w * 0.3, h * 0.3, 0, 0, Math.PI * 2); ctx.fill();
+    shape(ctx, () => {
+      ctx.moveTo(cx, y - h * 0.15);
+      ctx.bezierCurveTo(x + w * 1.05, y + h * 0.15, x + w * 1.0, y + h * 0.9, cx, y + h * 0.95);
+      ctx.bezierCurveTo(x + w * 0.0, y + h * 0.9, x - w * 0.05, y + h * 0.15, cx, y - h * 0.15);
+      ctx.closePath();
+    }, flicker ? '#f04a18' : '#e03a10', OL, { sh: 0.72, dy: 3.5 });
+    // Inner glow + bright core
+    ell(ctx, cx, y + h * 0.55, w * 0.3, h * 0.3, 0, flicker ? '#ff9a30' : '#ff7a20', null, { sh: 0 });
+    hilite(ctx, cx - 3, y + h * 0.42, 3, 1.6, 0.5);
 
     // Droopy round eyes on top — Slugma's signature look
-    ctx.fillStyle = '#f8d838';
-    ctx.beginPath(); ctx.ellipse(x + w * 0.34, y + h * 0.16, 4.5, 5, -0.15, 0, Math.PI * 2); ctx.fill();
-    ctx.strokeStyle = OL; ctx.lineWidth = 1; ctx.stroke();
-    ctx.beginPath(); ctx.ellipse(x + w * 0.66, y + h * 0.16, 4.5, 5, 0.15, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-    ctx.fillStyle = '#111';
-    ctx.beginPath(); ctx.ellipse(x + w * 0.35, y + h * 0.2, 1.8, 2.2, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.beginPath(); ctx.ellipse(x + w * 0.65, y + h * 0.2, 1.8, 2.2, 0, 0, Math.PI * 2); ctx.fill();
+    ell(ctx, x + w * 0.34, y + h * 0.16, 4.5, 5, -0.15, '#f8d838', OL, { lw: 1.1, sh: 0.85 });
+    ell(ctx, x + w * 0.66, y + h * 0.16, 4.5, 5, 0.15, '#f8d838', OL, { lw: 1.1, sh: 0.85 });
+    ell(ctx, x + w * 0.35, y + h * 0.2, 1.8, 2.2, 0, '#111', null, { sh: 0 });
+    ell(ctx, x + w * 0.65, y + h * 0.2, 1.8, 2.2, 0, '#111', null, { sh: 0 });
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(x + w * 0.35 - 1.5, y + h * 0.16, 1.2, 1.2);
+    ctx.fillRect(x + w * 0.65 - 1.5, y + h * 0.16, 1.2, 1.2);
   }
 }
