@@ -68,9 +68,9 @@ function barkLines(ctx, x, y, w, h, color, step = 12) {
 }
 
 const BRICK_PALETTES = {
-  default:     { base: '#c0642a', light: '#dd8a4c', dark: '#8c4218', mortar: '#5a2a0c', outline: '#32160a' },
-  underground: { base: '#5c6c9c', light: '#8294c4', dark: '#3c4870', mortar: '#1e2642', outline: '#10142a' },
-  castle:      { base: '#86868e', light: '#acacb6', dark: '#5a5a62', mortar: '#303036', outline: '#18181e' },
+  default:     { base: '#c0642a', light: '#dd8a4c', dark: '#8c4218', mortar: '#5a2a0c', outline: '#101018' },
+  underground: { base: '#5c6c9c', light: '#8294c4', dark: '#3c4870', mortar: '#1e2642', outline: '#101018' },
+  castle:      { base: '#86868e', light: '#acacb6', dark: '#5a5a62', mortar: '#303036', outline: '#101018' },
 };
 function brickPalette(setting) {
   if (setting === 'underground') return BRICK_PALETTES.underground;
@@ -127,7 +127,7 @@ const Q_FRAMES = [
 function paintQBlock(f) {
   return (ctx, ox, oy) => {
     const T = TILE;
-    bevel(ctx, ox, oy, T, T, f.base, f.light, f.dark, '#3a2008');
+    bevel(ctx, ox, oy, T, T, f.base, f.light, f.dark, '#101018');
     // second, softer bevel ring for a chunkier edge
     px(ctx, ox + 2, oy + 2, T - 4, 1, f.light);
     px(ctx, ox + 2, oy + 2, 1, T - 4, f.light);
@@ -142,7 +142,7 @@ function paintQBlock(f) {
 }
 function paintUsedBlock(ctx, ox, oy) {
   const T = TILE;
-  bevel(ctx, ox, oy, T, T, '#8c5e22', '#b0803a', '#5c3c12', '#30200a');
+  bevel(ctx, ox, oy, T, T, '#8c5e22', '#b0803a', '#5c3c12', '#101018');
   px(ctx, ox + 2, oy + 2, T - 4, 1, '#b0803a');
   px(ctx, ox + 2, oy + 2, 1, T - 4, '#b0803a');
   px(ctx, ox + 2, oy + T - 3, T - 4, 1, '#5c3c12');
@@ -183,7 +183,7 @@ export class Platform {
       const ctx = r.ctx;
       const w = this.w, h = this.h;
       // Planks with bevel + 1px outline
-      px(ctx, sx, sy, w, h, '#2a1608');
+      px(ctx, sx, sy, w, h, '#101018');
       paintPlanks(ctx, sx + 1, sy + 1, w - 2, h - 2, 16, '#a8743a', '#cf9654', '#7a4e1c', '#4a2c0e');
       // Green railing on top (SMB bridge look): posts + top rail, outlined
       px(ctx, sx, sy - 9, w, 4, '#143c18');
@@ -356,13 +356,18 @@ export class TreePlatform {
     const trunkW = Math.max(8, Math.floor(this.w * 0.25));
     const trunkX = sx + Math.floor((this.w - trunkW) / 2);
     const w = this.w, h = this.h;
-    // Shaded trunk with bark lines, from under the canopy to the ground
+    // Shaded trunk: 1px outline, light side (left 20%), dark side (right 30%)
     const trunkTop = sy + h - 4, trunkH = GROUND_Y - trunkTop;
-    px(ctx, trunkX, trunkTop, trunkW, trunkH, '#2a1608');
-    px(ctx, trunkX + 1, trunkTop, trunkW - 2, trunkH, '#8a5a2a');
-    px(ctx, trunkX + 1, trunkTop, 2, trunkH, '#a87040');
-    px(ctx, trunkX + trunkW - 4, trunkTop, 3, trunkH, '#5a3814');
-    barkLines(ctx, trunkX + 1, trunkTop, trunkW - 2, trunkH, '#4a2a10', 14);
+    const tiW = trunkW - 2;
+    const lightW = Math.max(2, Math.round(tiW * 0.20));
+    const darkW = Math.max(3, Math.round(tiW * 0.30));
+    px(ctx, trunkX, trunkTop, trunkW, trunkH, '#101018');
+    px(ctx, trunkX + 1, trunkTop, tiW, trunkH, '#8a5a2a');
+    px(ctx, trunkX + 1, trunkTop, lightW, trunkH, '#b07a44');
+    px(ctx, trunkX + 1, trunkTop, 1, trunkH, '#c8946a');
+    px(ctx, trunkX + 1 + tiW - darkW, trunkTop, darkW, trunkH, '#5a3814');
+    px(ctx, trunkX + 1 + tiW - 2, trunkTop, 2, trunkH, '#3c2208');
+    barkLines(ctx, trunkX + 1, trunkTop, tiW, trunkH, '#4a2a10', 14);
     // Rounded leafy canopy inside the hitbox rect; scallops dip 4px below
     const rad = Math.min(10, Math.floor(h / 2));
     const canopy = () => {
@@ -393,9 +398,21 @@ export class TreePlatform {
       px(ctx, lx, sy + 9, 3, 2, '#7ad257');
       px(ctx, lx + 5, sy + 16, 3, 2, '#2f7a2a');
     }
+    // Shaded underside where the trunk meets the canopy (dark ellipse)
+    ctx.fillStyle = 'rgba(6,30,8,0.6)';
+    ctx.beginPath();
+    ctx.ellipse(trunkX + trunkW / 2, sy + h - 4, trunkW * 1.6, 11, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = 'rgba(4,20,6,0.5)';
+    ctx.beginPath();
+    ctx.ellipse(trunkX + trunkW / 2, sy + h - 1, trunkW * 1.1, 7, 0, 0, Math.PI * 2);
+    ctx.fill();
     ctx.restore();
     canopy();
-    ctx.strokeStyle = '#163c14'; ctx.lineWidth = 1.5; ctx.stroke();
+    ctx.strokeStyle = '#101018'; ctx.lineWidth = 1; ctx.stroke();
+    // Drop shadow from the canopy onto the trunk top
+    px(ctx, trunkX + 1, sy + h + 6, tiW, 4, 'rgba(0,0,0,0.38)');
+    px(ctx, trunkX + 1, sy + h + 10, tiW, 2, 'rgba(0,0,0,0.18)');
   }
 }
 
@@ -416,7 +433,7 @@ export class Cannon {
     const w = this.w, h = this.h;
     // Base column: bevelled grey with banding
     if (h > 26) {
-      bevel(ctx, sx, sy + 26, w, h - 26, '#4a4a56', '#72727e', '#2a2a34', '#0c0c12');
+      bevel(ctx, sx, sy + 26, w, h - 26, '#4a4a56', '#72727e', '#2a2a34', '#101018');
       for (let yy = sy + 34; yy < sy + h - 4; yy += 8) {
         px(ctx, sx + 2, yy, w - 4, 1, '#2a2a34');
         px(ctx, sx + 2, yy + 1, w - 4, 1, '#5a5a66');
@@ -454,7 +471,7 @@ export class ShroomPlatform {
     const w = this.w, h = Math.floor(this.h);
     // Shaded trunk down to the ground, with bark lines
     const tx = Math.floor(cx) - 9, tTop = sy + h - 2, tH = GROUND_Y - tTop;
-    px(ctx, tx, tTop, 18, tH, '#4a2a10');
+    px(ctx, tx, tTop, 18, tH, '#101018');
     px(ctx, tx + 1, tTop, 16, tH, '#d8a060');
     px(ctx, tx + 1, tTop, 2, tH, '#ecc080');
     px(ctx, tx + 12, tTop, 5, tH, '#a87038');
@@ -493,7 +510,7 @@ export class ShroomPlatform {
     px(ctx, sx, sy + h - 1, w, 1, '#c8a878');
     ctx.restore();
     cap();
-    ctx.strokeStyle = '#2a0c08'; ctx.lineWidth = 1.5; ctx.stroke();
+    ctx.strokeStyle = '#101018'; ctx.lineWidth = 1; ctx.stroke();
   }
 }
 
@@ -529,7 +546,7 @@ export class ScalePlatform {
         const b1 = Math.floor(this.beamX1 - cam.x), b2 = Math.floor(this.beamX2 - cam.x);
         const by = Math.floor(this.beamY);
         // Beam: outlined wooden bar with light top edge
-        px(ctx, b1, by - 3, b2 - b1, 6, '#3a1c08');
+        px(ctx, b1, by - 3, b2 - b1, 6, '#101018');
         px(ctx, b1 + 1, by - 2, b2 - b1 - 2, 4, '#e0a860');
         px(ctx, b1 + 1, by - 2, b2 - b1 - 2, 1, '#f8d8a0');
         px(ctx, b1 + 1, by + 1, b2 - b1 - 2, 1, '#a87038');
@@ -550,7 +567,7 @@ export class ScalePlatform {
 
     // Platform slab: bevelled orange with riveted bolts
     const w = this.w, h = Math.floor(this.h);
-    bevel(ctx, sx, sy, w, h, '#e08828', '#f8b858', '#a05418', '#3a1c08');
+    bevel(ctx, sx, sy, w, h, '#e08828', '#f8b858', '#a05418', '#101018');
     px(ctx, sx + 2, sy + 2, w - 4, 1, '#f8b858');
     px(ctx, sx + 2, sy + h - 3, w - 4, 1, '#a05418');
     for (let p = 6; p < w - 6; p += 18) {
@@ -633,7 +650,7 @@ export class MovingPlatform {
     const ctx = r.ctx;
     const w = this.w, h = Math.floor(this.h);
     // SMW-style wooden lift: outlined planks with metal end caps
-    px(ctx, x, y, w, h, '#2a1608');
+    px(ctx, x, y, w, h, '#101018');
     const capW = Math.min(6, Math.floor(w / 6));
     const rowH = h > 14 ? Math.ceil((h - 2) / Math.round((h - 2) / 8)) : h - 2;
     for (let yy = y + 1; yy < y + h - 1; yy += rowH) {
@@ -641,7 +658,7 @@ export class MovingPlatform {
       paintPlanks(ctx, x + 1, yy, w - 2, rh, 16, '#b8783a', '#dc9c5a', '#80501e', '#4a2c0e');
     }
     for (const ex of [x, x + w - capW]) {
-      bevel(ctx, ex, y, capW, h, '#8a8a96', '#c4c4d0', '#4e4e5a', '#1c1c24');
+      bevel(ctx, ex, y, capW, h, '#8a8a96', '#c4c4d0', '#4e4e5a', '#101018');
       if (h >= 8) rivet(ctx, ex + Math.floor(capW / 2) - 1, y + Math.floor(h / 2) - 1, '#2a2a34', '#e0e0ea');
     }
   }
@@ -677,33 +694,54 @@ export class PipeBlock {
     const bodyY = showCap ? sy + TILE : sy;
     const bodyH = showCap ? h - TILE : h;
 
-    // Cylindrical body: dark edge | highlight band | mid | dark edge, 1px outline
-    const OUT = '#06200a';
+    // Cylindrical body: 5-tone shading (dark edge | highlight | mid |
+    // shadow | dark edge) inside a 2px near-black outline. Slightly
+    // desaturated green so the ambient tint reads on top of it.
+    const OUT = '#101018';
     const shadeColumn = (x0, y0, cw, ch) => {
       px(ctx, x0, y0, cw, ch, OUT);
-      const ix = x0 + 1, iw = cw - 2;
-      px(ctx, ix, y0, iw, ch, '#2eb02e');                        // mid
-      px(ctx, ix, y0, 4, ch, '#166a1a');                         // left dark edge
-      px(ctx, ix + 4, y0, Math.floor(iw * 0.22), ch, '#62e062'); // highlight band
-      px(ctx, ix + 4, y0, 2, ch, '#9af09a');                     // specular line
-      px(ctx, ix + iw - 11, y0, 7, ch, '#1e8a22');               // right mid-dark
-      px(ctx, ix + iw - 4, y0, 4, ch, '#0f4a12');                // right dark edge
+      const ix = x0 + 2, iw = cw - 4;
+      const edgeL = Math.max(3, Math.round(iw * 0.15));
+      const hiW   = Math.max(4, Math.round(iw * 0.20));
+      const shW   = Math.max(4, Math.round(iw * 0.20));
+      const edgeR = Math.max(3, Math.round(iw * 0.15));
+      px(ctx, ix, y0, iw, ch, '#2f9e44');                                   // mid (~40%)
+      px(ctx, ix, y0, edgeL, ch, '#145a22');                                 // left dark edge
+      px(ctx, ix + edgeL, y0, hiW, ch, '#6fd46f');                           // highlight band
+      px(ctx, ix + edgeL, y0, 2, ch, '#b8f5b0');                             // specular line
+      px(ctx, ix + edgeL + hiW, y0, 1, ch, '#4cbc54');                       // soft falloff
+      px(ctx, ix + iw - edgeR - shW, y0, shW, ch, '#1f7a2e');                // shadow (~20%)
+      px(ctx, ix + iw - edgeR, y0, edgeR, ch, '#0e4218');                    // right dark edge
+      px(ctx, ix + iw - edgeR - shW, y0, 1, ch, '#26903a');                  // seam between mid/shadow
     };
     shadeColumn(sx, bodyY, w, bodyH);
-    if (bodyH > 0) px(ctx, sx, bodyY + bodyH - 1, w, 1, OUT);
+    if (bodyH > 0) px(ctx, sx, bodyY + bodyH - 2, w, 2, OUT);
 
     if (showCap) {
       const cx = sx - overhang, cw = w + overhang * 2;
-      // Lip with its own shading + top/bottom bevel
+      // Lip: same cylinder shading, then its own bevel (light top / dark bottom)
       shadeColumn(cx, sy, cw, TILE);
-      px(ctx, cx + 1, sy, cw - 2, 1, OUT);
-      px(ctx, cx + 1, sy + 1, cw - 2, 2, '#8ef08e');
-      px(ctx, cx + 1, sy + TILE - 4, cw - 2, 3, '#0f4a12');
-      px(ctx, cx, sy + TILE - 1, cw, 1, OUT);
-      // Rim shadow cast on the body just under the lip
-      px(ctx, sx + 1, sy + TILE, w - 2, 4, 'rgba(0,0,0,0.38)');
+      px(ctx, cx, sy, cw, 2, OUT);                               // top outline (2px)
+      px(ctx, cx + 2, sy + 2, cw - 4, 3, '#a8f0a0');             // light top bevel
+      px(ctx, cx + 2, sy + 5, cw - 4, 1, '#6fd46f');
+      px(ctx, cx + 2, sy + TILE - 6, cw - 4, 1, '#1f7a2e');
+      px(ctx, cx + 2, sy + TILE - 5, cw - 4, 3, '#0b3614');      // dark bottom bevel
+      px(ctx, cx, sy + TILE - 2, cw, 2, OUT);                    // bottom outline (2px)
+      // Cap shadow cast onto the body (3px)
+      px(ctx, sx + 2, sy + TILE, w - 4, 3, 'rgba(0,0,0,0.45)');
+      px(ctx, sx + 2, sy + TILE + 3, w - 4, 1, 'rgba(0,0,0,0.2)');
     } else {
-      px(ctx, sx, sy, w, 1, OUT);
+      px(ctx, sx, sy, w, 2, OUT);
+    }
+
+    // Scene tint (night / underground / castle) supplied by the renderer
+    if (typeof r.ambientTint === 'function') {
+      const tint = r.ambientTint();
+      if (typeof tint === 'string' && tint) {
+        ctx.fillStyle = tint;
+        ctx.fillRect(sx, bodyY, w, bodyH);
+        if (showCap) ctx.fillRect(sx - overhang, sy, w + overhang * 2, TILE);
+      }
     }
   }
 }
@@ -745,7 +783,7 @@ export class Springboard {
     const bottom = Math.floor(this.baseY + 58);
 
     // Base plate: bevelled steel
-    bevel(ctx, x + 2, bottom - 6, this.w - 4, 6, '#6a6a74', '#a0a0ac', '#3a3a44', '#101014');
+    bevel(ctx, x + 2, bottom - 6, this.w - 4, 6, '#6a6a74', '#a0a0ac', '#3a3a44', '#101018');
     // Coils — squeeze with compression; dark rim + light core
     const coils = 4;
     const span = (bottom - 6) - (top + 8);
@@ -760,7 +798,7 @@ export class Springboard {
       ctx.strokeStyle = '#e8e8f0'; ctx.lineWidth = 1; ctx.stroke();
     }
     // Top plate — bevelled red
-    bevel(ctx, x, top, this.w, 8, '#d03830', '#f07068', '#8a1c18', '#1a0808');
+    bevel(ctx, x, top, this.w, 8, '#d03830', '#f07068', '#8a1c18', '#101018');
     px(ctx, x + 2, top + 2, this.w - 4, 1, '#f07068');
   }
 }
