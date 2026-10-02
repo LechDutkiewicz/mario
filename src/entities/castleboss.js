@@ -205,104 +205,106 @@ export class CastleBoss {
     const y = Math.floor(this.y);
     const w = this.w, h = this.h;
 
-    // Gengar — squat purple ghost, spiky crest, red slanted eyes, huge toothy grin
+    // Gengar — round purple ghost seen from the front: two big ears, a row of
+    // spikes down each side, slanted red eyes and the ear-to-ear grin
     const bob = Math.sin(this.anim * 0.08) * 3;
 
     // Contact shadow stays put while the body bobs
     shadow(ctx, x + w / 2, y + h + 2, w * 0.42, 5);
 
-    // Drawn facing left; mirror when looking right
+    // The face stays front-on; facing only adds a subtle lean toward the player
     ctx.save();
     if (!this.lookleft) { ctx.translate(2 * x + w, 0); ctx.scale(-1, 1); }
+    ctx.translate(x, y + h); ctx.transform(1, 0, -0.05, 1, 0, 0); ctx.translate(-x, -(y + h));
     this._drawGengar(ctx, x, y, w, h, bob);
     ctx.restore();
   }
 
   _drawGengar(ctx, x, y, w, h, bob) {
-    const BODY = '#6b4aa0', DARK = '#4a2f78', OL = '#1e0c38';
-    const RED = '#e01c1c', PUPIL = '#8a0a14';
+    const BODY = '#5d3f8f', DARK = '#3f2a66', OL = '#1c0f33';
+    const RED = '#e0201c', PUPIL = '#9c0f0f', MOUTH = '#2a0f3a';
+    const D = Math.PI / 180;
     const cx = x + w / 2;
-    const cy = y + h * 0.6 + bob;         // body centre
-    const rx = w * 0.52, ry = h * 0.37;   // squat blob: wider than tall
+    const cy = y + 35 + bob;             // body centre
+    const rx = 24, ryT = 26, ryB = 21;   // near-round blob, flattened where it sits
 
-    // Stubby tail (behind, low on the back)
-    poly(ctx, [cx + rx * 0.7, cy + ry * 0.55, cx + rx + 6, cy + ry * 0.75, cx + rx * 0.76, cy + ry * 0.9], BODY, OL, { sh: 0.7, shade: DARK, dx: 2, dy: 2, lw: 1.4 });
-
-    // Legs: short stubs with two toes each (behind the body, bob damped)
-    const ly = y + h - 2 + bob * 0.3;
+    // Feet: stubby, three toes each (behind the body, bob damped)
+    const fy = y + h - 3 + bob * 0.3;
     for (const side of [-1, 1]) {
-      const lx = cx + side * w * 0.24;
-      ell(ctx, lx, ly - 1, 7.5, 4.5, 0, BODY, OL, { sh: 0.7, shade: DARK, dy: 2, lw: 1.4 });
-      for (const t of [-1, 1]) poly(ctx, [lx + t * 4.5 - 3, ly + 1.5, lx + t * 5, ly + 6, lx + t * 4.5 + 2.5, ly + 1.5], BODY, OL, { sh: 0, lw: 1.1 });
+      const fx = cx + side * 12;
+      for (const t of [-1, 0, 1]) poly(ctx, [fx + t * 5 - 2.6, fy, fx + t * 5.5, fy + 4.5, fx + t * 5 + 2.6, fy], BODY, OL, { sh: 0, lw: 1.1 });
+      ell(ctx, fx, fy - 1, 8, 4.5, 0, DARK, OL, { sh: 0.7, shade: BODY, dx: -1, dy: -2, lw: 1.4 });
     }
 
-    // Body silhouette: blob + two big outward ears + spikes along the top and back
-    const spike = (ang, len, hw) => {
-      const a0 = ang - hw, a1 = ang + hw;
-      ctx.moveTo(cx + rx * Math.cos(a0), cy + ry * Math.sin(a0));
-      ctx.lineTo(cx + (rx + len) * Math.cos(ang), cy + (ry + len) * Math.sin(ang));
-      ctx.lineTo(cx + rx * Math.cos(a1), cy + ry * Math.sin(a1));
+    // Body silhouette: blob + mirrored ears and side spikes (angles in degrees,
+    // 0 = right, -90 = up; the left side is the exact mirror of the right)
+    const ry = (a) => (Math.sin(a) > 0 ? ryB : ryT);
+    const spike = (deg, len, hw) => {
+      const a = deg * D, a0 = a - hw, a1 = a + hw;
+      ctx.moveTo(cx + rx * Math.cos(a0), cy + ry(a0) * Math.sin(a0));
+      ctx.lineTo(cx + (rx + len) * Math.cos(a), cy + (ry(a) + len) * Math.sin(a));
+      ctx.lineTo(cx + rx * Math.cos(a1), cy + ry(a1) * Math.sin(a1));
       ctx.closePath();
     };
-    const D = Math.PI / 180;
     shape(ctx, () => {
-      ctx.ellipse(cx, cy, rx, ry, 0, 0, TAU);
-      spike(-122 * D, 19, 0.24);   // front ear
-      spike(-58 * D, 19, 0.24);    // back ear
-      spike(-100 * D, 8, 0.13);    // crest between the ears
-      spike(-83 * D, 8, 0.13);
-      spike(-28 * D, 9, 0.14);     // spikes down the back
-      spike(-8 * D, 9, 0.14);
-      spike(12 * D, 9, 0.14);
-      spike(32 * D, 8, 0.14);
-    }, BODY, OL, { sh: 0.7, shade: DARK, dx: 4, dy: 7, lw: 1.6 });
-    hilite(ctx, cx - rx * 0.3, cy - ry * 0.55, 8, 3.5, 0.22);
+      ctx.ellipse(cx, cy, rx, ryT, 0, Math.PI, TAU);   // domed top half
+      ctx.ellipse(cx, cy, rx, ryB, 0, 0, Math.PI);     // flatter bottom half
+      ctx.closePath();
+      for (const s of [1, -1]) {
+        const m = (deg) => (s > 0 ? deg : 180 - deg);
+        spike(m(-58), 16, 0.3);     // big ear, angled ~30° outward
+        spike(m(-34), 9, 0.17);     // spikes running down the side/back
+        spike(m(-13), 9, 0.16);
+        spike(m(9), 8, 0.16);
+        spike(m(32), 7, 0.15);
+      }
+    }, DARK, OL, { sh: 0.7, shade: BODY, dx: -3, dy: -5, lw: 1.6 });   // dark crescent stays bottom-right
+    hilite(ctx, cx - 9, cy - 15, 7.5, 3.2, 0.22);
 
-    // Arms: stubby, raised out to the sides, three claws each
+    // Arms: short, out to the sides and slightly raised, three claws each
     const aw = Math.sin(this.anim * 0.12) * 2;
     for (const side of [-1, 1]) {
-      const ax = cx + side * rx * 0.98, ay = cy - ry * 0.15 + aw * side;
-      const tipx = ax + side * 6.5, tipy = ay - 3.5;
-      // Three claws fanned up-and-out from the hand (base tucked under the hand)
-      for (let i = 0; i < 3; i++) {
-        const a = (side > 0 ? -70 + i * 32 : 250 - i * 32) * D;
-        const px = -Math.sin(a) * 2, py = Math.cos(a) * 2;
-        poly(ctx, [tipx + px, tipy + py, tipx + Math.cos(a) * 7, tipy + Math.sin(a) * 7, tipx - px, tipy - py], DARK, OL, { sh: 0, lw: 1 });
+      const by = cy + 7 + aw * side;                 // shoulder (just inside the body edge)
+      const bx = cx + side * (rx - 3);
+      const hx = cx + side * (rx + 9), hy = by - 5;  // hand
+      // Claws first so their bases tuck under the hand
+      for (let i = -1; i <= 1; i++) {
+        const a = (side > 0 ? -25 : 205) * D + i * 34 * D;
+        const px = hx - side * 1.5 + i * 0.6, py = hy + i * 2.2;
+        poly(ctx, [px, py - 1.7, px + Math.cos(a) * 6.5, py + Math.sin(a) * 6.5, px, py + 1.7], DARK, OL, { sh: 0, lw: 1 });
       }
-      ell(ctx, ax, ay, 8, 5, side * 0.55, BODY, OL, { sh: 0.7, shade: DARK, dy: 2, lw: 1.4 });
+      poly(ctx, [bx, by - 4, hx, hy - 3.5, hx + side * 1.5, hy, hx, hy + 3.5, bx, by + 4], DARK, OL, { sh: 0.7, shade: BODY, dx: -side * 1.5, dy: -2, lw: 1.4 });
     }
 
-    // Eyes: red, slanted sharply down toward the nose, no sclera; dark pupil + glint
-    const ey = cy - ry * 0.32;
+    // Eyes: big red, slanted inward-down ("\ /"), darker inner pupil + glint, thick brows
+    const ey = cy - 5;
     for (const side of [-1, 1]) {
-      const ex = cx + side * w * 0.2;
-      ell(ctx, ex, ey, 9.5, 5.5, -side * 0.42, RED, OL, { sh: 0, lw: 1.3 });
-      ell(ctx, ex + side * 1.5, ey + 1.2, 3.4, 3.4, 0, PUPIL, null, { sh: 0 });
-      hilite(ctx, ex - side * 4, ey - 1.6, 2.2, 1.3, 0.9);
-      // Thick angry brow: outer-high to inner-low
+      const ex = cx + side * 10.5;
+      ell(ctx, ex, ey, 9, 5.2, -side * 0.5, RED, OL, { sh: 0, lw: 1.3 });
+      ell(ctx, ex - side * 2, ey + 1.5, 3.2, 3.2, 0, PUPIL, null, { sh: 0 });
+      hilite(ctx, ex - 3, ey - 1.6, 1.7, 1.1, 0.95);
       ctx.strokeStyle = OL; ctx.lineWidth = 3; ctx.lineCap = 'round';
-      ctx.beginPath(); ctx.moveTo(ex - side * 9, ey - 6.5); ctx.lineTo(ex + side * 7, ey - 1.2); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(ex + side * 9.5, ey - 7.5); ctx.lineTo(ex - side * 4.5, ey - 2); ctx.stroke();
     }
 
-    // Mouth: the signature grin, almost the whole face wide
-    const my = cy + ry * 0.2;
-    const mw = w * 0.4;
+    // Mouth: the signature grin, nearly edge to edge, a wide U with a row of teeth
+    const my = cy + 4, mw = 20;
     if (this.windup > 0) {
       // Closed smirk while winding up a flame
       ctx.strokeStyle = OL; ctx.lineWidth = 2.6; ctx.lineCap = 'round';
-      ctx.beginPath(); ctx.moveTo(cx - mw, my - 2); ctx.quadraticCurveTo(cx, my + 6, cx + mw, my - 2); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(cx - mw, my - 3); ctx.quadraticCurveTo(cx, my + 6, cx + mw, my - 3); ctx.stroke();
       return;
     }
-    const lipY = (t) => { const u = 1 - t; return u * u * (my - 1) + 2 * u * t * (my + 4) + t * t * (my - 1); };
+    const lipY = (t) => { const u = 1 - t; return u * u * (my - 3) + 2 * u * t * (my + 4) + t * t * (my - 3); };
     shape(ctx, () => {
-      ctx.moveTo(cx - mw, my - 1);
-      ctx.quadraticCurveTo(cx, my + 4, cx + mw, my - 1);
-      ctx.quadraticCurveTo(cx, my + 24, cx - mw, my - 1);
+      ctx.moveTo(cx - mw, my - 3);
+      ctx.quadraticCurveTo(cx, my + 4, cx + mw, my - 3);
+      ctx.quadraticCurveTo(cx, my + 27, cx - mw, my - 3);
       ctx.closePath();
-    }, '#2a1040', OL, { sh: 0, lw: 1.6 });
+    }, MOUTH, OL, { sh: 0, lw: 1.6 });
     // Row of small pointed teeth hanging from the upper lip
     ctx.fillStyle = '#f6f6f6';
-    const n = 8;
+    const n = 9;
     for (let i = 0; i < n; i++) {
       const t0 = i / n, t1 = (i + 1) / n, tm = (t0 + t1) / 2;
       const x0 = cx - mw + 2 * mw * t0, x1 = cx - mw + 2 * mw * t1;
