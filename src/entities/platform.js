@@ -1,4 +1,4 @@
-import { TILE, COLORS, GROUND_Y } from '../constants.js';
+import { TILE, COLORS, GROUND_Y, CANVAS_HEIGHT } from '../constants.js';
 
 // ------------------------------------------------------------
 // Pixel-art drawing helpers (private to this module)
@@ -692,7 +692,9 @@ export class PipeBlock {
     // Pipe cap — only draw if visible (not buried near/above ceiling)
     const showCap = this.y > 40;
     const bodyY = showCap ? sy + TILE : sy;
-    const bodyH = showCap ? h - TILE : h;
+    // A pipe standing in lava is drawn down to the bottom of the screen
+    // (visual only; set by the level loader)
+    const bodyH = (showCap ? h - TILE : h) + (this.extendToBottom ? Math.max(0, CANVAS_HEIGHT - (sy + h)) : 0);
 
     // Cylindrical body: 5-tone shading (dark edge | highlight | mid |
     // shadow | dark edge) inside a 2px near-black outline. Slightly

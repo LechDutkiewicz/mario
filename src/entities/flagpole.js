@@ -18,7 +18,11 @@ export class FlagPole {
 
   update(player) {
     this.anim++;
-    if (!this.touched && !player.dead && aabb(player, this)) {
+    // The pole column counts all the way up to the top of the screen, so a
+    // running jump from the staircase cannot clear the flag and leave the
+    // level unfinished
+    const column = { x: this.x, y: 0, w: this.w, h: this.y + this.h };
+    if (!this.touched && !player.dead && aabb(player, column)) {
       this.touched = true;
     }
     // Slide flag down after touched

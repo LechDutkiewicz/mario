@@ -54,8 +54,13 @@ function processThing(e, out) {
       // height (optional) = thickness in FSM units; if absent, 1 tile default
       // width  (optional) = width in FSM units; default = 1 tile (8 FSM units)
       const stoneTopY = GY - y * 4;
-      const stoneH    = e.height !== undefined ? e.height * 4 : T;
+      let   stoneH    = e.height !== undefined ? e.height * 4 : T;
       const stoneW    = e.width  !== undefined ? ux(e.width)  : T;
+      // A stone whose bottom rests on the ground line (a column standing at
+      // the edge of a pit, a stone bridge laid in lava at y = 0) is filled
+      // down to the bottom of the screen like a floor, so nothing hangs over
+      // a black hole (8-4 start)
+      if (stoneTopY + stoneH >= GY) stoneH = (GY + 120) - stoneTopY;
       out.platforms.push(new Platform(sx, stoneTopY, stoneW, stoneH, COLORS.brick));
       break;
     }
@@ -533,6 +538,20 @@ export function loadFSMLevel(jsonData, areaIndex = 0) {
                 : area.setting === 'Castle'     ? 'castle'
                 : area.setting === 'Sky'        ? 'sky'
                 : 'overworld';
+
+  // Pipes standing on the ground line over a lava pit (8-4) are drawn down
+  // to the bottom of the screen so they rise out of the lava instead of
+  // floating on it (hitbox unchanged)
+  for (const pb of out.platforms) {
+    if (!(pb instanceof PipeBlock) || pb.y + pb.h !== GY) continue;
+    if ((out.lavaZones || []).some(z => pb.x < z.x + z.w && pb.x + pb.w > z.x)) pb.extendToBottom = true;
+  }
+
+  // Castle rooms that are left only through a pipe (8-4 maze) end in a wall
+  // instead of an open drop into nothing
+  if (setting === 'castle' && !out.bossAxe && area.blockBoundaries) {
+    out.platforms.push(new Platform(maxX, 0, T, GY + 120, COLORS.brick));
+  }
 
   // Underground areas and warp zones don't get a flag/Pokemon Center
   const suppressFlag = setting === 'underground' || setting === 'underwater' || out.noFlagPole;
