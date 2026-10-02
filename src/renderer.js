@@ -469,18 +469,19 @@ export class Renderer {
       g = ctx.createLinearGradient(0, GROUND_Y, 0, CANVAS_HEIGHT);
       // Eased (quadratic) fall-off: darkens quickly under the lip, then
       // settles into the deep tone with no visible band.
-      const steps = 6;
+      // Starts in the hills' own colour at the ground line (no visible
+      // edge under levels that have no ground, e.g. 1-3 treetops) and
+      // eases into the deep tone toward the bottom of the screen.
+      const steps = 8;
       for (let i = 0; i <= steps; i++) {
         const t = i / steps;
-        const k = 0.45 + 0.55 * (1 - (1 - t) * (1 - t));
+        const k = 0.08 + 0.92 * (1 - (1 - t) * (1 - t));
         g.addColorStop(t, this._mix(h, deep, k));
       }
       this._pitGrads.set(key, g);
     }
     ctx.fillStyle = g;
     ctx.fillRect(0, GROUND_Y, CANVAS_WIDTH, CANVAS_HEIGHT - GROUND_Y);
-    ctx.fillStyle = this._terrain().outline;
-    ctx.fillRect(0, GROUND_Y, CANVAS_WIDTH, 1);
   }
 
   // Rolling cloud-sea layer: scalloped cloud tops along baseY with a solid
@@ -730,7 +731,7 @@ export class Renderer {
       // Far ridge + silhouette hills
       this._farMountains(camX, '#131c3c', GROUND_Y);
       this._hillLayer(camX, '#1a2a48', '#101a34', '#162440', GROUND_Y);
-      this._farGround(camX, '#2a3a66', '#02030a');
+      this._farGround(camX, '#1a2a48', '#02030a');
       this._bottomShade();
       return;
     }
@@ -895,7 +896,7 @@ export class Renderer {
     // White puffy clouds at 0.2x
     this._clouds(camX, '#ffffff', '#d2e4f2', '#5a8fc0');
     // Dark drop below the horizon (hidden behind ground tiles, seen in pits)
-    this._farGround(camX, '#d8ecf6', '#06080e');
+    this._farGround(camX, '#58b25a', '#0b1a10');
     this._bottomShade();
   }
 
