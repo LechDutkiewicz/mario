@@ -397,152 +397,290 @@ export class Player {
     poly(ctx, [w*0.46, h*0.38, w*0.54, h*0.38, w*0.5, h*0.43], EYE, null, { sh: 0 });
   }
 
-  // ── UMBREON (big, 32x56; tera = Flareon-slot with crystal) ───────────────
-  _drawUmbreon(ctx, w, h, isTera = false) {
-    const BODY = '#26264c', SH = '#14142e', RING = '#ffe040', EYE = '#e02020', OL = '#07071a';
-    const o = { shade: SH };
+  // ── UMBREON (big, 32x56) ──────────────────────────────────────────────────
+  // Front-facing like the small Eevee: sleek black-blue, long slim legs and
+  // tall ears, yellow rings (outline on the forehead, bands on ears, upper
+  // legs and tail), red eyes with a dark pupil.
+  _drawUmbreon(ctx, w, h) {
+    const BODY = '#1c1c38', SH = '#0c0c22', RING = '#ffe040', EYE = '#e02020', OL = '#06061a';
+    const o = { shade: SH }, oL = { shade: SH, lw: 1.3 };
     const jumping = !this.onGround;
-    const step = Math.abs(this.vx) > 0.3 ? Math.floor(this.animTimer / 8) % 2 : 0;
+    const moving = Math.abs(this.vx) > 0.3;
+    const step = moving ? Math.floor(this.animTimer / 8) % 2 : 0;
+    const sway = moving ? Math.sin(this.animTimer * 0.4) * 1.5 : 0;
+    const cx = w * 0.54;
 
-    // Tail — thick, curls up behind the back; yellow band near the tip.
-    // All tail points stay inside the sprite box (left edge overdraw ≤ 3px).
+    // Tail — long and thin, rises behind the left shoulder; yellow ring near the tip
     const tail = () => {
-      ctx.moveTo(w*0.26, h*0.58);
-      ctx.bezierCurveTo(w*0.02, h*0.58, w*(-0.04), h*0.36, w*0.08, h*0.22);
+      ctx.moveTo(cx - w*0.2, h*0.64);
+      ctx.bezierCurveTo(w*0.0, h*0.62, w*(-0.1), h*0.44 + sway, w*0.08, h*0.28 + sway);
     };
     ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-    ctx.strokeStyle = OL; ctx.lineWidth = 9.5; ctx.beginPath(); tail(); ctx.stroke();
-    ctx.strokeStyle = BODY; ctx.lineWidth = 7; ctx.beginPath(); tail(); ctx.stroke();
+    ctx.strokeStyle = OL; ctx.lineWidth = 6.6; ctx.beginPath(); tail(); ctx.stroke();
+    ctx.strokeStyle = BODY; ctx.lineWidth = 4.2; ctx.beginPath(); tail(); ctx.stroke();
     ctx.lineCap = 'butt';
-    ctx.setLineDash([0, 15, 5.5, 300]);
-    ctx.strokeStyle = RING; ctx.lineWidth = 7; ctx.beginPath(); tail(); ctx.stroke();
+    ctx.setLineDash([0, 15, 4.5, 300]);
+    ctx.strokeStyle = RING; ctx.lineWidth = 4.2; ctx.beginPath(); tail(); ctx.stroke();
     ctx.setLineDash([]);
     ctx.lineCap = 'round';
 
-    // Hind legs (back pair)
-    const hly = h * 0.84;
-    ell(ctx, w*(0.2 + step*0.04), hly, w*0.1, h*0.11, 0.1, BODY, OL, o);
-    ell(ctx, w*(0.36 - step*0.04), hly, w*0.1, h*0.11, -0.1, BODY, OL, o);
-
-    // Body
-    ell(ctx, w*0.44, h*0.6, w*0.38, h*0.23, 0, BODY, OL, o);
-    // Thigh ring on the rear haunch
-    ctx.strokeStyle = RING; ctx.lineWidth = 2.2;
-    ctx.beginPath(); ctx.ellipse(w*0.22, h*0.66, 3.6, 4.2, 0.2, 0, TAU); ctx.stroke();
-
-    // Front legs with rings
-    const fl1 = w*(0.62 + step*0.04), fl2 = w*(0.78 - step*0.04);
-    ell(ctx, fl1, hly, w*0.1, h*0.11, 0.1, BODY, OL, o);
-    ell(ctx, fl2, hly, w*0.1, h*0.11, -0.1, BODY, OL, o);
-    ell(ctx, fl1, hly - 2.5, 2.9, 1.8, 0.1, RING, null, { sh: 0 });
-    ell(ctx, fl2, hly - 2.5, 2.9, 1.8, -0.1, RING, null, { sh: 0 });
-
-    // Neck
-    ell(ctx, w*0.66, h*0.44, w*0.16, h*0.1, 0, BODY, null, o);
-
-    // Ears — tall, with yellow bands
-    const tilt = jumping ? 0.05 : 0;
-    const ear = (ax, ay, bx, by, tx, ty) => {
-      poly(ctx, [ax, ay, tx, ty, bx, by], BODY, OL, { lw: 1.3, shade: SH });
-      band(ctx, ax, ay, bx, by, tx, ty, 0.38, 0.6, RING);
+    // Legs — slim and long; a yellow band wraps each upper leg
+    const leg = (x, top, len, rot, bandT) => {
+      const ry = len / 2, y = top + ry;
+      ell(ctx, x, y, 2.7, ry, rot, BODY, OL, oL);
+      const d = ry * (1 - bandT * 2);                    // distance above centre
+      ell(ctx, x + Math.sin(rot) * d, y - Math.cos(rot) * d, 3.1, 1.6, rot, RING, null, { sh: 0 });
     };
-    ear(w*0.58, h*0.22, w*0.74, h*0.16, w*(0.52 + tilt), h*(-0.04));
-    ear(w*0.8, h*0.16, w*0.94, h*0.22, w*(0.96 - tilt), h*(-0.04));
+    if (jumping) {
+      // tucked: hind legs drawn up under the belly, front legs angled back
+      leg(cx - w*0.3, h*0.64, h*0.2, 0.55, 0.3);
+      leg(cx + w*0.3, h*0.64, h*0.2, -0.55, 0.3);
+    } else {
+      leg(cx - w*0.29 - step*1.2, h*0.68, h*0.28, 0.1, 0.22);
+      leg(cx + w*0.29 - (1 - step)*1.2, h*0.68, h*0.28, -0.1, 0.22);
+    }
+
+    // Body — slender chest, haunches at the sides
+    ell(ctx, cx, h*0.62, w*0.3, h*0.2, 0, BODY, OL, o);
+    ell(ctx, cx - w*0.23, h*0.68, w*0.11, h*0.1, 0.15, BODY, OL, oL);
+    ell(ctx, cx + w*0.23, h*0.68, w*0.11, h*0.1, -0.15, BODY, OL, oL);
+    hilite(ctx, cx - w*0.1, h*0.5, 3.4, 1.6, 0.14);
+    hilite(ctx, cx - w*0.26, h*0.63, 2, 1, 0.14);
+    hilite(ctx, cx + w*0.2, h*0.63, 2, 1, 0.14);
+
+    // Front legs (in front of the body)
+    if (jumping) {
+      leg(cx - w*0.13, h*0.72, h*0.2, 0.25, 0.3);
+      leg(cx + w*0.13, h*0.72, h*0.2, -0.25, 0.3);
+    } else {
+      leg(cx - w*0.13 + step*1.5, h*0.72 - step*1.5, h*0.27, 0, 0.26);
+      leg(cx + w*0.13 - (1 - step)*1.5, h*0.72 - (1 - step)*1.5, h*0.27, 0, 0.26);
+    }
+    // Neck
+    ell(ctx, cx, h*0.44, w*0.17, h*0.1, 0, BODY, null, o);
+
+    // Ears — tall and pointed, swept back when jumping, yellow band on each
+    const tilt = jumping ? 0.08 : 0;
+    const ear = (ax, ay, bx, by, tx, ty) => {
+      poly(ctx, [ax, ay, tx, ty, bx, by], BODY, OL, oL);
+      band(ctx, ax, ay, bx, by, tx, ty, 0.42, 0.6, RING);
+    };
+    ear(cx - w*0.3, h*0.24, cx - w*0.08, h*0.15, cx - w*(0.36 + tilt), h*(-0.07));
+    ear(cx + w*0.08, h*0.15, cx + w*0.3, h*0.24, cx + w*(0.36 + tilt), h*(-0.07));
 
     // Head
-    ell(ctx, w*0.75, h*0.3, w*0.23, h*0.17, 0, BODY, OL, o);
-    hilite(ctx, w*0.66, h*0.24, 2.8, 1.4, 0.22);
-    // Forehead ring
-    ctx.strokeStyle = RING; ctx.lineWidth = 2.2;
-    ctx.beginPath(); ctx.ellipse(w*0.74, h*0.19, 4.2, 2.2, 0, 0, TAU); ctx.stroke();
+    ell(ctx, cx, h*0.31, w*0.34, h*0.17, 0, BODY, OL, o);
+    hilite(ctx, cx - w*0.15, h*0.21, 3.2, 1.5, 0.2);
+    // Forehead ring — outline only
+    ctx.strokeStyle = RING; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.ellipse(cx, h*0.21, 3.6, 2.6, 0, 0, TAU); ctx.stroke();
 
-    // Eye — red, narrow pupil, shine
-    ell(ctx, w*0.86, h*0.3, 3, 3.4, 0, EYE, null, { sh: 0 });
-    ctx.fillStyle = '#300';
-    ctx.fillRect(w*0.86 - 0.7, h*0.3 - 2, 1.4, 4);
-    ctx.fillStyle = '#ffb0b0'; ctx.fillRect(w*0.845, h*0.265, 1.5, 1.5);
-    // Nose
-    ctx.fillStyle = OL; ctx.fillRect(w*0.95, h*0.32, 1.6, 1.4);
-
-    // Tera crystal — purple gem on forehead, only in POWER.FIRE form
-    if (isTera) {
-      const cx = w * 0.74, cy = h * 0.08;
-      const glow = ctx.createRadialGradient(cx, cy, 2, cx, cy, 12);
-      glow.addColorStop(0, 'rgba(200,120,255,0.75)');
-      glow.addColorStop(1, 'rgba(120,0,200,0)');
-      ctx.fillStyle = glow;
-      ctx.beginPath(); ctx.ellipse(cx, cy, 12, 12, 0, 0, TAU); ctx.fill();
-
-      const R = 7, r = 4.5;
-      ctx.beginPath();
-      ctx.moveTo(cx,     cy - R);
-      ctx.lineTo(cx + r, cy - R*0.5);
-      ctx.lineTo(cx + r, cy + R*0.5);
-      ctx.lineTo(cx,     cy + R);
-      ctx.lineTo(cx - r, cy + R*0.5);
-      ctx.lineTo(cx - r, cy - R*0.5);
-      ctx.closePath();
-      const grad = ctx.createLinearGradient(cx - r, cy - R, cx + r, cy + R);
-      grad.addColorStop(0,   '#f0c0ff');
-      grad.addColorStop(0.3, '#b040e0');
-      grad.addColorStop(0.7, '#7010b0');
-      grad.addColorStop(1,   '#3a0060');
-      ctx.fillStyle = grad;
-      ctx.fill();
-      ctx.strokeStyle = '#2a0048'; ctx.lineWidth = 1.3; ctx.stroke();
-
-      ctx.fillStyle = 'rgba(240,200,255,0.55)';
-      ctx.beginPath();
-      ctx.moveTo(cx,     cy - R);
-      ctx.lineTo(cx + r, cy - R*0.5);
-      ctx.lineTo(cx,     cy);
-      ctx.closePath();
-      ctx.fill();
+    // Eyes — red, dark pupil, glint
+    for (const ex of [cx - w*0.15, cx + w*0.15]) {
+      ell(ctx, ex, h*0.33, 2.7, 3.4, 0, EYE, null, { sh: 0 });
+      ell(ctx, ex, h*0.335, 1.3, 2.2, 0, '#1a0008', null, { sh: 0 });
+      ctx.fillStyle = '#fff'; ctx.fillRect(ex - 1.7, h*0.33 - 2.8, 1.5, 1.5);
     }
+    // Nose + tiny mouth
+    poly(ctx, [cx - w*0.04, h*0.42, cx + w*0.04, h*0.42, cx, h*0.46], OL, null, { sh: 0 });
+    ctx.strokeStyle = OL; ctx.lineWidth = 1; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(cx, h*0.46); ctx.lineTo(cx, h*0.485); ctx.stroke();
   }
 
   // ── UMBREON crouching (32x32, front view) ─────────────────────────────────
   _drawCrouchUmbreon(ctx, w, h) {
-    const BODY = '#26264c', SH = '#14142e', RING = '#ffe040', EYE = '#e02020', OL = '#07071a';
-    const o = { shade: SH };
+    const BODY = '#1c1c38', SH = '#0c0c22', RING = '#ffe040', EYE = '#e02020', OL = '#06061a';
+    const o = { shade: SH }, oL = { shade: SH, lw: 1.3 };
 
-    // Stub legs with rings
-    ell(ctx, w*0.26, h*0.9, w*0.11, h*0.1, 0, BODY, OL, o);
-    ell(ctx, w*0.74, h*0.9, w*0.11, h*0.1, 0, BODY, OL, o);
-    ell(ctx, w*0.26, h*0.86, 3, 1.6, 0, RING, null, { sh: 0 });
-    ell(ctx, w*0.74, h*0.86, 3, 1.6, 0, RING, null, { sh: 0 });
-
-    // Body — wide and flat
-    ell(ctx, w*0.5, h*0.64, w*0.46, h*0.3, 0, BODY, OL, o);
-    // Haunch rings on both sides
-    ctx.strokeStyle = RING; ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.ellipse(w*0.18, h*0.7, 3, 3.6, 0, 0, TAU); ctx.stroke();
-    ctx.beginPath(); ctx.ellipse(w*0.82, h*0.7, 3, 3.6, 0, 0, TAU); ctx.stroke();
-
-    // Ears — flattened outward, banded
-    const ear = (ax, ay, bx, by, tx, ty) => {
-      poly(ctx, [ax, ay, tx, ty, bx, by], BODY, OL, { lw: 1.3, shade: SH });
-      band(ctx, ax, ay, bx, by, tx, ty, 0.4, 0.62, RING);
+    // Tail — thin, lying low behind the left side, ring near the tip
+    const tail = () => {
+      ctx.moveTo(w*0.3, h*0.72);
+      ctx.bezierCurveTo(w*0.06, h*0.78, w*(-0.1), h*0.66, w*0.0, h*0.48);
     };
-    ear(w*0.2, h*0.26, w*0.4, h*0.14, w*0.06, h*(-0.06));
-    ear(w*0.6, h*0.14, w*0.8, h*0.26, w*0.94, h*(-0.06));
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    ctx.strokeStyle = OL; ctx.lineWidth = 6.2; ctx.beginPath(); tail(); ctx.stroke();
+    ctx.strokeStyle = BODY; ctx.lineWidth = 3.8; ctx.beginPath(); tail(); ctx.stroke();
+    ctx.lineCap = 'butt';
+    ctx.setLineDash([0, 11, 4, 300]);
+    ctx.strokeStyle = RING; ctx.lineWidth = 3.8; ctx.beginPath(); tail(); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.lineCap = 'round';
+
+    // Folded legs with bands
+    ell(ctx, w*0.3, h*0.9, 3.4, h*0.1, 0.2, BODY, OL, oL);
+    ell(ctx, w*0.7, h*0.9, 3.4, h*0.1, -0.2, BODY, OL, oL);
+    ell(ctx, w*0.3, h*0.86, 3.6, 1.6, 0.2, RING, null, { sh: 0 });
+    ell(ctx, w*0.7, h*0.86, 3.6, 1.6, -0.2, RING, null, { sh: 0 });
+
+    // Body — wide and flat, haunch rings on both sides
+    ell(ctx, w*0.5, h*0.66, w*0.44, h*0.27, 0, BODY, OL, o);
+    ctx.strokeStyle = RING; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.ellipse(w*0.16, h*0.7, 2.6, 3.4, 0.2, 0, TAU); ctx.stroke();
+    ctx.beginPath(); ctx.ellipse(w*0.84, h*0.7, 2.6, 3.4, -0.2, 0, TAU); ctx.stroke();
+
+    // Ears — flattened sideways, banded
+    const ear = (ax, ay, bx, by, tx, ty) => {
+      poly(ctx, [ax, ay, tx, ty, bx, by], BODY, OL, oL);
+      band(ctx, ax, ay, bx, by, tx, ty, 0.42, 0.62, RING);
+    };
+    ear(w*0.2, h*0.3, w*0.38, h*0.14, w*(-0.1), h*0.02);
+    ear(w*0.62, h*0.14, w*0.8, h*0.3, w*1.1, h*0.02);
 
     // Head — low and wide
-    ell(ctx, w*0.5, h*0.34, w*0.36, h*0.22, 0, BODY, OL, o);
-    hilite(ctx, w*0.36, h*0.22, 3, 1.5, 0.22);
+    ell(ctx, w*0.5, h*0.32, w*0.38, h*0.2, 0, BODY, OL, o);
+    hilite(ctx, w*0.34, h*0.21, 3.2, 1.5, 0.2);
     ctx.strokeStyle = RING; ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.ellipse(w*0.5, h*0.2, 4, 2, 0, 0, TAU); ctx.stroke();
+    ctx.beginPath(); ctx.ellipse(w*0.5, h*0.2, 3.6, 2.4, 0, 0, TAU); ctx.stroke();
 
-    // Red eyes
-    ell(ctx, w*0.36, h*0.34, 3.2, 3.6, 0, EYE, null, { sh: 0 });
-    ell(ctx, w*0.64, h*0.34, 3.2, 3.6, 0, EYE, null, { sh: 0 });
-    ctx.fillStyle = '#300';
-    ctx.fillRect(w*0.36 - 0.7, h*0.34 - 2.2, 1.4, 4.4);
-    ctx.fillRect(w*0.64 - 0.7, h*0.34 - 2.2, 1.4, 4.4);
-    ctx.fillStyle = '#ffb0b0';
-    ctx.fillRect(w*0.34, h*0.29, 1.5, 1.5);
-    ctx.fillRect(w*0.62, h*0.29, 1.5, 1.5);
-    ctx.fillStyle = OL; ctx.fillRect(w*0.5 - 1, h*0.43, 2, 1.5);
+    // Eyes — red, dark pupil, glint
+    for (const ex of [w*0.36, w*0.64]) {
+      ell(ctx, ex, h*0.34, 2.7, 3.2, 0, EYE, null, { sh: 0 });
+      ell(ctx, ex, h*0.345, 1.3, 2.1, 0, '#1a0008', null, { sh: 0 });
+      ctx.fillStyle = '#fff'; ctx.fillRect(ex - 1.7, h*0.34 - 2.7, 1.5, 1.5);
+    }
+    poly(ctx, [w*0.46, h*0.43, w*0.54, h*0.43, w*0.5, h*0.48], OL, null, { sh: 0 });
+  }
+
+  // ── FLAREON (big, 32x56) ──────────────────────────────────────────────────
+  // Fluffy orange-red Eevee: big cream ruff, cream head tuft and a huge cream
+  // tail, pointed ears with dark inner, stubby legs.
+  _drawFlareon(ctx, w, h) {
+    const BODY = '#f0702a', SH = '#c84a14', CREAM = '#fff1cc', TAIL = '#f8e2a8', EAR_I = '#5a2210', EYE = '#2a1a0a';
+    const OL = '#6a2808', CREAM_OL = '#c09a60';
+    const o = { shade: SH }, oL = { shade: SH, lw: 1.3 };
+    const jumping = !this.onGround;
+    const moving = Math.abs(this.vx) > 0.3;
+    const step = moving ? Math.floor(this.animTimer / 8) % 2 : 0;
+    const wag = moving ? Math.sin(this.animTimer * 0.4) * 0.12 : 0;
+    const cx = w * 0.56;
+
+    // scalloped cream fluff: fill, stroke the silhouette, re-fill so only the
+    // outer edge keeps its outline (same trick as the Eevee ruff)
+    const fluff = (build, col = CREAM) => {
+      shape(ctx, build, col, null, { sh: 0.88, dy: 3 });
+      ctx.strokeStyle = CREAM_OL; ctx.lineWidth = 1.4; ctx.lineJoin = 'round';
+      ctx.beginPath(); build(); ctx.stroke();
+      shape(ctx, build, col, null, { sh: 0.88, dy: 3 });
+    };
+
+    // Tail — big fluffy plume rising behind the left shoulder, clear of the ruff
+    const tr = 0.42 + wag, tx = w*0.06, ty = h*0.5;
+    fluff(() => {
+      ctx.ellipse(tx, ty, 5.5, 13, tr, 0, TAU);
+      for (const [dx, dy, r] of [[-5, -10, 3.8], [1, -13.5, 4], [6, -9, 3.4], [-5.5, 0, 3.2], [-3, 8, 3]]) {
+        const px = tx + dx * Math.cos(tr) - dy * Math.sin(tr), py = ty + dy * Math.cos(tr) + dx * Math.sin(tr);
+        ctx.moveTo(px + r, py); ctx.arc(px, py, r, 0, TAU);
+      }
+    }, TAIL);
+
+    // Stubby legs
+    if (jumping) {
+      ell(ctx, cx - w*0.2, h*0.88, w*0.11, h*0.065, 0.35, BODY, OL, oL);
+      ell(ctx, cx + w*0.2, h*0.86, w*0.11, h*0.065, -0.35, BODY, OL, oL);
+    } else {
+      ell(ctx, cx - w*(0.2 - step*0.06), h*0.93, w*0.11, h*0.065, 0, BODY, OL, oL);
+      ell(ctx, cx + w*(0.18 - step*0.06), h*0.93, w*0.11, h*0.065, 0, BODY, OL, oL);
+    }
+
+    // Body — round and fluffy
+    ell(ctx, cx, h*0.76, w*0.37, h*0.19, 0, BODY, OL, o);
+    hilite(ctx, cx - w*0.14, h*0.7, 3, 1.4, 0.18);
+
+    // Big ruff — scalloped cream collar
+    fluff(() => {
+      ctx.ellipse(cx, h*0.52, w*0.42, h*0.13, 0, 0, TAU);
+      for (const [bx, by, r] of [[cx - w*0.32, h*0.58, 4], [cx - w*0.16, h*0.64, 4.4], [cx, h*0.66, 4.4], [cx + w*0.16, h*0.64, 4.4], [cx + w*0.32, h*0.58, 4]]) {
+        ctx.moveTo(bx + r, by); ctx.arc(bx, by, r, 0, TAU);
+      }
+    });
+
+    // Ears — pointed, dark inner, tilt back when jumping
+    const tilt = jumping ? 0.08 : 0;
+    const ear = (ax, ay, bx, by, tx2, ty2) => {
+      poly(ctx, [ax, ay, tx2, ty2, bx, by], BODY, OL, oL);
+      const mx = (ax + bx + tx2) / 3, my = (ay + by + ty2) / 3;
+      poly(ctx, [L(mx, ax, 0.58), L(my, ay, 0.58), L(mx, tx2, 0.72), L(my, ty2, 0.72), L(mx, bx, 0.58), L(my, by, 0.58)], EAR_I, null, { sh: 0 });
+    };
+    ear(cx - w*0.32, h*0.27, cx - w*0.08, h*0.14, cx - w*(0.4 + tilt), h*(-0.06));
+    ear(cx + w*0.08, h*0.14, cx + w*0.32, h*0.27, cx + w*(0.4 + tilt), h*(-0.06));
+
+    // Head
+    ell(ctx, cx, h*0.33, w*0.36, h*0.19, 0, BODY, OL, o);
+    hilite(ctx, cx - w*0.16, h*0.23, 3.2, 1.6);
+    // Cream head tuft on the forehead
+    fluff(() => {
+      ctx.ellipse(cx, h*0.15, w*0.2, h*0.055, 0, 0, TAU);
+      for (const [bx, by, r] of [[cx - w*0.14, h*0.12, 3.4], [cx, h*0.09, 3.9], [cx + w*0.14, h*0.12, 3.4]]) {
+        ctx.moveTo(bx + r, by); ctx.arc(bx, by, r, 0, TAU);
+      }
+    });
+
+    // Eyes — dark, with shine (same as Eevee)
+    for (const ex of [cx - w*0.15, cx + w*0.15]) {
+      ell(ctx, ex, h*0.34, 2.5, 3.3, 0, EYE, null, { sh: 0 });
+      ctx.fillStyle = '#fff'; ctx.fillRect(ex - 1.6, h*0.34 - 2.6, 1.5, 1.5);
+    }
+    // Nose + tiny mouth
+    poly(ctx, [cx - w*0.04, h*0.43, cx + w*0.04, h*0.43, cx, h*0.47], EYE, null, { sh: 0 });
+    ctx.strokeStyle = OL; ctx.lineWidth = 1; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(cx, h*0.47); ctx.lineTo(cx, h*0.495); ctx.stroke();
+  }
+
+  // ── FLAREON crouching (32x32, front view) ─────────────────────────────────
+  _drawCrouchFlareon(ctx, w, h) {
+    const BODY = '#f0702a', SH = '#c84a14', CREAM = '#fff1cc', EAR_I = '#5a2210', EYE = '#2a1a0a';
+    const OL = '#6a2808', CREAM_OL = '#c09a60';
+    const o = { shade: SH }, oL = { shade: SH, lw: 1.3 };
+    const fluff = (build, col = CREAM) => {
+      shape(ctx, build, col, null, { sh: 0.88, dy: 2.5 });
+      ctx.strokeStyle = CREAM_OL; ctx.lineWidth = 1.4; ctx.lineJoin = 'round';
+      ctx.beginPath(); build(); ctx.stroke();
+      shape(ctx, build, col, null, { sh: 0.88, dy: 2.5 });
+    };
+
+    // Tail — fluffy plume lying low behind the left side
+    fluff(() => {
+      ctx.ellipse(w*0.12, h*0.7, 8.5, 5, -0.35, 0, TAU);
+      for (const [px, py, r] of [[w*(-0.02), h*0.56, 3.6], [w*0.1, h*0.5, 3.4], [w*(-0.08), h*0.72, 3.2]]) {
+        ctx.moveTo(px + r, py); ctx.arc(px, py, r, 0, TAU);
+      }
+    }, '#f8e2a8');
+    // Stub legs
+    ell(ctx, w*0.3, h*0.92, w*0.11, h*0.08, 0, BODY, OL, oL);
+    ell(ctx, w*0.7, h*0.92, w*0.11, h*0.08, 0, BODY, OL, oL);
+    // Body
+    ell(ctx, w*0.5, h*0.68, w*0.44, h*0.27, 0, BODY, OL, o);
+    // Ruff
+    fluff(() => {
+      ctx.ellipse(w*0.5, h*0.52, w*0.46, h*0.13, 0, 0, TAU);
+      for (const [bx, by, r] of [[w*0.22, h*0.6, 3.6], [w*0.5, h*0.64, 3.8], [w*0.78, h*0.6, 3.6]]) {
+        ctx.moveTo(bx + r, by); ctx.arc(bx, by, r, 0, TAU);
+      }
+    });
+    // Flattened ears, dark inner
+    const ear = (ax, ay, bx, by, tx, ty) => {
+      poly(ctx, [ax, ay, tx, ty, bx, by], BODY, OL, oL);
+      const mx = (ax + bx + tx) / 3, my = (ay + by + ty) / 3;
+      poly(ctx, [L(mx, ax, 0.58), L(my, ay, 0.58), L(mx, tx, 0.72), L(my, ty, 0.72), L(mx, bx, 0.58), L(my, by, 0.58)], EAR_I, null, { sh: 0 });
+    };
+    ear(w*0.2, h*0.3, w*0.38, h*0.14, w*(-0.1), h*0.02);
+    ear(w*0.62, h*0.14, w*0.8, h*0.3, w*1.1, h*0.02);
+    // Head — wide and low
+    ell(ctx, w*0.5, h*0.32, w*0.38, h*0.2, 0, BODY, OL, o);
+    hilite(ctx, w*0.34, h*0.21, 3.2, 1.5);
+    // Head tuft
+    fluff(() => {
+      ctx.ellipse(w*0.5, h*0.15, w*0.18, h*0.06, 0, 0, TAU);
+      for (const [bx, by, r] of [[w*0.38, h*0.12, 3], [w*0.5, h*0.09, 3.4], [w*0.62, h*0.12, 3]]) {
+        ctx.moveTo(bx + r, by); ctx.arc(bx, by, r, 0, TAU);
+      }
+    });
+    // Eyes
+    for (const ex of [w*0.36, w*0.64]) {
+      ell(ctx, ex, h*0.34, 2.5, 3.1, 0, EYE, null, { sh: 0 });
+      ctx.fillStyle = '#fff'; ctx.fillRect(ex - 1.6, h*0.34 - 2.5, 1.5, 1.5);
+    }
+    poly(ctx, [w*0.46, h*0.43, w*0.54, h*0.43, w*0.5, h*0.48], EYE, null, { sh: 0 });
   }
   _drawCharmander(ctx, w, h) {
     const pw    = this.power;
@@ -1165,8 +1303,8 @@ export class Player {
     else if (this.char === 'pichu')     this._drawPichu(ctx, w, h);
     else if (this.char === 'bulbasaur') this._drawBulbasaur(ctx, w, h);
     // default: eevee family
-    else if (big && !this.crouching)    this._drawUmbreon(ctx, w, h, this.power === POWER.FIRE);
-    else if (big && this.crouching)     this._drawCrouchUmbreon(ctx, w, h);
+    else if (big && !this.crouching)    (this.power === POWER.FIRE ? this._drawFlareon(ctx, w, h) : this._drawUmbreon(ctx, w, h));
+    else if (big && this.crouching)     (this.power === POWER.FIRE ? this._drawCrouchFlareon(ctx, w, h) : this._drawCrouchUmbreon(ctx, w, h));
     else if (this.crouching)            this._drawCrouchEevee(ctx, w, h);
     else                                this._drawEevee(ctx, w, h);
 

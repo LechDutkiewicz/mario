@@ -1799,7 +1799,8 @@ export class Game {
     for (const lz of (lvl.lavaZones || [])) {
       const lx = Math.floor(lz.x - this.cam.x);
       if (lx + lz.w < 0 || lx > CANVAS_WIDTH) continue;
-      this._drawLava(lx, GROUND_Y + 6, lz.w, lz.x);
+      if (lvl.setting === 'castle') this._drawLava(lx, GROUND_Y + 6, lz.w, lz.x);
+      else this._drawWaterPool(lx, GROUND_Y + 6, lz.w, lz.x);   // FSM Water outside castles is water
     }
 
     // Draw castle buildings (appear behind platforms)
@@ -1975,6 +1976,31 @@ export class Game {
   // above the surface and a bright animated surface band drawn last.
   // sx = screen x, top = surface y, w = width, worldX = world x (for
   // deterministic bubble placement that doesn't slide with the camera).
+  // Water pit (SMB 3-1 and other overworld Water macros): blue pool with a
+  // bright wave line, no glow
+  _drawWaterPool(sx, top, w, worldX = 0) {
+    const ctx = this.ctx;
+    const t = this._lavaAnim || 0;
+    if (w <= 0) return;
+    ctx.save();
+    ctx.beginPath(); ctx.rect(sx, top - 8, w, CANVAS_HEIGHT - top + 8); ctx.clip();
+    const g = ctx.createLinearGradient(0, top, 0, CANVAS_HEIGHT);
+    g.addColorStop(0, '#4aa0e0'); g.addColorStop(0.35, '#2a74c0'); g.addColorStop(1, '#123a78');
+    ctx.fillStyle = g;
+    ctx.fillRect(sx, top - 4, w, CANVAS_HEIGHT - top + 4);
+    ctx.fillStyle = '#9ad4ff';
+    for (let wx = sx - 4; wx < sx + w + 4; wx += 4) {
+      const wy = Math.sin((wx + worldX * 0.6 + t * 1.2) * 0.07) * 2;
+      ctx.fillRect(wx, top - 5 + wy, 4, 2);
+    }
+    ctx.fillStyle = 'rgba(255,255,255,0.25)';
+    for (let wx = sx - 4; wx < sx + w + 4; wx += 4) {
+      const wy = Math.sin((wx + worldX * 0.6 + t * 1.6) * 0.05) * 2;
+      ctx.fillRect(wx, top + 6 + wy, 4, 1);
+    }
+    ctx.restore();
+  }
+
   _drawLava(sx, top, w, worldX = 0) {
     const ctx = this.ctx;
     const t = this._lavaAnim || 0;
@@ -2635,6 +2661,7 @@ export class Game {
       ctx.fill();
     };
     const bush = (bx) => {
+      if (!grounded(bx - 14, bx + 56)) return;
       ctx.fillStyle = '#3aa845';
       ctx.beginPath();
       ctx.arc(bx, GROUND_Y - 10, 14, Math.PI, 0);
@@ -2643,7 +2670,13 @@ export class Game {
       ctx.fill();
       ctx.fillRect(bx - 14, GROUND_Y - 10, 70, 10);
     };
+    // Ground-level scenery (fences, bushes) only where there is ground under
+    // it; over a pit or water it would float in mid-air
+    const camX = this.cam.x;
+    const groundUnder = (wx) => this.level.platforms.some(p => !p.dead && p.y <= GROUND_Y && p.y + p.h > GROUND_Y && wx >= p.x && wx <= p.x + p.w);
+    const grounded = (sxA, sxB) => groundUnder(sxA + camX) && groundUnder(sxB + camX) && groundUnder((sxA + sxB) / 2 + camX);
     const fence = (fx, len) => {
+      if (!grounded(fx, fx + len)) return;
       ctx.fillStyle = '#c8b060';
       ctx.fillRect(fx, GROUND_Y - 22, len, 4);
       for (let px = 0; px < len; px += 14) ctx.fillRect(fx + px, GROUND_Y - 30, 5, 30);

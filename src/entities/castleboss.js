@@ -205,8 +205,8 @@ export class CastleBoss {
     const y = Math.floor(this.y);
     const w = this.w, h = this.h;
 
-    // Gengar — round purple ghost seen from the front: two big ears, a row of
-    // spikes down each side, slanted red eyes and the ear-to-ear grin
+    // Gengar — pear-shaped purple ghost seen from the front: two big ears with
+    // a jagged fringe between them, angry red eyes and the wide toothy grin
     const bob = Math.sin(this.anim * 0.08) * 3;
 
     // Contact shadow stays put while the body bobs
@@ -221,97 +221,120 @@ export class CastleBoss {
   }
 
   _drawGengar(ctx, x, y, w, h, bob) {
-    const BODY = '#5d3f8f', DARK = '#3f2a66', OL = '#1c0f33';
-    const RED = '#e0201c', PUPIL = '#9c0f0f', MOUTH = '#2a0f3a';
-    const D = Math.PI / 180;
+    const BODY = '#7b5ea7', DARK = '#513c82', OL = '#2a1d4a';
+    const RED = '#e8262a', RED2 = '#b8181f', MOUTH = '#1a1030', TOOTH = '#f4f4f8';
     const cx = x + w / 2;
-    const cy = y + 35 + bob;             // body centre
-    const rx = 24, ryT = 26, ryB = 21;   // near-round blob, flattened where it sits
+    const T = y + 13 + bob;              // top of the head dome (ears rise above)
+    const B = y + 53 + bob;              // bottom of the body (legs sit below)
+    const LW = { sh: 0, lw: 1.6 };
 
-    // Feet: stubby, three toes each (behind the body, bob damped)
-    const fy = y + h - 3 + bob * 0.3;
-    for (const side of [-1, 1]) {
-      const fx = cx + side * 12;
-      for (const t of [-1, 0, 1]) poly(ctx, [fx + t * 5 - 2.6, fy, fx + t * 5.5, fy + 4.5, fx + t * 5 + 2.6, fy], BODY, OL, { sh: 0, lw: 1.1 });
-      ell(ctx, fx, fy - 1, 8, 4.5, 0, DARK, OL, { sh: 0.7, shade: BODY, dx: -1, dy: -2, lw: 1.4 });
+    // Legs: short stubs under the body with three claw toes each (bob damped)
+    const ly = y + 54 + bob * 0.3;
+    for (const s of [-1, 1]) {
+      const lx = cx + s * 11;
+      for (const t of [-1, 0, 1]) {
+        const tx = lx + t * 4 + s * 0.5;
+        poly(ctx, [tx - 2.2, ly + 2.5, tx + t * 1.2 + s * 0.6, ly + 6.5, tx + 2.2, ly + 2.5], BODY, OL, { sh: 0, lw: 1.1 });
+      }
+      ell(ctx, lx, ly, 6.5, 5, 0, DARK, OL, { sh: 0.7, shade: BODY, dx: -s * 1.5, dy: -2.5, lw: 1.5 });
     }
 
-    // Body silhouette: blob + mirrored ears and side spikes (angles in degrees,
-    // 0 = right, -90 = up; the left side is the exact mirror of the right)
-    const ry = (a) => (Math.sin(a) > 0 ? ryB : ryT);
-    const spike = (deg, len, hw) => {
-      const a = deg * D, a0 = a - hw, a1 = a + hw;
-      ctx.moveTo(cx + rx * Math.cos(a0), cy + ry(a0) * Math.sin(a0));
-      ctx.lineTo(cx + (rx + len) * Math.cos(a), cy + (ry(a) + len) * Math.sin(a));
-      ctx.lineTo(cx + rx * Math.cos(a1), cy + ry(a1) * Math.sin(a1));
-      ctx.closePath();
-    };
+    // Body silhouette: rounded pear (wider toward the bottom), two big pointed
+    // ears at the top corners and a 4-spike fringe between them. Fill is the
+    // shade colour; the lit body colour is the same path shifted up-left, so a
+    // dark crescent stays along the right side and underside.
     shape(ctx, () => {
-      ctx.ellipse(cx, cy, rx, ryT, 0, Math.PI, TAU);   // domed top half
-      ctx.ellipse(cx, cy, rx, ryB, 0, 0, Math.PI);     // flatter bottom half
+      ctx.moveTo(cx - 24, B - 7);
+      ctx.bezierCurveTo(cx - 26.5, B - 22, cx - 24, T + 8, cx - 19.5, T + 8); // left flank up to the ear
+      ctx.lineTo(cx - 22, T - 15);                                              // left ear tip
+      ctx.lineTo(cx - 12, T + 1);
+      for (const [fx, fy] of [[-9, -4], [-6, 1], [-3, -5], [0, 1], [3, -5], [6, 1], [9, -4], [12, 1]])
+        ctx.lineTo(cx + fx, T + fy);                                            // fringe
+      ctx.lineTo(cx + 22, T - 15);                                              // right ear tip
+      ctx.lineTo(cx + 19.5, T + 8);
+      ctx.bezierCurveTo(cx + 24, T + 8, cx + 26.5, B - 22, cx + 24, B - 7);   // right flank
+      ctx.bezierCurveTo(cx + 24, B + 1, cx + 12, B, cx, B);                     // rounded, nearly flat seat
+      ctx.bezierCurveTo(cx - 12, B, cx - 24, B + 1, cx - 24, B - 7);
       ctx.closePath();
-      for (const s of [1, -1]) {
-        const m = (deg) => (s > 0 ? deg : 180 - deg);
-        spike(m(-58), 16, 0.3);     // big ear, angled ~30° outward
-        spike(m(-34), 9, 0.17);     // spikes running down the side/back
-        spike(m(-13), 9, 0.16);
-        spike(m(9), 8, 0.16);
-        spike(m(32), 7, 0.15);
-      }
-    }, DARK, OL, { sh: 0.7, shade: BODY, dx: -3, dy: -5, lw: 1.6 });   // dark crescent stays bottom-right
-    hilite(ctx, cx - 9, cy - 15, 7.5, 3.2, 0.22);
+    }, DARK, OL, { sh: 0.7, shade: BODY, dx: -3, dy: -4, lw: 1.6 });
+    hilite(ctx, cx - 9, T + 9, 6.5, 2.8, 0.18);
 
-    // Arms: short, out to the sides and slightly raised, three claws each
+    // Arms: short and stubby, hanging at the sides from about shoulder height,
+    // three claw-points on each hand (claws first so their bases tuck under)
     const aw = Math.sin(this.anim * 0.12) * 2;
-    for (const side of [-1, 1]) {
-      const by = cy + 7 + aw * side;                 // shoulder (just inside the body edge)
-      const bx = cx + side * (rx - 3);
-      const hx = cx + side * (rx + 9), hy = by - 5;  // hand
-      // Claws first so their bases tuck under the hand
-      for (let i = -1; i <= 1; i++) {
-        const a = (side > 0 ? -25 : 205) * D + i * 34 * D;
-        const px = hx - side * 1.5 + i * 0.6, py = hy + i * 2.2;
-        poly(ctx, [px, py - 1.7, px + Math.cos(a) * 6.5, py + Math.sin(a) * 6.5, px, py + 1.7], DARK, OL, { sh: 0, lw: 1 });
+    for (const s of [-1, 1]) {
+      const hy = B - 8 + aw * s;                      // hand bottom
+      // Small shoulder tuft, tucked under the arm's outer edge
+      poly(ctx, [cx + s * 21, T + 16.5, cx + s * 26.5, T + 12.5, cx + s * 25, T + 20], BODY, OL, LW);
+      for (const i of [0, 1, 2]) {
+        const px = cx + s * (21.5 + i * 3);
+        poly(ctx, [px - 1.8, hy - 1, px + s * (i - 1) * 0.9, hy + 4, px + 1.8, hy - 1], DARK, OL, { sh: 0, lw: 1.1 });
       }
-      poly(ctx, [bx, by - 4, hx, hy - 3.5, hx + side * 1.5, hy, hx, hy + 3.5, bx, by + 4], DARK, OL, { sh: 0.7, shade: BODY, dx: -side * 1.5, dy: -2, lw: 1.4 });
+      poly(ctx, [cx + s * 15, T + 14, cx + s * 23, T + 18, cx + s * 27.5, hy - 3, cx + s * 21, hy, cx + s * 17.5, T + 24],
+           DARK, OL, { sh: 0.7, shade: BODY, dx: -s * 2, dy: -2, lw: 1.5 });
     }
 
-    // Eyes: big red, slanted inward-down ("\ /"), darker inner pupil + glint, thick brows
-    const ey = cy - 5;
-    for (const side of [-1, 1]) {
-      const ex = cx + side * 10.5;
-      ell(ctx, ex, ey, 9, 5.2, -side * 0.5, RED, OL, { sh: 0, lw: 1.3 });
-      ell(ctx, ex - side * 2, ey + 1.5, 3.2, 3.2, 0, PUPIL, null, { sh: 0 });
-      hilite(ctx, ex - 3, ey - 1.6, 1.7, 1.1, 0.95);
-      ctx.strokeStyle = OL; ctx.lineWidth = 3; ctx.lineCap = 'round';
-      ctx.beginPath(); ctx.moveTo(ex + side * 9.5, ey - 7.5); ctx.lineTo(ex - side * 4.5, ey - 2); ctx.stroke();
+    // Eyes: bright red wedges, no sclera, inner corners pointing down toward the
+    // nose; darker lower half + a small glint. Thick brows ride the top edge and
+    // meet above the nose for the angry look.
+    const ey = T + 14;
+    for (const s of [-1, 1]) {
+      const ex = cx + s * 10.5;
+      const eyePath = () => {
+        ctx.moveTo(ex + s * 8, ey - 4.5);
+        ctx.lineTo(ex - s * 6, ey + 1);
+        ctx.quadraticCurveTo(ex - s * 2, ey + 6.5, ex + s * 4, ey + 5);
+        ctx.quadraticCurveTo(ex + s * 10, ey + 3, ex + s * 8, ey - 4.5);
+        ctx.closePath();
+      };
+      shape(ctx, eyePath, RED, null, { sh: 0 });
+      ctx.save(); ctx.beginPath(); eyePath(); ctx.clip();
+      ctx.fillStyle = RED2; ctx.fillRect(ex - 12, ey + 1.6, 24, 8);
+      ctx.restore();
+      ell(ctx, ex + s * 0.5, ey + 2.2, 1.3, 1.3, 0, '#6e0a10', null, { sh: 0 });
+      hilite(ctx, ex - 2.5, ey - 1.5 + s * 0.6, 1.6, 1.1, 0.95);
+      ctx.strokeStyle = OL; ctx.lineWidth = 1.2; ctx.lineJoin = 'round';
+      ctx.beginPath(); eyePath(); ctx.stroke();
     }
+    ctx.strokeStyle = OL; ctx.lineWidth = 3.2; ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(cx - 19.5, ey - 6); ctx.lineTo(cx - 1.5, ey + 2.5);
+    ctx.moveTo(cx + 19.5, ey - 6); ctx.lineTo(cx + 1.5, ey + 2.5);
+    ctx.stroke();
 
-    // Mouth: the signature grin, nearly edge to edge, a wide U with a row of teeth
-    const my = cy + 4, mw = 20;
+    // Mouth: the signature grin, nearly ear to ear
+    const my = T + 22, mw = 20;
     if (this.windup > 0) {
       // Closed smirk while winding up a flame
-      ctx.strokeStyle = OL; ctx.lineWidth = 2.6; ctx.lineCap = 'round';
-      ctx.beginPath(); ctx.moveTo(cx - mw, my - 3); ctx.quadraticCurveTo(cx, my + 6, cx + mw, my - 3); ctx.stroke();
+      ctx.strokeStyle = OL; ctx.lineWidth = 2.4; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(cx - mw, my - 3); ctx.quadraticCurveTo(cx, my + 5, cx + mw, my - 3); ctx.stroke();
       return;
     }
-    const lipY = (t) => { const u = 1 - t; return u * u * (my - 3) + 2 * u * t * (my + 4) + t * t * (my - 3); };
-    shape(ctx, () => {
+    const mouthPath = () => {
       ctx.moveTo(cx - mw, my - 3);
       ctx.quadraticCurveTo(cx, my + 4, cx + mw, my - 3);
-      ctx.quadraticCurveTo(cx, my + 27, cx - mw, my - 3);
+      ctx.quadraticCurveTo(cx, my + 23, cx - mw, my - 3);
       ctx.closePath();
-    }, MOUTH, OL, { sh: 0, lw: 1.6 });
-    // Row of small pointed teeth hanging from the upper lip
-    ctx.fillStyle = '#f6f6f6';
-    const n = 9;
+    };
+    shape(ctx, mouthPath, MOUTH, OL, { sh: 0, lw: 1.6 });
+    // Upper row of flat rectangular teeth hanging from the lip, thin dark gaps
+    const lipY = (t) => { const u = 1 - t; return u * u * (my - 3) + 2 * u * t * (my + 4) + t * t * (my - 3); };
+    ctx.save(); ctx.beginPath(); mouthPath(); ctx.clip();
+    ctx.fillStyle = TOOTH;
+    const n = 7, gap = 0.45;
     for (let i = 0; i < n; i++) {
-      const t0 = i / n, t1 = (i + 1) / n, tm = (t0 + t1) / 2;
-      const x0 = cx - mw + 2 * mw * t0, x1 = cx - mw + 2 * mw * t1;
+      const x0 = cx - mw + 2 * mw * (i / n) + gap, x1 = cx - mw + 2 * mw * ((i + 1) / n) - gap;
+      const t0 = (x0 - (cx - mw)) / (2 * mw), t1 = (x1 - (cx - mw)) / (2 * mw);
+      const d = 6;
       ctx.beginPath();
-      ctx.moveTo(x0, lipY(t0) + 0.4); ctx.lineTo((x0 + x1) / 2, lipY(tm) + 4.2); ctx.lineTo(x1, lipY(t1) + 0.4);
+      ctx.moveTo(x0, lipY(t0) - 1); ctx.lineTo(x1, lipY(t1) - 1);
+      ctx.lineTo(x1, lipY(t1) + d); ctx.lineTo(x0, lipY(t0) + d);
       ctx.closePath(); ctx.fill();
     }
+    ctx.restore();
+    // Re-ink the upper lip so the teeth tuck under it
+    ctx.strokeStyle = OL; ctx.lineWidth = 1.6; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(cx - mw, my - 3); ctx.quadraticCurveTo(cx, my + 4, cx + mw, my - 3); ctx.stroke();
   }
 }
 
