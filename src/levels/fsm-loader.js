@@ -8,7 +8,7 @@
 //   Screen y  = GY - json_y * 4   (top of entity in screen coords)
 //   Ground    = GY (= 540)
 // ============================================================
-import { TILE, GROUND_Y, COLORS } from '../constants.js';
+import { TILE, GROUND_Y, COLORS, CANVAS_HEIGHT } from '../constants.js';
 import { Platform, QuestionBlock, PipeBlock, BrickBlock, MovingPlatform, TreePlatform, Springboard, ShroomPlatform, ScalePlatform, Cannon } from '../entities/platform.js';
 import { FlagPole } from '../entities/flagpole.js';
 import { Enemy } from '../entities/enemy.js';
@@ -545,6 +545,15 @@ export function loadFSMLevel(jsonData, areaIndex = 0) {
   for (const pb of out.platforms) {
     if (!(pb instanceof PipeBlock) || pb.y + pb.h !== GY) continue;
     if ((out.lavaZones || []).some(z => pb.x < z.x + z.w && pb.x + pb.w > z.x)) pb.extendToBottom = true;
+  }
+
+  // Tree and mushroom trunks: reach the ground where there is ground under
+  // them, otherwise the bottom of the screen (SMB treetop levels have none)
+  for (const t of out.platforms) {
+    if (!(t instanceof TreePlatform) && !(t instanceof ShroomPlatform)) continue;
+    const cx = t.x + t.w / 2;
+    const grounded = out.platforms.some(p => p !== t && p.y <= GY && p.y + p.h > GY && cx >= p.x && cx <= p.x + p.w);
+    t.trunkBottom = grounded ? GY : CANVAS_HEIGHT;
   }
 
   // Castle rooms that are left only through a pipe (8-4 maze) end in a wall
