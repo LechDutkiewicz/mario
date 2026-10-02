@@ -357,7 +357,9 @@ export class TreePlatform {
     const trunkX = sx + Math.floor((this.w - trunkW) / 2);
     const w = this.w, h = this.h;
     // Shaded trunk: 1px outline, light side (left 20%), dark side (right 30%)
-    const trunkTop = sy + h - 4, trunkH = GROUND_Y - trunkTop;
+    // Trunk reaches the ground if there is ground under it, else the bottom
+    // of the screen (SMB treetop levels have no ground; set by the loader)
+    const trunkTop = sy + h - 4, trunkH = (this.trunkBottom ?? GROUND_Y) - trunkTop;
     const tiW = trunkW - 2;
     const lightW = Math.max(2, Math.round(tiW * 0.20));
     const darkW = Math.max(3, Math.round(tiW * 0.30));
@@ -470,7 +472,7 @@ export class ShroomPlatform {
     const cx = sx + this.w / 2;
     const w = this.w, h = Math.floor(this.h);
     // Shaded trunk down to the ground, with bark lines
-    const tx = Math.floor(cx) - 9, tTop = sy + h - 2, tH = GROUND_Y - tTop;
+    const tx = Math.floor(cx) - 9, tTop = sy + h - 2, tH = (this.trunkBottom ?? GROUND_Y) - tTop;
     px(ctx, tx, tTop, 18, tH, '#101018');
     px(ctx, tx + 1, tTop, 16, tH, '#d8a060');
     px(ctx, tx + 1, tTop, 2, tH, '#ecc080');
