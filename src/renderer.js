@@ -900,6 +900,31 @@ export class Renderer {
     this._bottomShade();
   }
 
+  // Open water under the bridge levels (SMB 2-3 / 7-3): surface just below
+  // the ground line, waves scrolling with the camera
+  drawWaterFloor(camX) {
+    const ctx = this.ctx;
+    const top = GROUND_Y - 6;
+    if (!this._waterFloorGrad) {
+      const g = ctx.createLinearGradient(0, top, 0, CANVAS_HEIGHT);
+      g.addColorStop(0, '#4aa0e0'); g.addColorStop(0.35, '#2a74c0'); g.addColorStop(1, '#123a78');
+      this._waterFloorGrad = g;
+    }
+    ctx.fillStyle = this._waterFloorGrad;
+    ctx.fillRect(0, top, CANVAS_WIDTH, CANVAS_HEIGHT - top);
+    this._waveT = (this._waveT || 0) + 0.03;
+    ctx.fillStyle = '#9ad4ff';
+    for (let wx = -16; wx < CANVAS_WIDTH + 16; wx += 4) {
+      const wy = Math.sin((wx + camX * 0.6) * 0.07 + this._waveT) * 2;
+      ctx.fillRect(wx, top + wy - 1, 4, 2);
+    }
+    ctx.fillStyle = 'rgba(255,255,255,0.25)';
+    for (let wx = -16; wx < CANVAS_WIDTH + 16; wx += 4) {
+      const wy = Math.sin((wx + camX * 0.6) * 0.05 + this._waveT * 1.3) * 2;
+      ctx.fillRect(wx, top + 10 + wy, 4, 1);
+    }
+  }
+
   _hill(x, baseY, r) {
     const ctx = this.ctx;
     ctx.beginPath();
@@ -1016,6 +1041,8 @@ export class Renderer {
     const ctx = this.ctx;
     // Clip loop/fill work to the visible span
     if (this.currentSetting === 'sky') { this._skyGround(x, y, w, h); return; }
+    // Castle floors and raised castle floors share one masonry tileset
+    if (this.currentSetting === 'castle') { this.platform(x, y, w, h, COLORS.brick); return; }
     const x0 = Math.max(x, -32), x1 = Math.min(x + w, CANVAS_WIDTH + 32);
     if (x1 <= x0) return;
     const T = this._terrain();

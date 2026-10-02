@@ -1780,6 +1780,7 @@ export class Game {
     const ctx = this.ctx;
     r.clear();
     r.drawBackground(this.cam.x);
+    if (this.level && this.level.waterFloor && this.state !== STATE.MENU) r.drawWaterFloor(this.cam.x);
 
     if (this.state === STATE.MENU) { this._drawMenu(); return; }
     if (this.state === STATE.CHAR_SELECT) { this._drawCharSelect(); return; }

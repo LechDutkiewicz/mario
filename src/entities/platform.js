@@ -218,8 +218,8 @@ export class QuestionBlock {
   }
 
   onBump(game) {
-    if (this.hidden) { this.hidden = false; return; }
     if (this.used) return;
+    this.hidden = false;   // a hidden block appears AND dispenses on the first hit (SMB)
     this.used = true;
     this.bump = 8;
     if (this.contents === 'pokeball' || this.contents === 'coin') {
