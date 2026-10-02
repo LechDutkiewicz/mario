@@ -224,55 +224,42 @@ export class CastleBoss {
     const BODY = '#7b5ea7', DARK = '#513c82', OL = '#2a1d4a';
     const RED = '#e8262a', RED2 = '#b8181f', MOUTH = '#1a1030', TOOTH = '#f4f4f8';
     const cx = x + w / 2;
-    const T = y + 13 + bob;              // top of the head dome (ears rise above)
-    const B = y + 53 + bob;              // bottom of the body (legs sit below)
-    const LW = { sh: 0, lw: 1.6 };
+    const M = y + 33 + bob;              // centre of the round body
+    const T = M - 20;                    // top of the face (under the fringe)
+    const aw = Math.sin(this.anim * 0.12) * 1.5;
 
-    // Legs: short stubs under the body with three claw toes each (bob damped)
-    const ly = y + 54 + bob * 0.3;
-    for (const s of [-1, 1]) {
-      const lx = cx + s * 11;
-      for (const t of [-1, 0, 1]) {
-        const tx = lx + t * 4 + s * 0.5;
-        poly(ctx, [tx - 2.2, ly + 2.5, tx + t * 1.2 + s * 0.6, ly + 6.5, tx + 2.2, ly + 2.5], BODY, OL, { sh: 0, lw: 1.1 });
+    // One silhouette for the whole ghost: a ball of a body with the ears and
+    // fringe on top, stubby arms raised up at the sides and short legs with
+    // three toes each, all a single piece with no seams. Left half listed from
+    // the bottom centre up to the top centre; the right half is its mirror.
+    const half = [
+      ['L', -5, 21], ['L', -5, 25],                                           // between the legs
+      ['L', -7, 27.5], ['L', -9.5, 24.5], ['L', -12.5, 28.5], ['L', -15.5, 24.5], ['L', -18.5, 28], ['L', -20.5, 23], // toes
+      ['L', -21, 18], ['Q', -25, 15.5, -26, 9],                               // leg out into the body
+      ['Q', -28, 1, -24.5, -4],                                               // round left flank
+      ['L', -31, -9 + aw],                                                    // arm, lower edge rising outward
+      ['L', -34.5, -12 + aw], ['L', -31.5, -14 + aw], ['L', -32.5, -19 + aw], ['L', -29, -16.5 + aw], ['L', -27.5, -21.5 + aw], ['L', -26, -16 + aw], // claws
+      ['L', -21.5, -10],                                                      // arm, upper edge back to the body
+      ['Q', -20.5, -14, -19, -17],                                            // shoulder up to the ear
+      ['L', -21, -36], ['L', -10, -21],                                       // ear
+      ['L', -7.5, -25.5], ['L', -4.5, -20.5], ['L', -2, -26], ['L', 0, -20.5], // fringe
+    ];
+    const body = () => {
+      ctx.moveTo(cx, M + 20);
+      for (const seg of half) {
+        if (seg[0] === 'L') ctx.lineTo(cx + seg[1], M + seg[2]);
+        else ctx.quadraticCurveTo(cx + seg[1], M + seg[2], cx + seg[3], M + seg[4]);
       }
-      ell(ctx, lx, ly, 6.5, 5, 0, DARK, OL, { sh: 0.7, shade: BODY, dx: -s * 1.5, dy: -2.5, lw: 1.5 });
-    }
-
-    // Body silhouette: rounded pear (wider toward the bottom), two big pointed
-    // ears at the top corners and a 4-spike fringe between them. Fill is the
-    // shade colour; the lit body colour is the same path shifted up-left, so a
-    // dark crescent stays along the right side and underside.
-    shape(ctx, () => {
-      ctx.moveTo(cx - 24, B - 7);
-      ctx.bezierCurveTo(cx - 26.5, B - 22, cx - 24, T + 8, cx - 19.5, T + 8); // left flank up to the ear
-      ctx.lineTo(cx - 22, T - 15);                                              // left ear tip
-      ctx.lineTo(cx - 12, T + 1);
-      for (const [fx, fy] of [[-9, -4], [-6, 1], [-3, -5], [0, 1], [3, -5], [6, 1], [9, -4], [12, 1]])
-        ctx.lineTo(cx + fx, T + fy);                                            // fringe
-      ctx.lineTo(cx + 22, T - 15);                                              // right ear tip
-      ctx.lineTo(cx + 19.5, T + 8);
-      ctx.bezierCurveTo(cx + 24, T + 8, cx + 26.5, B - 22, cx + 24, B - 7);   // right flank
-      ctx.bezierCurveTo(cx + 24, B + 1, cx + 12, B, cx, B);                     // rounded, nearly flat seat
-      ctx.bezierCurveTo(cx - 12, B, cx - 24, B + 1, cx - 24, B - 7);
+      for (let i = half.length - 1; i >= 0; i--) {
+        const seg = half[i], prev = half[i - 1];
+        const px = prev ? -prev[prev.length - 2] : 0, py = prev ? prev[prev.length - 1] : 20;
+        if (seg[0] === 'L') ctx.lineTo(cx + px, M + py);
+        else ctx.quadraticCurveTo(cx - seg[1], M + seg[2], cx + px, M + py);
+      }
       ctx.closePath();
-    }, DARK, OL, { sh: 0.7, shade: BODY, dx: -3, dy: -4, lw: 1.6 });
+    };
+    shape(ctx, body, DARK, OL, { sh: 0.7, shade: BODY, dx: -3, dy: -4, lw: 1.6 });
     hilite(ctx, cx - 9, T + 9, 6.5, 2.8, 0.18);
-
-    // Arms: short and stubby, hanging at the sides from about shoulder height,
-    // three claw-points on each hand (claws first so their bases tuck under)
-    const aw = Math.sin(this.anim * 0.12) * 2;
-    for (const s of [-1, 1]) {
-      const hy = B - 8 + aw * s;                      // hand bottom
-      // Small shoulder tuft, tucked under the arm's outer edge
-      poly(ctx, [cx + s * 21, T + 16.5, cx + s * 26.5, T + 12.5, cx + s * 25, T + 20], BODY, OL, LW);
-      for (const i of [0, 1, 2]) {
-        const px = cx + s * (21.5 + i * 3);
-        poly(ctx, [px - 1.8, hy - 1, px + s * (i - 1) * 0.9, hy + 4, px + 1.8, hy - 1], DARK, OL, { sh: 0, lw: 1.1 });
-      }
-      poly(ctx, [cx + s * 15, T + 14, cx + s * 23, T + 18, cx + s * 27.5, hy - 3, cx + s * 21, hy, cx + s * 17.5, T + 24],
-           DARK, OL, { sh: 0.7, shade: BODY, dx: -s * 2, dy: -2, lw: 1.5 });
-    }
 
     // Eyes: bright red wedges, no sclera, inner corners pointing down toward the
     // nose; darker lower half + a small glint. Thick brows ride the top edge and
