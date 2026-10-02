@@ -452,6 +452,7 @@ function processMacro(e, out) {
       const bridge = new Platform(bx, by, bw, 10, '#8b5e2a');
       bridge.isBridge = true;   // draws planks + railing
       out.platforms.push(bridge);
+      out.waterFloor = true;    // SMB bridge levels (2-3, 7-3) cross open water
       break;
     }
 
@@ -542,10 +543,16 @@ export function loadFSMLevel(jsonData, areaIndex = 0) {
   // Pipes standing on the ground line over a lava pit (8-4) are drawn down
   // to the bottom of the screen so they rise out of the lava instead of
   // floating on it (hitbox unchanged)
+  const fillers = [];
   for (const pb of out.platforms) {
     if (!(pb instanceof PipeBlock) || pb.y + pb.h !== GY) continue;
-    if ((out.lavaZones || []).some(z => pb.x < z.x + z.w && pb.x + pb.w > z.x)) pb.extendToBottom = true;
+    if ((out.lavaZones || []).some(z => pb.x < z.x + z.w && pb.x + pb.w > z.x)) { pb.extendToBottom = true; continue; }
+    // FSM's screen ends at the ground line; ours shows 60px more, so a pipe
+    // standing on the ground line with no floor under it needs ground there
+    const grounded = out.platforms.some(p => p !== pb && p.y <= GY && p.y + p.h > GY && p.x < pb.x + pb.w && p.x + p.w > pb.x);
+    if (!grounded) fillers.push(new Platform(pb.x, GY, pb.w, 120, COLORS.ground));
   }
+  out.platforms.push(...fillers);
 
   // Tree and mushroom trunks: reach the ground where there is ground under
   // them, otherwise the bottom of the screen (SMB treetop levels have none)
@@ -580,6 +587,7 @@ export function loadFSMLevel(jsonData, areaIndex = 0) {
     cannons:         out.cannons || [],
     patterns:        out.patterns || [],
     lavaZones:       out.lavaZones || [],
+    waterFloor:      !!out.waterFloor,
     time:            jsonData.time ?? 300,
     boss:            null,
     castleSmalls:    out.castleSmalls || [],

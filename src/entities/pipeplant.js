@@ -5,7 +5,7 @@ export class PipePlant {
   constructor(pipeX, pipeTopY) {
     this.pipeX = pipeX;
     this.pipeTopY = pipeTopY;
-    this.x = pipeX + TILE * 0.5 - 14;
+    this.x = pipeX + TILE - 14;        // centred on the 2-tile pipe
     this.w = 28; this.h = 36;
     this.timer = 90;
     this.state = 'hidden';
@@ -58,7 +58,7 @@ export class PipePlant {
     // Clip to pipe top
     ctx.save();
     ctx.beginPath();
-    ctx.rect(x - 10, -100, w + 20, Math.floor(this.pipeTopY) + 110);
+    ctx.rect(x - 10, -100, w + 20, Math.floor(this.pipeTopY) + 101);   // nothing below the pipe's top edge
     ctx.clip();
 
     // ── ARBOK ── purple cobra rising from the pipe, hood spread wide,
