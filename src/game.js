@@ -693,12 +693,16 @@ export class Game {
       p.vx *= 0.8;
     }
 
-    const pipeBlockedInput = this._pipeEntry ? {
-      left: false, right: false, down: false, run: false,
-      jump: false, jumpPressed: false, firePressed: false,
-      justPressed: () => false,
-    } : null;
-    p.update(pipeBlockedInput || activeInput, solids, this);
+    // During a pipe entry the animation tick below owns the player's
+    // position. Running normal physics here used to undo it every frame:
+    // gravity + resolveCollisions() against the (solid) pipe snapped the
+    // player back onto the pipe top, so they never visibly sank in.
+    if (this._pipeEntry) {
+      if (p.invincible > 0) p.invincible--;
+      p.animTimer++;
+    } else {
+      p.update(activeInput, solids, this);
+    }
 
     this.cam.follow(p, lvl.width);
     // FSM ScrollBlocker: camera cannot reveal past a blocker the player
@@ -889,6 +893,7 @@ export class Game {
       bossAxe.update();
       if (!p.dead && aabb(p, bossAxe)) {
         bossAxe.taken = true;
+        this.bossShots = [];   // nothing in flight may hit the now-helpless player
         if (castleBoss && !castleBoss.defeated) {
           castleBoss.defeatByAxe(lvl.bossBridgeX, lvl.bossBridgeW, lvl.bossBridgeY);
           this.score += SCORE_BOSS * 2;
@@ -929,7 +934,7 @@ export class Game {
     if (lvl.plants) lvl.plants = lvl.plants.filter(pl => !pl.dead);
 
     // Pipe entry animation tick (vertical or horizontal)
-    if (this._pipeEntry) {
+    if (this._pipeEntry && !this._pipeEntry.done) {
       const pe = this._pipeEntry;
       p.vx = pe.dx;
       p.vy = 0;
@@ -938,15 +943,22 @@ export class Game {
       pe.timer--;
       if (pe.timer <= 0) {
         pe.callback();
-        this._pipeEntry = null;
-        // Safety net: a pipe whose handler started no transition must not
-        // leave the player buried inside it — pop them back out on top
-        if (this.areaTransTimer === 0 && pe.pipe && this.player === p) {
-          p.y = pe.pipe.y - p.h;
-          p.vy = 0;
+        if (this.areaTransTimer > 0 && this._pipeEntry === pe) {
+          // Keep the entry alive (frozen) through the fade so the pipe keeps
+          // covering the player and input stays blocked; the area load
+          // resets _pipeEntry. Nulling it here made the player pop back on
+          // top of the pipe layer for the 40 fade frames.
+          pe.done = true;
+        } else {
+          this._pipeEntry = null;
+          // Safety net: a pipe whose handler started no transition must not
+          // leave the player buried inside it — pop them back out on top
+          if (this.areaTransTimer === 0 && pe.pipe && this.player === p) {
+            p.y = pe.pipe.y - p.h;
+            p.vy = 0;
+          }
         }
       }
-      // Skip normal physics/input this frame
     }
 
     // Pipe entry / exit — player presses DOWN on enterable pipe
@@ -1054,7 +1066,10 @@ export class Game {
       }
     }
 
-    // Boss shots
+    // Boss shots — once the boss is beaten (axe taken / shot down) or the
+    // player is in the uncontrollable end-walk, flames fired earlier must not
+    // hurt them: drop them all
+    if (p.walkToPC || this._castleBossComplete || lvl.castleBoss?.defeated) this.bossShots = [];
     for (const bs of this.bossShots) {
       bs.update();
       if (!bs.dead && !p.dead && aabb(p, bs)) { bs.dead = true; this._hurtPlayer(); }
@@ -1075,6 +1090,7 @@ export class Game {
         p.x = fp.x + 2;
         p.vx = 0;
         p.vy = 2;
+        if (p.y < fp.y) p.y = fp.y;   // grabbed above the ball: start the slide at the top
         // FSM scorePlayerFlag — points tiered by grab height (SMB 100..5000)
         const grabH = GROUND_Y - (p.y + p.h);
         const pts = grabH < 32 ? 100 : grabH < 112 ? 400 : grabH < 160 ? 800 : grabH < 248 ? 2000 : 5000;
@@ -1904,9 +1920,18 @@ export class Game {
     if (this._pipeEntry?.pipe) {
       this._pipeEntry.pipe.draw(r, this.cam);
     }
-    // During horizontal pipe entry, redraw cap over the player so player disappears inside
+    // During horizontal pipe entry, redraw the whole tube (lip + body up to
+    // the vertical pipe) AND that vertical pipe over the player, so they
+    // stay hidden inside for the entire slide and the transition fade
     if (this._pipeEntry?.hPipe) {
-      this._drawHPipeCap(this._pipeEntry.hPipe);
+      const hp = this._pipeEntry.hPipe;
+      this._drawHPipeCap(hp);
+      const vx = this._findVerticalPipeX(hp.x + TILE, hp.y, TILE * 3);
+      if (vx !== null) {
+        for (const pl of lvl.platforms) {
+          if (pl._capOverhang !== undefined && pl.x === vx && !pl.dead) pl.draw(r, this.cam);
+        }
+      }
     }
     // Entrance H-pipe always covers the player, so the auto-walk ends inside the pipe
     if (lvl.entrancePipeX !== undefined) this._drawEntranceHPipe(lvl);
@@ -1956,12 +1981,29 @@ export class Game {
     const bodyH = bottom - top;
     if (bodyH <= 0 || w <= 0) return;
     ctx.save();
-    // Glow above the surface (fades upward over 40px)
-    const glow = ctx.createLinearGradient(0, top - 40, 0, top);
-    glow.addColorStop(0, 'rgba(255,120,20,0)');
-    glow.addColorStop(1, 'rgba(255,140,30,0.45)');
+    // Glow above the surface: a 70px band easing out to fully transparent
+    // (a linear 2-stop ramp left a visible edge where it met the dark wall)
+    const GLOW_H = 70;
+    const glow = ctx.createLinearGradient(0, top - GLOW_H, 0, top);
+    for (let i = 0; i <= 8; i++) {
+      const t = i / 8;                       // 0 = top of band, 1 = surface
+      const a = 0.45 * Math.pow(t, 2.6);     // ease-in from 0 → no hard edge
+      glow.addColorStop(t, `rgba(255,${130 + Math.round(30 * t)},${20 + Math.round(10 * t)},${a.toFixed(3)})`);
+    }
     ctx.fillStyle = glow;
-    ctx.fillRect(sx, top - 40, w, 40);
+    // Draw per 32px column, skipping columns where a solid floor/wall
+    // overlaps the pool (its top at or above the surface) — the floor hides
+    // the lava there but used to leave a glow band hanging above it
+    const floors = (this.level?.platforms || []).filter(pl =>
+      !pl.dead && !pl.hidden && !pl.isBossBridge &&
+      pl.x < worldX + w && pl.x + pl.w > worldX &&
+      pl.y <= top && pl.y + pl.h > top - GLOW_H);
+    for (let cx = 0; cx < w; cx += TILE) {
+      const cw = Math.min(TILE, w - cx);
+      const wx0 = worldX + cx, wx1 = wx0 + cw;
+      if (floors.some(pl => pl.x < wx1 && pl.x + pl.w > wx0)) continue;
+      ctx.fillRect(sx + cx, top - GLOW_H, cw, GLOW_H);
+    }
     // Body: red-orange with deeper bands lower down
     ctx.beginPath(); ctx.rect(sx, top, w, bodyH); ctx.clip();
     const body = ctx.createLinearGradient(0, top, 0, bottom);

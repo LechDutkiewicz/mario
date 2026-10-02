@@ -205,83 +205,110 @@ export class CastleBoss {
     const y = Math.floor(this.y);
     const w = this.w, h = this.h;
 
-    // Gengar — round ghost, dark purple, wide grin, red eyes
-    const BODY  = '#6e3ca0';
-    const DARK  = '#3a1a60';
-    const OL    = '#1a0a30';
-
-    const cx = x + w / 2;
-    const cy = y + h * 0.5;
+    // Gengar — squat purple ghost, spiky crest, red slanted eyes, huge toothy grin
     const bob = Math.sin(this.anim * 0.08) * 3;
 
-    // Shadow under Gengar
-    shadow(ctx, cx, y + h + 2, w * 0.4, 5);
+    // Contact shadow stays put while the body bobs
+    shadow(ctx, x + w / 2, y + h + 2, w * 0.42, 5);
 
-    // Spiky back/ears (behind body) + lower spikes
-    poly(ctx, [cx - w * 0.32, cy - h * 0.2 + bob, cx - w * 0.5, cy - h * 0.58 + bob, cx - w * 0.1, cy - h * 0.3 + bob], BODY, OL, { sh: 0.72 });
-    poly(ctx, [cx + w * 0.32, cy - h * 0.2 + bob, cx + w * 0.5, cy - h * 0.58 + bob, cx + w * 0.1, cy - h * 0.3 + bob], BODY, OL, { sh: 0.72 });
-    for (let i = -1; i <= 1; i++) {
-      poly(ctx, [cx + i * w * 0.3 - 7, cy + h * 0.3 + bob, cx + i * w * 0.3, cy + h * 0.5 + bob, cx + i * w * 0.3 + 7, cy + h * 0.3 + bob], BODY, OL, { sh: 0.72 });
-    }
-    // Stubby legs
-    ell(ctx, cx - w * 0.22, y + h * 0.94 + bob * 0.3, 7, 4.5, 0, BODY, OL, { sh: 0.72, lw: 1.4 });
-    ell(ctx, cx + w * 0.22, y + h * 0.94 + bob * 0.3, 7, 4.5, 0, BODY, OL, { sh: 0.72, lw: 1.4 });
+    // Drawn facing left; mirror when looking right
+    ctx.save();
+    if (!this.lookleft) { ctx.translate(2 * x + w, 0); ctx.scale(-1, 1); }
+    this._drawGengar(ctx, x, y, w, h, bob);
+    ctx.restore();
+  }
 
-    // Main body — big round sphere with scalloped head spikes on the silhouette
-    shape(ctx, () => {
-      ctx.ellipse(cx, cy + bob, w * 0.46, h * 0.42, 0, 0, TAU);
-      for (const [sx, sy, tx, ty] of [[-0.22, -0.36, -0.3, -0.56], [0, -0.42, 0.02, -0.6], [0.22, -0.36, 0.3, -0.56]]) {
-        ctx.moveTo(cx + sx * w - 6, cy + sy * h + bob + 2);
-        ctx.lineTo(cx + tx * w, cy + ty * h + bob);
-        ctx.lineTo(cx + sx * w + 6, cy + sy * h + bob + 2);
-        ctx.closePath();
-      }
-    }, BODY, OL, { sh: 0.72, dy: 6, lw: 1.6 });
-    hilite(ctx, cx - w * 0.18, cy - h * 0.2 + bob, 7, 3.5, 0.28);
+  _drawGengar(ctx, x, y, w, h, bob) {
+    const BODY = '#6b4aa0', DARK = '#4a2f78', OL = '#1e0c38';
+    const RED = '#e01c1c', PUPIL = '#8a0a14';
+    const cx = x + w / 2;
+    const cy = y + h * 0.6 + bob;         // body centre
+    const rx = w * 0.52, ry = h * 0.37;   // squat blob: wider than tall
 
-    // Stubby arms with claws
-    const aw = Math.sin(this.anim * 0.12) * 3;
+    // Stubby tail (behind, low on the back)
+    poly(ctx, [cx + rx * 0.7, cy + ry * 0.55, cx + rx + 6, cy + ry * 0.75, cx + rx * 0.76, cy + ry * 0.9], BODY, OL, { sh: 0.7, shade: DARK, dx: 2, dy: 2, lw: 1.4 });
+
+    // Legs: short stubs with two toes each (behind the body, bob damped)
+    const ly = y + h - 2 + bob * 0.3;
     for (const side of [-1, 1]) {
-      const ay = cy + h * 0.05 + bob + aw * -side;
-      ell(ctx, cx + side * w * 0.5, ay, w * 0.15, h * 0.1, side * 0.4, BODY, OL, { sh: 0.72, lw: 1.4 });
-      for (let i = -1; i <= 1; i++) {
-        poly(ctx, [cx + side * w * 0.58 + i * 4, ay - 2, cx + side * w * 0.68 + i * 4, ay + i * 2, cx + side * w * 0.58 + i * 4, ay + 3], DARK, OL, { sh: 0, lw: 1 });
-      }
+      const lx = cx + side * w * 0.24;
+      ell(ctx, lx, ly - 1, 7.5, 4.5, 0, BODY, OL, { sh: 0.7, shade: DARK, dy: 2, lw: 1.4 });
+      for (const t of [-1, 1]) poly(ctx, [lx + t * 4.5 - 3, ly + 1.5, lx + t * 5, ly + 6, lx + t * 4.5 + 2.5, ly + 1.5], BODY, OL, { sh: 0, lw: 1.1 });
     }
 
-    // Red eyes — angled, with brows and glints
-    ell(ctx, cx - w * 0.17, cy - h * 0.1 + bob, 8, 9, 0.3, '#d81818', OL, { sh: 0.7, lw: 1.3 });
-    ell(ctx, cx + w * 0.17, cy - h * 0.1 + bob, 8, 9, -0.3, '#d81818', OL, { sh: 0.7, lw: 1.3 });
-    ell(ctx, cx - w * 0.17, cy - h * 0.08 + bob, 4, 5, 0, '#1a0808', null, { sh: 0 });
-    ell(ctx, cx + w * 0.17, cy - h * 0.08 + bob, 4, 5, 0, '#1a0808', null, { sh: 0 });
-    hilite(ctx, cx - w * 0.21, cy - h * 0.16 + bob, 2.4, 1.4, 0.8);
-    hilite(ctx, cx + w * 0.13, cy - h * 0.16 + bob, 2.4, 1.4, 0.8);
-    ctx.strokeStyle = OL; ctx.lineWidth = 2.5; ctx.lineCap = 'round';
-    ctx.beginPath(); ctx.moveTo(cx - w * 0.3, cy - h * 0.26 + bob); ctx.lineTo(cx - w * 0.06, cy - h * 0.18 + bob); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(cx + w * 0.3, cy - h * 0.26 + bob); ctx.lineTo(cx + w * 0.06, cy - h * 0.18 + bob); ctx.stroke();
+    // Body silhouette: blob + two big outward ears + spikes along the top and back
+    const spike = (ang, len, hw) => {
+      const a0 = ang - hw, a1 = ang + hw;
+      ctx.moveTo(cx + rx * Math.cos(a0), cy + ry * Math.sin(a0));
+      ctx.lineTo(cx + (rx + len) * Math.cos(ang), cy + (ry + len) * Math.sin(ang));
+      ctx.lineTo(cx + rx * Math.cos(a1), cy + ry * Math.sin(a1));
+      ctx.closePath();
+    };
+    const D = Math.PI / 180;
+    shape(ctx, () => {
+      ctx.ellipse(cx, cy, rx, ry, 0, 0, TAU);
+      spike(-122 * D, 19, 0.24);   // front ear
+      spike(-58 * D, 19, 0.24);    // back ear
+      spike(-100 * D, 8, 0.13);    // crest between the ears
+      spike(-83 * D, 8, 0.13);
+      spike(-28 * D, 9, 0.14);     // spikes down the back
+      spike(-8 * D, 9, 0.14);
+      spike(12 * D, 9, 0.14);
+      spike(32 * D, 8, 0.14);
+    }, BODY, OL, { sh: 0.7, shade: DARK, dx: 4, dy: 7, lw: 1.6 });
+    hilite(ctx, cx - rx * 0.3, cy - ry * 0.55, 8, 3.5, 0.22);
 
-    // Mouth — closed while winding up a flame (FSM "firing" class), wide grin otherwise
-    const mouthY = cy + h * 0.12 + bob;
-    if (this.windup > 0) {
-      ctx.strokeStyle = OL; ctx.lineWidth = 3; ctx.lineCap = 'round';
-      ctx.beginPath();
-      ctx.moveTo(cx - w * 0.26, mouthY + 2);
-      ctx.quadraticCurveTo(cx, mouthY + 6, cx + w * 0.26, mouthY + 2);
-      ctx.stroke();
-    } else {
-      shape(ctx, () => { ctx.arc(cx, mouthY, w * 0.32, 0.1, Math.PI - 0.1); ctx.closePath(); }, '#1a0828', OL, { sh: 0, lw: 1.5 });
-      // Tongue
-      ell(ctx, cx + w * 0.08, mouthY + 7, 7, 5, 0.2, '#e04080', '#7a1040', { sh: 0.8, lw: 1 });
-      ctx.fillStyle = '#f4f4f4';
-      const toothW = (w * 0.6) / 5;
-      for (let i = 0; i < 5; i++) {
-        const tx = cx - w * 0.3 + i * toothW;
-        ctx.beginPath();
-        ctx.moveTo(tx, mouthY);
-        ctx.lineTo(tx + toothW * 0.5, mouthY + 7);
-        ctx.lineTo(tx + toothW, mouthY);
-        ctx.closePath(); ctx.fill();
+    // Arms: stubby, raised out to the sides, three claws each
+    const aw = Math.sin(this.anim * 0.12) * 2;
+    for (const side of [-1, 1]) {
+      const ax = cx + side * rx * 0.98, ay = cy - ry * 0.15 + aw * side;
+      const tipx = ax + side * 6.5, tipy = ay - 3.5;
+      // Three claws fanned up-and-out from the hand (base tucked under the hand)
+      for (let i = 0; i < 3; i++) {
+        const a = (side > 0 ? -70 + i * 32 : 250 - i * 32) * D;
+        const px = -Math.sin(a) * 2, py = Math.cos(a) * 2;
+        poly(ctx, [tipx + px, tipy + py, tipx + Math.cos(a) * 7, tipy + Math.sin(a) * 7, tipx - px, tipy - py], DARK, OL, { sh: 0, lw: 1 });
       }
+      ell(ctx, ax, ay, 8, 5, side * 0.55, BODY, OL, { sh: 0.7, shade: DARK, dy: 2, lw: 1.4 });
+    }
+
+    // Eyes: red, slanted sharply down toward the nose, no sclera; dark pupil + glint
+    const ey = cy - ry * 0.32;
+    for (const side of [-1, 1]) {
+      const ex = cx + side * w * 0.2;
+      ell(ctx, ex, ey, 9.5, 5.5, -side * 0.42, RED, OL, { sh: 0, lw: 1.3 });
+      ell(ctx, ex + side * 1.5, ey + 1.2, 3.4, 3.4, 0, PUPIL, null, { sh: 0 });
+      hilite(ctx, ex - side * 4, ey - 1.6, 2.2, 1.3, 0.9);
+      // Thick angry brow: outer-high to inner-low
+      ctx.strokeStyle = OL; ctx.lineWidth = 3; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(ex - side * 9, ey - 6.5); ctx.lineTo(ex + side * 7, ey - 1.2); ctx.stroke();
+    }
+
+    // Mouth: the signature grin, almost the whole face wide
+    const my = cy + ry * 0.2;
+    const mw = w * 0.4;
+    if (this.windup > 0) {
+      // Closed smirk while winding up a flame
+      ctx.strokeStyle = OL; ctx.lineWidth = 2.6; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(cx - mw, my - 2); ctx.quadraticCurveTo(cx, my + 6, cx + mw, my - 2); ctx.stroke();
+      return;
+    }
+    const lipY = (t) => { const u = 1 - t; return u * u * (my - 1) + 2 * u * t * (my + 4) + t * t * (my - 1); };
+    shape(ctx, () => {
+      ctx.moveTo(cx - mw, my - 1);
+      ctx.quadraticCurveTo(cx, my + 4, cx + mw, my - 1);
+      ctx.quadraticCurveTo(cx, my + 24, cx - mw, my - 1);
+      ctx.closePath();
+    }, '#2a1040', OL, { sh: 0, lw: 1.6 });
+    // Row of small pointed teeth hanging from the upper lip
+    ctx.fillStyle = '#f6f6f6';
+    const n = 8;
+    for (let i = 0; i < n; i++) {
+      const t0 = i / n, t1 = (i + 1) / n, tm = (t0 + t1) / 2;
+      const x0 = cx - mw + 2 * mw * t0, x1 = cx - mw + 2 * mw * t1;
+      ctx.beginPath();
+      ctx.moveTo(x0, lipY(t0) + 0.4); ctx.lineTo((x0 + x1) / 2, lipY(tm) + 4.2); ctx.lineTo(x1, lipY(t1) + 0.4);
+      ctx.closePath(); ctx.fill();
     }
   }
 }

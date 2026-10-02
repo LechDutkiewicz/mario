@@ -450,26 +450,38 @@ export class Renderer {
     ctx.fillRect(0, top, CANVAS_WIDTH, bottom - top);
   }
 
-  // Distant ground band under the horizon line (y >= GROUND_Y). On levels
-  // with ground tiles this is fully covered; on void levels it reads as a
-  // darker, farther strip of the same dirt/grass tiling as real ground.
-  // Scrolls at 0.5x so pits in tiled levels show it as a layer behind.
-  _farGround(camX, top, bottom, ridge, lines) {
+  // Pit / void drop under the horizon line (y >= GROUND_Y). On levels with
+  // ground tiles this is fully covered; where the tiles stop (pits, treetop
+  // levels over void) it reads as an SMB-style dark drop: a darker version
+  // of the horizon colour at the ground line, easing to near-black at the
+  // bottom, with no dirt tiling inside. The 1px line at GROUND_Y is the
+  // same outline the ground slabs use, so a pit cut looks intentional.
+  // `horizon` is the sky colour at the ground line; the remaining arguments
+  // are kept for signature compatibility and are unused.
+  _farGround(camX, horizon, bottom, ridge, lines) {
     const ctx = this.ctx;
-    const bandH = CANVAS_HEIGHT - GROUND_Y;
-    const off = ((camX * 0.5) % 32 + 32) % 32;
-    ctx.save();
-    ctx.translate(-off, GROUND_Y);
-    ctx.fillStyle = this._dirtPattern();
-    ctx.fillRect(0, 0, CANVAS_WIDTH + 32, bandH);
-    ctx.fillStyle = this._capPattern();
-    ctx.fillRect(0, 0, CANVAS_WIDTH + 32, 16);
-    ctx.restore();
-    // Top outline like drawGround, then darken the whole band ~25%
-    ctx.fillStyle = this._terrain().outline;
-    ctx.fillRect(0, GROUND_Y, CANVAS_WIDTH, 1);
-    ctx.fillStyle = 'rgba(0,0,0,0.25)';
-    ctx.fillRect(0, GROUND_Y, CANVAS_WIDTH, bandH);
+    const key = this.currentSetting || 'overworld';
+    if (!this._pitGrads) this._pitGrads = new Map();
+    let g = this._pitGrads.get(key);
+    if (!g) {
+      const h = this._rgb(horizon);
+      const deep = bottom ? this._rgb(bottom) : BLACK;
+      g = ctx.createLinearGradient(0, GROUND_Y, 0, CANVAS_HEIGHT);
+      // Eased (quadratic) fall-off: darkens quickly under the lip, then
+      // settles into the deep tone with no visible band.
+      // Starts in the hills' own colour at the ground line (no visible
+      // edge under levels that have no ground, e.g. 1-3 treetops) and
+      // eases into the deep tone toward the bottom of the screen.
+      const steps = 8;
+      for (let i = 0; i <= steps; i++) {
+        const t = i / steps;
+        const k = 0.08 + 0.92 * (1 - (1 - t) * (1 - t));
+        g.addColorStop(t, this._mix(h, deep, k));
+      }
+      this._pitGrads.set(key, g);
+    }
+    ctx.fillStyle = g;
+    ctx.fillRect(0, GROUND_Y, CANVAS_WIDTH, CANVAS_HEIGHT - GROUND_Y);
   }
 
   // Rolling cloud-sea layer: scalloped cloud tops along baseY with a solid
@@ -719,7 +731,7 @@ export class Renderer {
       // Far ridge + silhouette hills
       this._farMountains(camX, '#131c3c', GROUND_Y);
       this._hillLayer(camX, '#1a2a48', '#101a34', '#162440', GROUND_Y);
-      this._farGround(camX, '#141e3c', '#0a1226', '#0f1830', 'rgba(255,255,255,0.05)');
+      this._farGround(camX, '#1a2a48', '#02030a');
       this._bottomShade();
       return;
     }
@@ -821,15 +833,9 @@ export class Renderer {
           ctx.fillRect(bx + ox + 158, 112, 2, GROUND_Y - 112);
         }
       }
-      // Draw lava glow at ground level
-      if (!this._lavaGrad) {
-        const grad = ctx.createLinearGradient(0, CANVAS_HEIGHT - 80, 0, CANVAS_HEIGHT);
-        grad.addColorStop(0, 'rgba(200,40,0,0)');
-        grad.addColorStop(1, 'rgba(200,40,0,0.5)');
-        this._lavaGrad = grad;
-      }
-      ctx.fillStyle = this._lavaGrad;
-      ctx.fillRect(0, CANVAS_HEIGHT - 80, CANVAS_WIDTH, 80);
+      // No full-width lava glow here: the lava itself (drawn by the game)
+      // carries its own local glow, so plain floors stay unlit and there is
+      // no horizontal seam where a background band would start.
       return;
     }
 
@@ -889,8 +895,8 @@ export class Renderer {
     this._hillLayer(camX, '#6ecb6e', '#2e7a30', '#4fae52', GROUND_Y);
     // White puffy clouds at 0.2x
     this._clouds(camX, '#ffffff', '#d2e4f2', '#5a8fc0');
-    // Distant fields below the horizon (hidden behind ground tiles)
-    this._farGround(camX, '#4e9a46', '#2a5e2c', '#2f7a34', 'rgba(255,255,255,0.10)');
+    // Dark drop below the horizon (hidden behind ground tiles, seen in pits)
+    this._farGround(camX, '#58b25a', '#0b1a10');
     this._bottomShade();
   }
 
@@ -1028,9 +1034,11 @@ export class Renderer {
     // Castle and underwater level data contain abutting floor slabs, which
     // would show a seam, so the end lines are skipped there.
     const s = this.currentSetting;
+    // The end lines sit flush with the slab edge so the cut into a pit
+    // reads as a clean outlined edge against the dark drop.
     if (s !== 'castle' && s !== 'underwater') {
-      if (x >= -32) ctx.fillRect(x + 1, y + 1, 2, h - 1);
-      if (x + w <= CANVAS_WIDTH + 32) ctx.fillRect(x + w - 3, y + 1, 2, h - 1);
+      if (x >= -32) ctx.fillRect(x, y, 2, h);
+      if (x + w <= CANVAS_WIDTH + 32) ctx.fillRect(x + w - 2, y, 2, h);
     }
     if (y + h <= CANVAS_HEIGHT) {
       ctx.fillStyle = T.dirtDark;
