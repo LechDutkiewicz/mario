@@ -452,7 +452,7 @@ function processMacro(e, out) {
       const bridge = new Platform(bx, by, bw, 10, '#8b5e2a');
       bridge.isBridge = true;   // draws planks + railing
       out.platforms.push(bridge);
-      out.waterFloor = true;    // SMB bridge levels (2-3, 7-3) cross open water
+      out.bridgeCount = (out.bridgeCount || 0) + 1;
       break;
     }
 
@@ -587,7 +587,7 @@ export function loadFSMLevel(jsonData, areaIndex = 0) {
     cannons:         out.cannons || [],
     patterns:        out.patterns || [],
     lavaZones:       out.lavaZones || [],
-    waterFloor:      !!out.waterFloor,
+    waterFloor:      (out.bridgeCount || 0) >= 4,   // SMB bridge levels (2-3, 7-3) cross open water
     time:            jsonData.time ?? 300,
     boss:            null,
     castleSmalls:    out.castleSmalls || [],
