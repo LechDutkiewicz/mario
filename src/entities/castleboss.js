@@ -221,108 +221,70 @@ export class CastleBoss {
   }
 
   _drawGengar(ctx, x, y, w, h, bob) {
-    const BODY = '#7b5ea7', DARK = '#513c82', OL = '#2a1d4a';
-    const RED = '#e8262a', RED2 = '#b8181f', MOUTH = '#1a1030', TOOTH = '#f4f4f8';
+    // The original round Gengar: a big purple ball with pointed ears, three
+    // spikes under the body, stubby fists, big red eyes and a wide grin with
+    // pointed teeth and a tongue. Same shapes and proportions as the first
+    // version; what is new is the ink outline and the two-tone shading used
+    // by every other sprite.
+    const BODY = '#6a3898', DARK = '#3a1a60', LIGHT = '#8858b8', OL = '#1e0c38';
     const cx = x + w / 2;
-    const M = y + 33 + bob;              // centre of the round body
-    const T = M - 20;                    // top of the face (under the fringe)
-    const aw = Math.sin(this.anim * 0.12) * 1.5;
+    const cy = y + h * 0.5 + bob;
+    const o = { shade: DARK, sh: 0.7, dx: -2, dy: -3, lw: 1.6 };
 
-    // One silhouette for the whole ghost: a ball of a body with the ears and
-    // fringe on top, stubby arms raised up at the sides and short legs with
-    // three toes each, all a single piece with no seams. Left half listed from
-    // the bottom centre up to the top centre; the right half is its mirror.
-    const half = [
-      ['L', -5, 21], ['L', -5, 25],                                           // between the legs
-      ['L', -7, 27.5], ['L', -9.5, 24.5], ['L', -12.5, 28.5], ['L', -15.5, 24.5], ['L', -18.5, 28], ['L', -20.5, 23], // toes
-      ['L', -21, 18], ['Q', -25, 15.5, -26, 9],                               // leg out into the body
-      ['Q', -28, 1, -24.5, -4],                                               // round left flank
-      ['L', -31, -9 + aw],                                                    // arm, lower edge rising outward
-      ['L', -34.5, -12 + aw], ['L', -31.5, -14 + aw], ['L', -32.5, -19 + aw], ['L', -29, -16.5 + aw], ['L', -27.5, -21.5 + aw], ['L', -26, -16 + aw], // claws
-      ['L', -21.5, -10],                                                      // arm, upper edge back to the body
-      ['Q', -20.5, -14, -19, -17],                                            // shoulder up to the ear
-      ['L', -21, -36], ['L', -10, -21],                                       // ear
-      ['L', -7.5, -25.5], ['L', -4.5, -20.5], ['L', -2, -26], ['L', 0, -20.5], // fringe
-    ];
-    const body = () => {
-      ctx.moveTo(cx, M + 20);
-      for (const seg of half) {
-        if (seg[0] === 'L') ctx.lineTo(cx + seg[1], M + seg[2]);
-        else ctx.quadraticCurveTo(cx + seg[1], M + seg[2], cx + seg[3], M + seg[4]);
-      }
-      for (let i = half.length - 1; i >= 0; i--) {
-        const seg = half[i], prev = half[i - 1];
-        const px = prev ? -prev[prev.length - 2] : 0, py = prev ? prev[prev.length - 1] : 20;
-        if (seg[0] === 'L') ctx.lineTo(cx + px, M + py);
-        else ctx.quadraticCurveTo(cx - seg[1], M + seg[2], cx + px, M + py);
-      }
-      ctx.closePath();
-    };
-    shape(ctx, body, DARK, OL, { sh: 0.7, shade: BODY, dx: -3, dy: -4, lw: 1.6 });
-    hilite(ctx, cx - 9, T + 9, 6.5, 2.8, 0.18);
+    // Ears and bottom spikes (behind the body)
+    poly(ctx, [cx - w*0.32, cy - h*0.2, cx - w*0.48, cy - h*0.56, cx - w*0.12, cy - h*0.28], DARK, OL, { sh: 0, lw: 1.5 });
+    poly(ctx, [cx + w*0.32, cy - h*0.2, cx + w*0.48, cy - h*0.56, cx + w*0.12, cy - h*0.28], DARK, OL, { sh: 0, lw: 1.5 });
+    for (let i = -1; i <= 1; i++)
+      poly(ctx, [cx + i*w*0.3 - 6, cy + h*0.46, cx + i*w*0.3, cy + h*0.3, cx + i*w*0.3 + 6, cy + h*0.46], DARK, OL, { sh: 0, lw: 1.4 });
 
-    // Eyes: bright red wedges, no sclera, inner corners pointing down toward the
-    // nose; darker lower half + a small glint. Thick brows ride the top edge and
-    // meet above the nose for the angry look.
-    const ey = T + 14;
+    // Body: big sphere, lit from the upper left, with the soft highlight blob
+    ell(ctx, cx, cy, w*0.46, h*0.42, 0, DARK, OL, { sh: 0.7, shade: BODY, dx: -3, dy: -4, lw: 1.7 });
+    ell(ctx, cx - w*0.1, cy - h*0.1, w*0.18, h*0.14, -0.5, LIGHT, null, { sh: 0 });
+    hilite(ctx, cx - w*0.2, cy - h*0.24, 5, 2.4, 0.22);
+
+    // Stubby arms with three knuckles, bobbing up and down alternately
+    const aw = Math.sin(this.anim * 0.12) * 3;
     for (const s of [-1, 1]) {
-      const ex = cx + s * 10.5;
-      const eyePath = () => {
-        ctx.moveTo(ex + s * 8, ey - 4.5);
-        ctx.lineTo(ex - s * 6, ey + 1);
-        ctx.quadraticCurveTo(ex - s * 2, ey + 6.5, ex + s * 4, ey + 5);
-        ctx.quadraticCurveTo(ex + s * 10, ey + 3, ex + s * 8, ey - 4.5);
-        ctx.closePath();
-      };
-      shape(ctx, eyePath, RED, null, { sh: 0 });
-      ctx.save(); ctx.beginPath(); eyePath(); ctx.clip();
-      ctx.fillStyle = RED2; ctx.fillRect(ex - 12, ey + 1.6, 24, 8);
-      ctx.restore();
-      ell(ctx, ex + s * 0.5, ey + 2.2, 1.3, 1.3, 0, '#6e0a10', null, { sh: 0 });
-      hilite(ctx, ex - 2.5, ey - 1.5 + s * 0.6, 1.6, 1.1, 0.95);
-      ctx.strokeStyle = OL; ctx.lineWidth = 1.2; ctx.lineJoin = 'round';
-      ctx.beginPath(); eyePath(); ctx.stroke();
+      const ay = cy + h*0.05 - s*aw;
+      ell(ctx, cx + s*w*0.5, ay, w*0.15, h*0.1, s*0.4, BODY, OL, { shade: DARK, sh: 0.7, dx: -2, dy: -2, lw: 1.5 });
+      for (let i = -1; i <= 1; i++)
+        ell(ctx, cx + s*w*0.62 + i*4, ay - h*0.01, 3.2, 3.2, 0, DARK, null, { sh: 0 });
     }
-    ctx.strokeStyle = OL; ctx.lineWidth = 3.2; ctx.lineCap = 'round';
-    ctx.beginPath();
-    ctx.moveTo(cx - 19.5, ey - 6); ctx.lineTo(cx - 1.5, ey + 2.5);
-    ctx.moveTo(cx + 19.5, ey - 6); ctx.lineTo(cx + 1.5, ey + 2.5);
-    ctx.stroke();
 
-    // Mouth: the signature grin, nearly ear to ear
-    const my = T + 22, mw = 20;
+    // Red eyes: tilted ovals, light glint, dark pupil
+    for (const s of [-1, 1]) {
+      const ex = cx + s*w*0.17, ey = cy - h*0.1;
+      ell(ctx, ex, ey, 8, 9, s*0.3, '#cc1010', OL, { sh: 0.75, shade: '#8c0a0a', dy: 3, lw: 1.4 });
+      ell(ctx, ex - 2, ey - 4, 3, 3, 0, '#ff4444', null, { sh: 0 });
+      ell(ctx, ex, ey + 2, 4, 5, 0, '#1a0808', null, { sh: 0 });
+    }
+
+    // Mouth: closed smirk while winding up a flame, wide grin otherwise
+    const mouthY = cy + h*0.12;
     if (this.windup > 0) {
-      // Closed smirk while winding up a flame
-      ctx.strokeStyle = OL; ctx.lineWidth = 2.4; ctx.lineCap = 'round';
-      ctx.beginPath(); ctx.moveTo(cx - mw, my - 3); ctx.quadraticCurveTo(cx, my + 5, cx + mw, my - 3); ctx.stroke();
+      ctx.strokeStyle = OL; ctx.lineWidth = 3; ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(cx - w*0.26, mouthY + 2);
+      ctx.quadraticCurveTo(cx, mouthY + 6, cx + w*0.26, mouthY + 2);
+      ctx.stroke();
       return;
     }
-    const mouthPath = () => {
-      ctx.moveTo(cx - mw, my - 3);
-      ctx.quadraticCurveTo(cx, my + 4, cx + mw, my - 3);
-      ctx.quadraticCurveTo(cx, my + 23, cx - mw, my - 3);
-      ctx.closePath();
-    };
-    shape(ctx, mouthPath, MOUTH, OL, { sh: 0, lw: 1.6 });
-    // Upper row of flat rectangular teeth hanging from the lip, thin dark gaps
-    const lipY = (t) => { const u = 1 - t; return u * u * (my - 3) + 2 * u * t * (my + 4) + t * t * (my - 3); };
-    ctx.save(); ctx.beginPath(); mouthPath(); ctx.clip();
-    ctx.fillStyle = TOOTH;
-    const n = 7, gap = 0.45;
-    for (let i = 0; i < n; i++) {
-      const x0 = cx - mw + 2 * mw * (i / n) + gap, x1 = cx - mw + 2 * mw * ((i + 1) / n) - gap;
-      const t0 = (x0 - (cx - mw)) / (2 * mw), t1 = (x1 - (cx - mw)) / (2 * mw);
-      const d = 6;
-      ctx.beginPath();
-      ctx.moveTo(x0, lipY(t0) - 1); ctx.lineTo(x1, lipY(t1) - 1);
-      ctx.lineTo(x1, lipY(t1) + d); ctx.lineTo(x0, lipY(t0) + d);
-      ctx.closePath(); ctx.fill();
+    const mouth = () => { ctx.arc(cx, mouthY, w*0.32, 0.1, Math.PI - 0.1); ctx.closePath(); };
+    shape(ctx, mouth, '#1a0828', OL, { sh: 0, lw: 1.6 });
+    // Pointed teeth hanging from the upper lip, then the tongue lolling out
+    // over the lower lip like the original
+    const toothW = (w*0.6) / 5;
+    ctx.fillStyle = '#f0f0f0';
+    for (let i = 0; i < 5; i++) {
+      const tx = cx - w*0.3 + i*toothW;
+      ctx.beginPath(); ctx.moveTo(tx, mouthY); ctx.lineTo(tx + toothW*0.5, mouthY + 7); ctx.lineTo(tx + toothW, mouthY); ctx.closePath(); ctx.fill();
     }
-    ctx.restore();
-    // Re-ink the upper lip so the teeth tuck under it
-    ctx.strokeStyle = OL; ctx.lineWidth = 1.6; ctx.lineCap = 'round';
-    ctx.beginPath(); ctx.moveTo(cx - mw, my - 3); ctx.quadraticCurveTo(cx, my + 4, cx + mw, my - 3); ctx.stroke();
+    ell(ctx, cx + w*0.08, mouthY + 6, 7, 5, 0.2, '#e04080', '#7a1a44', { sh: 0, lw: 1.2 });
+    // Re-ink the lip over the teeth roots
+    ctx.strokeStyle = OL; ctx.lineWidth = 1.8; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(cx - w*0.32 + 1, mouthY); ctx.lineTo(cx + w*0.32 - 1, mouthY); ctx.stroke();
   }
+
 }
 
 // Golden axe — player touches it to collapse the bridge
