@@ -361,7 +361,7 @@ export class Game {
       return;
     }
     if (this.state === STATE.CHAR_SELECT) {
-      const chars = ['eevee', 'charmander', 'bulbasaur', 'pichu'];
+      const chars = ['eevee', 'charmander', 'bulbasaur', 'pichu', 'piplup'];
       if (input.justPressed('ArrowLeft')) this.charSelectIdx = (this.charSelectIdx + chars.length - 1) % chars.length;
       if (input.justPressed('ArrowRight')) this.charSelectIdx = (this.charSelectIdx + 1) % chars.length;
       if (input.justPressed('Enter') || input.justPressed('Space')) {
@@ -2314,9 +2314,11 @@ export class Game {
       { key: 'charmander', name: 'CHARMANDER', evolves: 'CHARMELEON / CHARIZARD' },
       { key: 'bulbasaur',  name: 'BULBASAUR',  evolves: 'IVYSAUR / VENUSAUR' },
       { key: 'pichu',      name: 'PICHU',      evolves: 'PIKACHU / RAICHU' },
+      { key: 'piplup',     name: 'PIPLUP',     evolves: 'PRINPLUP / EMPOLEON' },
     ];
-    const boxW = 170, boxH = 250, spacing = 190;
-    const startX = CANVAS_WIDTH / 2 - spacing * 1.5;
+    // Five cards across the 800px screen
+    const boxW = 142, boxH = 250, spacing = 154;
+    const startX = CANVAS_WIDTH / 2 - spacing * (chars.length - 1) / 2;
 
     for (let i = 0; i < chars.length; i++) {
       const c = chars[i];
@@ -2349,8 +2351,11 @@ export class Game {
       ctx.font = 'bold 15px monospace';
       this._shadowText(c.name, pcx, npY + 21, selected ? '#ffd23b' : '#ffffff', 2);
       ctx.fillStyle = selected ? 'rgba(255,230,160,0.85)' : 'rgba(255,255,255,0.55)';
+      // Evolutions on two lines so the long names fit the narrower card
       ctx.font = '11px monospace';
-      ctx.fillText(c.evolves, pcx, by + boxH - 24);
+      const evo = c.evolves.split(' / ');
+      ctx.fillText(evo[0], pcx, by + boxH - 32);
+      ctx.fillText(evo[1], pcx, by + boxH - 18);
       if (selected) {
         ctx.font = 'bold 22px monospace';
         this._shadowText('▼', pcx, by - 10 + bob, '#ffd23b', 2);
